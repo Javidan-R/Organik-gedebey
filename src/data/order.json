@@ -1,0 +1,10 @@
+[
+{
+"id": "o1",
+"customerName": "Elvin",
+"channel": "system",
+"items": [ { "productId": "p1", "qty": 1, "priceAtOrder": 18 } ],
+"status": "delivered",
+"createdAt": "2025-10-28T08:11:00.000Z"
+}
+]

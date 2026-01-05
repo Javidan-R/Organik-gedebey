@@ -1,0 +1,6 @@
+[
+{ "id": "p1", "name": "Təbii Gədəbəy Balı", "categoryId": "cat-bal", "price": 18, "unit": "500g", "stock": 25, "discount": 10, "isNew": true, "origin": "Gədəbəy", "image": "/placeholder.png", "description": "Saf çiçək balı." },
+{ "id": "p2", "name": "Gəncə Qaymağı", "categoryId": "cat-gence-agartilari", "price": 6, "unit": "250g", "stock": 12, "origin": "Gəncə", "image": "/placeholder.png" },
+{ "id": "p3", "name": "Gədəbəy Pendiri", "categoryId": "cat-gence-agartilari", "price": 13, "unit": "kg", "stock": 8, "minStock": 6, "origin": "Gədəbəy", "image": "/placeholder.png" },
+{ "id": "p4", "name": "Qış Tursusu", "categoryId": "cat-turshu", "price": 9, "unit": "800g", "stock": 20, "isNew": true, "origin": "Digər", "image": "/placeholder.png" }
+]

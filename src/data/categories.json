@@ -1,0 +1,6 @@
+[
+{ "id": "cat-gedebey", "name": "Gədəbəy məhsulları", "slug": "gedebey", "featured": true },
+{ "id": "cat-gence-agartilari", "name": "Gəncə ağartıları", "slug": "gence-agartilari", "featured": true },
+{ "id": "cat-bal", "name": "Bal və Şərbətlər", "slug": "bal" },
+{ "id": "cat-turshu", "name": "Turşu və Qəlyanaltı", "slug": "turshu" }
+]
