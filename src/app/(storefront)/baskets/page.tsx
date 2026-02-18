@@ -1,590 +1,88 @@
 "use client";
 
-import React, { useState, useRef, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   motion, 
   AnimatePresence, 
   useScroll, 
-  useTransform, 
-  useInView,
+  useTransform,
+  useMotionValue,
+  useSpring,
 } from "framer-motion";
 import { 
-  ShoppingCart, Star, Zap, Leaf, Sparkles, Plus, Check, Info, 
-  Clock, Truck, ShieldCheck, Heart, MapPin, ChevronRight, 
-  ArrowRight, Award, Coffee, Sunrise, Share2, Gift, Timer,
-  TrendingUp, Users, Package, Percent, Bell, Eye, ThumbsUp,
-  MessageCircle, BookmarkPlus, RefreshCw, Flame, X, Download,
-  Copy, Facebook, Instagram, Mail, Trash2, Moon, Sun
+  ShoppingCart, Leaf, Sparkles, Check, 
+  Truck, ShieldCheck, Heart, 
+  Sunrise, Gift, Timer,
+  TrendingUp, Package, Eye,
+  Mountain, Trees, Droplets, Wind, Phone, 
+  ChevronDown, Star, Users, Award,
+  Camera, Video, Volume2, X
 } from "lucide-react";
+import { useApp } from "@/lib/store";
+import { BASKETS } from "./basketsData";
 
-/* -------------------------------------------------------------------------- */
-/* TYPES                                                                      */
-/* -------------------------------------------------------------------------- */
-
+// Types
 type BasketVariant = "econom" | "standard" | "premium";
-
-interface VariantInfo {
-  price: number;
-  originalPrice?: number;
-  contents: string[];
-  extras?: string[];
-}
 
 interface BasketItem {
   id: string;
   name: string;
-  tagline?: string;
-  description: string;
   type: string;
-  servings: string;
-  unit: string;
-  media: { type: "image" | "video"; src: string }[];
-  lowStock?: boolean;
-  discount?: number;
+  tagline: string;
+  description: string;
+  origin?: string;
+  freshness?: string;
   bestseller?: boolean;
   new?: boolean;
-  variants: Record<BasketVariant, VariantInfo>;
-  highlights?: string[];
-  reviews?: { count: number; rating: number };
-  stock?: number;
   trending?: boolean;
+  media: Array<{ type: "image" | "video"; src: string }>;
+  variants: Record<BasketVariant, {
+    price: number;
+    originalPrice?: number;
+    contents: string[];
+    extras?: string[];
+  }>;
+  nutrition?: string[];
+  testimonials?: Array<{ name: string; text: string; rating: number }>;
 }
 
-/* -------------------------------------------------------------------------- */
-/* MOCK CART SYSTEM                                                           */
-/* -------------------------------------------------------------------------- */
+// 3D Tilt Hook
+const use3DTilt = () => {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const mouseXSpring = useSpring(x);
+  const mouseYSpring = useSpring(y);
+  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["12deg", "-12deg"]);
+  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-12deg", "12deg"]);
 
-const useCart = () => {
-  const [cart, setCart] = useState<any[]>([]);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-
-  const addToCart = (item: any) => {
-    setCart(prev => {
-      const existing = prev.find(i => i.id === item.id);
-      if (existing) {
-        return prev.map(i => i.id === item.id ? {...i, quantity: i.quantity + item.quantity} : i);
-      }
-      return [...prev, item];
-    });
-    setToastMessage(`${item.name} səbətə əlavə olundu! 🎉`);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const xPct = mouseX / width - 0.5;
+    const yPct = mouseY / height - 0.5;
+    x.set(xPct);
+    y.set(yPct);
   };
 
-  const removeFromCart = (id: string) => {
-    setCart(prev => prev.filter(i => i.id !== id));
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
   };
 
-  const updateQuantity = (id: string, quantity: number) => {
-    setCart(prev => prev.map(i => i.id === id ? {...i, quantity} : i));
-  };
-
-  const clearCart = () => {
-    setCart([]);
-  };
-
-  return { cart, addToCart, removeFromCart, updateQuantity, clearCart, showToast, toastMessage };
+  return { handleMouseMove, handleMouseLeave, rotateX, rotateY };
 };
 
-/* -------------------------------------------------------------------------- */
-/* DATA - EXPANDED WITH NEW BASKETS                                          */
-/* -------------------------------------------------------------------------- */
-
-const BASKETS: BasketItem[] = [
-  // SƏHƏR SƏBƏTI - 2 nəfərlik
-  {
-    id: "sahar-2",
-    name: "Səhər Süfrəsi",
-    tagline: "Günə təbii və sağlam başlanğıc",
-    description: "2 nəfər üçün təbii kənd məhsullarından hazırlanmış balanslı səhər süfrəsi. Hər bir məhsul səhər tezdən fermadan toplanır və dərhal qablaşdırılır.",
-    type: "sahar",
-    servings: "2 nəfər",
-    unit: "səbət",
-    bestseller: true,
-    trending: true,
-    stock: 12,
-    media: [{ type: "image", src: "https://images.unsplash.com/photo-1495147466023-ac5c588e2e94?w=800" }],
-    variants: {
-      econom: { 
-        price: 15, 
-        originalPrice: 18, 
-        contents: [
-          "🥛 Kənd südü — 0.5 L",
-          "🥚 Yumurta — 6 ədəd",
-          "🧈 Qaymaq — 50 q",
-          "🍞 Çörək — 1 ədəd"
-        ] 
-      },
-      standard: { 
-        price: 22, 
-        originalPrice: 25, 
-        contents: [
-          "🥛 Təzə kənd südü — 1 L",
-          "🧈 Camış qaymaği — 100 q",
-          "🥚 Kənd yumurtası — 10 ədəd",
-          "🧀 Pendir — 100 q"
-        ], 
-        extras: [
-          "🍎 Mövsümi meyvə — 0.5 kq",
-          "🍞 Təzə çörək — 2 ədəd"
-        ] 
-      },
-      premium: { 
-        price: 35, 
-        originalPrice: 42, 
-        contents: [
-          "🥛 Camış südü — 1 L",
-          "🧈 Camış qaymaği — 150 q",
-          "🧀 İnək pendiri — 150 q",
-          "🥚 Kənd yumurtası — 12 ədəd",
-          "🥓 Ev sosisi — 200 q"
-        ], 
-        extras: [
-          "🍯 Ev mürəbbəsi — 300 q",
-          "🍞 Gəncə kürə çörəyi — 2 ədəd",
-          "🥗 Təzə göyərti dəstəsi",
-          "☕ Premium çay — 50 q"
-        ] 
-      },
-    },
-    highlights: ["100% təbii", "Sürətli çatdırılma", "Uşaqlar üçün uyğun"],
-    reviews: { count: 127, rating: 4.8 },
-  },
-
-  // SƏHƏR SƏBƏTI - 4 nəfərlik
-  {
-    id: "sahar-4",
-    name: "Səhər Süfrəsi (Böyük Ailə)",
-    tagline: "Ailənin bütün üzvləri üçün təbii səhər",
-    description: "4 nəfər üçün təbii kənd məhsullarından hazırlanmış zəngin səhər süfrəsi. Böyük ailələr üçün ideal seçim.",
-    type: "sahar",
-    servings: "4 nəfər",
-    unit: "səbət",
-    bestseller: true,
-    stock: 8,
-    media: [{ type: "image", src: "https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=800" }],
-    variants: {
-      econom: { 
-        price: 28, 
-        originalPrice: 33, 
-        contents: [
-          "🥛 Kənd südü — 1 L",
-          "🥚 Yumurta — 12 ədəd",
-          "🧈 Qaymaq — 100 q",
-          "🍞 Çörək — 2 ədəd",
-          "🧀 Pendir — 150 q"
-        ] 
-      },
-      standard: { 
-        price: 42, 
-        originalPrice: 48, 
-        contents: [
-          "🥛 Təzə kənd südü — 2 L",
-          "🧈 Camış qaymaği — 200 q",
-          "🥚 Kənd yumurtası — 18 ədəd",
-          "🧀 Pendir — 200 q",
-          "🥓 Ev sosisi — 300 q"
-        ], 
-        extras: [
-          "🍎 Mövsümi meyvə — 1 kq",
-          "🍞 Təzə çörək — 3 ədəd",
-          "🍯 Bal — 150 q"
-        ] 
-      },
-      premium: { 
-        price: 65, 
-        originalPrice: 75, 
-        contents: [
-          "🥛 Camış südü — 2 L",
-          "🧈 Camış qaymaği — 300 q",
-          "🧀 İnək pendiri — 300 q",
-          "🥚 Kənd yumurtası — 24 ədəd",
-          "🥓 Ev sosisi — 500 q",
-          "🥣 Qatıq — 500 q"
-        ], 
-        extras: [
-          "🍯 Ev mürəbbəsi — 500 q",
-          "🍞 Gəncə kürə çörəyi — 4 ədəd",
-          "🥗 Təzə göyərti dəstəsi — 2 ədəd",
-          "☕ Premium çay — 100 q",
-          "🧁 Ev şirniyyatı — 300 q"
-        ] 
-      },
-    },
-    highlights: ["Ailə üçün", "Zəngin tərkib", "Maksimum qənaət"],
-    reviews: { count: 89, rating: 4.9 },
-  },
-
-  // RAMAZAN SAHUR - 2 nəfərlik
-  {
-    id: "ramazan-sahur-2",
-    name: "Ramazan Sahur",
-    tagline: "Oruca sağlam və bərəkətli başlanğıc",
-    description: "2 nəfər üçün sahur vaxtı üçün xüsusi seçilmiş, toxluq verən və faydalı məhsullar. Uzun müddətli enerji təmin edir.",
-    type: "ramazan",
-    servings: "2 nəfər",
-    unit: "səbət",
-    lowStock: true,
-    discount: 15,
-    stock: 5,
-    trending: true,
-    media: [{ type: "image", src: "https://images.unsplash.com/photo-1587411768250-7f9a5018b580?w=800" }],
-    variants: {
-      econom: { 
-        price: 20, 
-        contents: [
-          "🌴 Acvə xurması — 150 q",
-          "🥛 Kənd südü — 0.5 L",
-          "🍞 Lavaş — 1 ədəd",
-          "🧀 Pendir — 100 q"
-        ] 
-      },
-      standard: { 
-        price: 32, 
-        contents: [
-          "🌴 Acvə xurması — 250 q",
-          "🍯 Təbii bal — 100 q",
-          "🥛 Camış südü — 1 L",
-          "🥚 Yumurta — 6 ədəd"
-        ], 
-        extras: [
-          "🍎 Mövsümi meyvə — 0.5 kq",
-          "🧀 Pendir — 150 q",
-          "🍞 Təzə lavaş — 2 ədəd"
-        ] 
-      },
-      premium: { 
-        price: 45, 
-        contents: [
-          "🌴 Acvə xurması — 350 q",
-          "🍯 Təbii bal — 200 q",
-          "🥛 Camış südü — 1 L",
-          "🥣 Qatıq — 1 L",
-          "🥚 Yumurta — 10 ədəd"
-        ], 
-        extras: [
-          "🍞 Gəncə lavaşı — 3 ədəd",
-          "🍯 Mürəbbə — 300 q",
-          "🥗 Göyərti mix",
-          "🌰 Qoz-fındıq qarışığı — 200 q"
-        ] 
-      },
-    },
-    highlights: ["Enerji verən", "Təbii xurma", "Mübarək seçim"],
-    reviews: { count: 156, rating: 4.9 },
-  },
-
-  // RAMAZAN SAHUR - 4 nəfərlik
-  {
-    id: "ramazan-sahur-4",
-    name: "Ramazan Sahur (Ailə)",
-    tagline: "Ailənin hər üzvü üçün bərəkətli sahur",
-    description: "4 nəfər üçün sahur vaxtı üçün xüsusi seçilmiş, toxluq verən və faydalı məhsullar.",
-    type: "ramazan",
-    servings: "4 nəfər",
-    unit: "səbət",
-    stock: 7,
-    trending: true,
-    media: [{ type: "image", src: "https://images.unsplash.com/photo-1610415017227-c0d56d229e3e?w=800" }],
-    variants: {
-      econom: { 
-        price: 38, 
-        contents: [
-          "🌴 Acvə xurması — 300 q",
-          "🥛 Kənd südü — 1 L",
-          "🍞 Lavaş — 2 ədəd",
-          "🧀 Pendir — 200 q",
-          "🥚 Yumurta — 12 ədəd"
-        ] 
-      },
-      standard: { 
-        price: 58, 
-        contents: [
-          "🌴 Acvə xurması — 500 q",
-          "🍯 Təbii bal — 200 q",
-          "🥛 Camış südü — 2 L",
-          "🥚 Yumurta — 18 ədəd",
-          "🧀 Pendir — 300 q"
-        ], 
-        extras: [
-          "🍎 Mövsümi meyvə — 1 kq",
-          "🍞 Təzə lavaş — 4 ədəd",
-          "🥣 Qatıq — 1 L"
-        ] 
-      },
-      premium: { 
-        price: 85, 
-        contents: [
-          "🌴 Acvə xurması — 700 q",
-          "🍯 Təbii bal — 400 q",
-          "🥛 Camış südü — 2 L",
-          "🥣 Qatıq — 2 L",
-          "🥚 Yumurta — 24 ədəd",
-          "🧀 Pendir — 500 q"
-        ], 
-        extras: [
-          "🍞 Gəncə lavaşı — 6 ədəd",
-          "🍯 Mürəbbə — 500 q",
-          "🥗 Göyərti mix — 2 dəstə",
-          "🌰 Qoz-fındıq qarışığı — 400 q",
-          "🥙 Xəmir — 1 kq"
-        ] 
-      },
-    },
-    highlights: ["Ailə üçün", "Uzun toxluq", "Maksimum bərəkət"],
-    reviews: { count: 203, rating: 5.0 },
-  },
-
-  // RAMAZAN İFTAR - 2 nəfərlik
-  {
-    id: "ramazan-iftar-2",
-    name: "Ramazan İftar",
-    tagline: "Orucunuzu ləzzətlə açın",
-    description: "2 nəfər üçün iftar vaxtı üçün xüsusi hazırlanmış təbii və lezzetli məhsullar dəsti.",
-    type: "ramazan",
-    servings: "2 nəfər",
-    unit: "səbət",
-    new: true,
-    stock: 15,
-    media: [{ type: "image", src: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=800" }],
-    variants: {
-      econom: { 
-        price: 22, 
-        contents: [
-          "🌴 Xurma — 200 q",
-          "🥛 Ayran — 1 L",
-          "🍲 Şorba hazır qarışığı",
-          "🍞 Pide — 1 ədəd"
-        ] 
-      },
-      standard: { 
-        price: 35, 
-        contents: [
-          "🌴 Premium xurma — 300 q",
-          "🥛 Ayran — 2 L",
-          "🍲 Ev şorbası — 1 L",
-          "🍗 Kənd toyuğu — 1 ədəd",
-          "🍞 Pide — 2 ədəd"
-        ], 
-        extras: [
-          "🥗 Salat — 500 q",
-          "🍰 Şirniyyat — 200 q"
-        ] 
-      },
-      premium: { 
-        price: 55, 
-        contents: [
-          "🌴 Premium xurma — 500 q",
-          "🥛 Ayran — 3 L",
-          "🍲 Ev şorbası — 2 L",
-          "🍗 Kənd toyuğu — 1.5 kq",
-          "🍞 Pide — 3 ədəd",
-          "🍚 Plov — 1 kq"
-        ], 
-        extras: [
-          "🥗 Premium salat — 800 q",
-          "🍰 Şirniyyat dəsti — 400 q",
-          "🍹 Təbii şirə — 1 L",
-          "🌰 Quru meyvə qarışığı"
-        ] 
-      },
-    },
-    highlights: ["İftar üçün ideal", "Hazır yemək", "Ləzzətli seçim"],
-    reviews: { count: 78, rating: 4.7 },
-  },
-
-  // RAMAZAN İFTAR - 4 nəfərlik
-  {
-    id: "ramazan-iftar-4",
-    name: "Ramazan İftar (Ailə)",
-    tagline: "Ailə süfrəsi üçün zəngin iftar",
-    description: "4 nəfər üçün iftar vaxtı üçün xüsusi hazırlanmış təbii və lezzetli məhsullar dəsti.",
-    type: "ramazan",
-    servings: "4 nəfər",
-    unit: "səbət",
-    new: true,
-    stock: 10,
-    media: [{ type: "image", src: "https://images.unsplash.com/photo-1551218808-94e220e084d2?w=800" }],
-    variants: {
-      econom: { 
-        price: 42, 
-        contents: [
-          "🌴 Xurma — 400 q",
-          "🥛 Ayran — 2 L",
-          "🍲 Şorba hazır qarışığı — 2 kq",
-          "🍞 Pide — 2 ədəd",
-          "🍗 Kənd toyuğu — 1 ədəd"
-        ] 
-      },
-      standard: { 
-        price: 65, 
-        contents: [
-          "🌴 Premium xurma — 600 q",
-          "🥛 Ayran — 3 L",
-          "🍲 Ev şorbası — 2 L",
-          "🍗 Kənd toyuğu — 2 ədəd",
-          "🍞 Pide — 4 ədəd",
-          "🍚 Plov — 2 kq"
-        ], 
-        extras: [
-          "🥗 Salat — 1 kq",
-          "🍰 Şirniyyat — 400 q",
-          "🌰 Quru meyvə — 300 q"
-        ] 
-      },
-      premium: { 
-        price: 95, 
-        contents: [
-          "🌴 Premium xurma — 1 kq",
-          "🥛 Ayran — 5 L",
-          "🍲 Ev şorbası — 3 L",
-          "🍗 Kənd toyuğu — 3 ədəd",
-          "🍞 Pide — 6 ədəd",
-          "🍚 Plov — 3 kq",
-          "🥩 Ət yemək — 2 kq"
-        ], 
-        extras: [
-          "🥗 Premium salat — 1.5 kq",
-          "🍰 Şirniyyat dəsti — 800 q",
-          "🍹 Təbii şirə — 2 L",
-          "🌰 Quru meyvə qarışığı — 500 q",
-          "🍮 Desert — 4 porsiya"
-        ] 
-      },
-    },
-    highlights: ["Ailə süfrəsi", "Tam yemək dəsti", "Rahat həll"],
-    reviews: { count: 92, rating: 4.8 },
-  },
-
-  // GƏDƏBƏY YAYLA
-  {
-    id: "gedebey",
-    name: "Gədəbəy Yaylağı",
-    tagline: "Dağ havasında hazırlanan süd məhsulları",
-    description: "Gədəbəy yaylaqlarından birbaşa gətirilmiş camış məhsulları. 2200m hündürlükdən, təmiz dağ havasında hazırlanır. Heç bir konservant və qatqı yoxdur.",
-    type: "gedebey",
-    servings: "Ailə",
-    unit: "səbət",
-    bestseller: true,
-    trending: true,
-    stock: 18,
-    media: [{ type: "image", src: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=800" }],
-    variants: {
-      econom: { 
-        price: 30, 
-        contents: [
-          "🧀 Camış pendiri — 100 q",
-          "🥛 Camış südü — 0.5 L",
-          "🧈 Yağ — 50 q"
-        ] 
-      },
-      standard: { 
-        price: 45, 
-        contents: [
-          "🧀 Camış pendiri — 150 q",
-          "🥛 Camış südü — 1 L",
-          "🧈 Nehrə yağı — 100 q"
-        ], 
-        extras: [
-          "🥣 Süzmə — 200 q"
-        ] 
-      },
-      premium: { 
-        price: 65, 
-        contents: [
-          "🧀 Camış pendiri — 300 q",
-          "🥛 Camış südü — 1.5 L",
-          "🧈 Nehrə yağı — 250 q",
-          "🥣 Süzmə — 500 q"
-        ], 
-        extras: [
-          "🍎 Meyvə dəstəsi",
-          "🍯 Dağ balı — 200 q"
-        ] 
-      },
-    },
-    highlights: ["Yüksək dağlıq", "Ənənəvi üsul", "Qatqısız"],
-    reviews: { count: 203, rating: 5.0 },
-  },
-
-  // NOVRUZ SƏBƏTİ
-  {
-    id: "novruz",
-    name: "Novruz Səbəti",
-    tagline: "Bayram süfrəniz üçün ən yaxşı seçim",
-    description: "Novruz bayramı üçün xüsusi hazırlanmış zəngin məhsul səbəti. Ənənəvi Azərbaycan məhsulları ilə dolu.",
-    type: "novruz",
-    servings: "Ailə",
-    unit: "səbət",
-    new: true,
-    bestseller: true,
-    stock: 15,
-    media: [{ type: "image", src: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800" }],
-    variants: {
-      econom: { 
-        price: 50, 
-        contents: [
-          "🧀 Pendir — 200 q",
-          "🥛 Süd — 1 L",
-          "🧈 Yağ — 100 q",
-          "🍯 Bal — 150 q",
-          "🌰 Qoz-fındıq — 200 q"
-        ] 
-      },
-      standard: { 
-        price: 80, 
-        contents: [
-          "🧀 Pendir — 2 növ (400 q)",
-          "🥛 Süd — 2 L",
-          "🍯 Bal — 300 q",
-          "🌰 Qoz-fındıq qarışığı — 400 q",
-          "🥚 Yumurta — 12 ədəd"
-        ], 
-        extras: [
-          "🎨 Rəngli yumurta boyası",
-          "🌱 Səməni toxumu",
-          "🍰 Şəkərbura — 6 ədəd"
-        ] 
-      },
-      premium: { 
-        price: 120, 
-        contents: [
-          "🧀 Pendir — 4 növ (800 q)",
-          "🥛 Süd — 3 L",
-          "🍯 Bal — 500 q",
-          "🧈 Yağ — 500 q",
-          "🌰 Qoz-fındıq qarışığı — 800 q",
-          "🥚 Kənd yumurtası — 24 ədəd",
-          "🍗 Kənd çolpası — 1 ədəd"
-        ], 
-        extras: [
-          "🎨 Premium yumurta boyası dəsti",
-          "🌱 Səməni (hazır)",
-          "🍰 Şəkərbura — 12 ədəd",
-          "🥮 Paxlava — 8 dilim",
-          "🍬 Şirniyyat qarışığı — 500 q",
-          "🎁 Eksklüziv hədiyyə qabı"
-        ] 
-      },
-    },
-    highlights: ["Bayram süfrəsi", "Ənənəvi məhsullar", "Zəngin tərkib"],
-    reviews: { count: 167, rating: 4.9 },
-  },
-];
-
-/* -------------------------------------------------------------------------- */
-/* ANIMATED COMPONENTS                                                        */
-/* -------------------------------------------------------------------------- */
-
-const FloatingOrnament = ({ emoji, delay, x, y, size = "text-5xl" }: any) => (
+// Floating Background Icons
+const FloatingIcon = ({ icon: Icon, delay, x, y }: any) => (
   <motion.div
     initial={{ y: 0, rotate: 0, opacity: 0 }}
     animate={{ 
       y: [0, -40, 0], 
       rotate: [0, 20, -20, 0],
-      opacity: [0, 0.3, 0],
-      x: [0, 15, -15, 0]
+      opacity: [0, 0.15, 0],
     }}
     transition={{ 
       duration: 10 + Math.random() * 5, 
@@ -592,47 +90,21 @@ const FloatingOrnament = ({ emoji, delay, x, y, size = "text-5xl" }: any) => (
       delay,
       ease: "easeInOut" 
     }}
-    className={`fixed pointer-events-none select-none z-0 ${size} blur-[1px]`}
+    className="fixed pointer-events-none select-none z-0 text-emerald-200/40"
     style={{ left: x, top: y }}
   >
-    {emoji}
+    <Icon className="w-16 h-16" />
   </motion.div>
 );
 
-const TrustStat = ({ icon: Icon, label, value, color }: any) => {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true });
-  
-  return (
-    <motion.div 
-      ref={ref}
-      initial={{ opacity: 0, y: 20 }}
-      animate={isInView ? { opacity: 1, y: 0 } : {}}
-      whileHover={{ y: -5, scale: 1.02 }}
-      className="bg-white/60 backdrop-blur-md p-6 rounded-[2.5rem] border border-emerald-100 flex items-center gap-5 shadow-sm hover:shadow-xl transition-shadow"
-    >
-      <motion.div 
-        whileHover={{ rotate: 360 }}
-        transition={{ duration: 0.5 }}
-        className={`w-14 h-14 rounded-2xl flex items-center justify-center ${color}`}
-      >
-        <Icon className="w-7 h-7" />
-      </motion.div>
-      <div className="flex flex-col">
-        <span className="text-xl font-black text-slate-800 tracking-tight">{value}</span>
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</span>
-      </div>
-    </motion.div>
-  );
-};
-
-const LiveViewCounter = () => {
-  const [views, setViews] = useState(Math.floor(Math.random() * 20) + 15);
+// Live Viewer Counter
+const LiveCounter = () => {
+  const [count, setCount] = useState(Math.floor(Math.random() * 15) + 12);
   
   useEffect(() => {
     const interval = setInterval(() => {
-      setViews(prev => prev + Math.floor(Math.random() * 3) - 1);
-    }, 3000);
+      setCount(prev => Math.max(8, Math.min(30, prev + Math.floor(Math.random() * 5) - 2)));
+    }, 4000);
     return () => clearInterval(interval);
   }, []);
 
@@ -640,861 +112,1005 @@ const LiveViewCounter = () => {
     <motion.div
       animate={{ scale: [1, 1.05, 1] }}
       transition={{ duration: 2, repeat: Infinity }}
-      className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-full text-xs font-bold"
+      className="inline-flex items-center gap-2 bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-2.5 rounded-full text-xs font-bold shadow-lg"
     >
-      <Eye className="w-3 h-3" />
-      <span>{views} nəfər indi baxır</span>
+      <Eye className="w-4 h-4 animate-pulse" />
+      <span>{count} nəfər indi baxır</span>
     </motion.div>
   );
 };
 
-const StockTicker = ({ stock }: { stock: number }) => {
-  const [currentStock, setCurrentStock] = useState(stock);
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (currentStock > 3 && Math.random() > 0.7) {
-        setCurrentStock(prev => Math.max(3, prev - 1));
-      }
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [currentStock]);
+// Premium Badge
+const PremiumBadge = ({ text, icon: Icon, gradient }: any) => (
+  <motion.div
+    initial={{ scale: 0, rotate: -180 }}
+    animate={{ scale: 1, rotate: 0 }}
+    transition={{ type: "spring", stiffness: 200 }}
+    className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-white text-xs font-black shadow-lg ${gradient}`}
+  >
+    <Icon className="w-4 h-4" />
+    {text}
+  </motion.div>
+);
 
-  const color = currentStock <= 5 ? "text-red-600" : currentStock <= 10 ? "text-orange-600" : "text-green-600";
-  
-  return (
-    <motion.div
-      animate={currentStock <= 5 ? { scale: [1, 1.1, 1] } : {}}
-      transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-      className={`flex items-center gap-2 ${color} text-xs font-bold`}
-    >
-      <Package className="w-3 h-3" />
-      <span>Stokda: {currentStock} ədəd</span>
-    </motion.div>
-  );
-};
+// Enhanced Basket Card with Premium Interactions
+const BasketCard3D = ({ item, onAdd }: { item: BasketItem; onAdd: (data: any) => void }) => {
+  const [variant, setVariant] = useState<BasketVariant>("standard");
+  const [qty, setQty] = useState(1);
+  const [showDetails, setShowDetails] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+  const { handleMouseMove, handleMouseLeave, rotateX, rotateY } = use3DTilt();
 
-const CountdownTimer = () => {
-  const [timeLeft, setTimeLeft] = useState({ hours: 5, minutes: 23, seconds: 45 });
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeLeft(prev => {
-        let { hours, minutes, seconds } = prev;
-        seconds--;
-        if (seconds < 0) {
-          seconds = 59;
-          minutes--;
-        }
-        if (minutes < 0) {
-          minutes = 59;
-          hours--;
-        }
-        if (hours < 0) {
-          hours = 23;
-          minutes = 59;
-          seconds = 59;
-        }
-        return { hours, minutes, seconds };
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const variantData = item.variants[variant];
+  const price = variantData.price * qty;
+  const discount = variantData.originalPrice 
+    ? Math.round(((variantData.originalPrice - variantData.price) / variantData.originalPrice) * 100) 
+    : 0;
 
-  return (
-    <div className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-5 py-3 rounded-2xl">
-      <Timer className="w-4 h-4" />
-      <div className="flex items-center gap-1 text-sm font-black">
-        <span>{String(timeLeft.hours).padStart(2, '0')}</span>:<span>{String(timeLeft.minutes).padStart(2, '0')}</span>:<span>{String(timeLeft.seconds).padStart(2, '0')}</span>
-      </div>
-      <span className="text-[10px] font-bold uppercase ml-2">Endirim Bitir</span>
-    </div>
-  );
-};
-
-const SocialProofTicker = () => {
-  const proofs = [
-    "Ali M. indicə sifariş etdi 🎉",
-    "Leyla A. 5 ulduz qiymət verdi ⭐",
-    "Rəşad K. təkrar sifariş etdi 🔄",
-    "Aynur B. məhsulu bəyəndi ❤️",
-  ];
-  
-  const [current, setCurrent] = useState(0);
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrent(prev => (prev + 1) % proofs.length);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={current}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        className="bg-emerald-50 text-emerald-800 px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2"
-      >
-        <Users className="w-3 h-3" />
-        {proofs[current]}
-      </motion.div>
-    </AnimatePresence>
-  );
-};
-
-/* -------------------------------------------------------------------------- */
-/* CART DRAWER COMPONENT                                                      */
-/* -------------------------------------------------------------------------- */
-
-const CartDrawer = ({ cart, onClose, onRemove, onUpdateQuantity, onClear }: any) => {
-  const total = cart.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
-  const totalItems = cart.reduce((sum: number, item: any) => sum + item.quantity, 0);
-
-  const shareCartWhatsApp = () => {
-    let message = "🛒 *Kənd Məhsulları Səbətim:*\n\n";
-    
-    cart.forEach((item: any) => {
-      message += `📦 *${item.name}*\n`;
-      message += `   Miqdar: ${item.quantity} ədəd\n`;
-      message += `   Qiymət: ${item.price} AZN\n`;
-      message += `   Ara cəmi: ${(item.price * item.quantity).toFixed(2)} AZN\n\n`;
-    });
-    
-    message += `💰 *CƏMİ:* ${total.toFixed(2)} AZN\n\n`;
-    message += `🌿 Təbii və sağlam seçim!`;
-    
-    const encodedMessage = encodeURIComponent(message);
-    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
-  };
-
-  const downloadCart = () => {
-    let content = "KƏND MƏHSULLARI SƏBƏTİM\n";
-    content += "=".repeat(40) + "\n\n";
-    
-    cart.forEach((item: any, index: number) => {
-      content += `${index + 1}. ${item.name}\n`;
-      content += `   Miqdar: ${item.quantity} ədəd\n`;
-      content += `   Vahid qiymət: ${item.price} AZN\n`;
-      content += `   Ara cəmi: ${(item.price * item.quantity).toFixed(2)} AZN\n\n`;
-    });
-    
-    content += "=".repeat(40) + "\n";
-    content += `CƏMİ: ${total.toFixed(2)} AZN\n`;
-    content += `Məhsul sayı: ${totalItems}\n`;
-    
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'sebetim.txt';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const copyCartToClipboard = () => {
-    let text = "🛒 Kənd Məhsulları Səbətim:\n\n";
-    
-    cart.forEach((item: any) => {
-      text += `${item.name} - ${item.quantity}x - ${(item.price * item.quantity).toFixed(2)} AZN\n`;
-    });
-    
-    text += `\nCƏMİ: ${total.toFixed(2)} AZN`;
-    
-    navigator.clipboard.writeText(text).then(() => {
-      alert('Səbət məlumatları kopyalandı!');
-    });
-  };
+  const hasVideo = item.media.some(m => m.type === "video");
 
   return (
     <>
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
-      />
-      
-      <motion.div
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="fixed right-0 top-0 h-full w-full max-w-md bg-white z-[70] shadow-2xl flex flex-col"
+        initial={{ opacity: 0, y: 50 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        onHoverStart={() => setIsHovered(true)}
+        onHoverEnd={() => setIsHovered(false)}
+        className="group relative"
       >
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-emerald-50 to-green-50">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-2xl font-black text-slate-900">Səbətim</h2>
-            <motion.button
-              whileHover={{ scale: 1.1, rotate: 90 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={onClose}
-              className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-md"
-            >
-              <X className="w-5 h-5" />
-            </motion.button>
-          </div>
-          <p className="text-sm text-slate-600 font-medium">{totalItems} məhsul</p>
-        </div>
+        <motion.div
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          style={{ 
+            transform: "perspective(1000px)",
+            rotateX, 
+            rotateY 
+          }}
+          className="relative bg-white rounded-[3rem] overflow-hidden shadow-2xl hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] transition-all duration-500"
+        >
+          {/* Enhanced Image Section */}
+          <div className="relative h-96 overflow-hidden bg-gradient-to-br from-emerald-50 to-green-50">
+            <motion.img
+              animate={{ scale: isHovered ? 1.15 : 1 }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              src={item.media[0].src}
+              alt={item.name}
+              className="w-full h-full object-cover"
+            />
+            
+            {/* Gradient Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-        {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {cart.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
+            {/* Top Badges with Animation */}
+            <div className="absolute top-6 left-6 flex flex-col gap-3">
+              <AnimatePresence>
+                {item.bestseller && (
+                  <motion.div
+                    initial={{ x: -100, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: -100, opacity: 0 }}
+                  >
+                    <PremiumBadge text="BESTSELLER" icon={Award} gradient="bg-gradient-to-r from-amber-500 to-orange-500" />
+                  </motion.div>
+                )}
+                {item.new && (
+                  <motion.div
+                    initial={{ x: -100, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: -100, opacity: 0 }}
+                    transition={{ delay: 0.1 }}
+                  >
+                    <PremiumBadge text="YENİ" icon={Sparkles} gradient="bg-gradient-to-r from-emerald-600 to-green-600" />
+                  </motion.div>
+                )}
+                {item.trending && (
+                  <motion.div
+                    initial={{ x: -100, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: -100, opacity: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <PremiumBadge text="TREND" icon={TrendingUp} gradient="bg-gradient-to-r from-red-500 to-pink-500" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Discount Badge with Pulse */}
+            {discount > 0 && (
               <motion.div
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
+                className="absolute top-6 right-6 bg-gradient-to-br from-red-500 to-red-600 text-white w-20 h-20 rounded-full flex items-center justify-center shadow-2xl"
               >
-                <ShoppingCart className="w-20 h-20 text-slate-300 mb-4" />
-              </motion.div>
-              <p className="text-slate-500 font-medium">Səbətiniz boşdur</p>
-              <p className="text-sm text-slate-400 mt-2">Məhsul əlavə edin</p>
-            </div>
-          ) : (
-            cart.map((item: any) => (
-              <motion.div
-                key={item.id}
-                layout
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="bg-slate-50 rounded-2xl p-4 flex gap-4"
-              >
-                <img 
-                  src={item.image} 
-                  alt={item.name}
-                  className="w-20 h-20 rounded-xl object-cover"
-                />
-                
-                <div className="flex-1">
-                  <h3 className="font-bold text-slate-900 text-sm mb-1">{item.name}</h3>
-                  <p className="text-emerald-600 font-black text-lg mb-2">{item.price} AZN</p>
-                  
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 bg-white rounded-lg p-1">
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                        className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center text-slate-700 font-bold"
-                      >
-                        −
-                      </motion.button>
-                      <span className="text-sm font-black w-8 text-center">{item.quantity}</span>
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                        className="w-7 h-7 rounded-md bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold"
-                      >
-                        +
-                      </motion.button>
-                    </div>
-                    
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => onRemove(item.id)}
-                      className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-500"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </motion.button>
-                  </div>
+                <div className="text-center">
+                  <div className="text-2xl font-black leading-none">-{discount}%</div>
+                  <div className="text-[10px] font-bold">ENDİRİM</div>
                 </div>
               </motion.div>
-            ))
-          )}
-        </div>
+            )}
 
-        {/* Footer */}
-        {cart.length > 0 && (
-          <div className="p-6 border-t border-gray-200 bg-gradient-to-r from-emerald-50 to-green-50 space-y-4">
-            {/* Share Options */}
-            <div className="flex gap-2">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={shareCartWhatsApp}
-                className="flex-1 flex items-center justify-center gap-2 bg-green-500 text-white px-4 py-3 rounded-xl text-xs font-bold"
+            {/* Origin Badge with Enhanced Design */}
+            {item.origin && (
+              <motion.div
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="absolute bottom-6 left-6 bg-gradient-to-r from-slate-900 to-slate-800 backdrop-blur-xl text-white px-5 py-3 rounded-2xl text-sm font-bold flex items-center gap-2 shadow-xl border border-white/10"
               >
-                <MessageCircle className="w-4 h-4" />
-                WhatsApp
-              </motion.button>
-              
+                <Mountain className="w-4 h-4" />
+                {item.origin}
+              </motion.div>
+            )}
+
+            {/* Video Button */}
+            {hasVideo && (
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={copyCartToClipboard}
-                className="flex items-center justify-center gap-2 bg-slate-700 text-white px-4 py-3 rounded-xl text-xs font-bold"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setShowVideo(true)}
+                className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-xl hover:bg-white transition"
               >
-                <Copy className="w-4 h-4" />
+                <Video className="w-6 h-6 text-emerald-600" />
               </motion.button>
-              
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={downloadCart}
-                className="flex items-center justify-center gap-2 bg-blue-500 text-white px-4 py-3 rounded-xl text-xs font-bold"
+            )}
+
+            {/* Hover Quick Actions */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 20 }}
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3"
+            >
+              <button className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-xl hover:bg-white transition">
+                <Heart className="w-5 h-5 text-red-500" />
+              </button>
+              <button className="w-12 h-12 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-xl hover:bg-white transition">
+                <Eye className="w-5 h-5 text-emerald-600" />
+              </button>
+            </motion.div>
+          </div>
+
+          {/* Enhanced Content Section */}
+          <div className="p-10 space-y-6">
+            {/* Title & Description */}
+            <div>
+              <motion.h3 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-4xl font-black text-slate-900 mb-3 leading-tight"
               >
-                <Download className="w-4 h-4" />
-              </motion.button>
+                {item.name}
+              </motion.h3>
+              <p className="text-slate-600 text-base leading-relaxed">{item.tagline}</p>
             </div>
 
-            {/* Total */}
-            <div className="flex items-center justify-between bg-white rounded-2xl p-4">
-              <span className="text-sm font-bold text-slate-600 uppercase">Cəmi:</span>
-              <span className="text-2xl font-black text-slate-900">{total.toFixed(2)} AZN</span>
+            {/* Freshness Indicator with Icon */}
+            {item.freshness && (
+              <motion.div 
+                whileHover={{ x: 5 }}
+                className="flex items-center gap-3 bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-3 rounded-2xl border border-emerald-100"
+              >
+                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                  <Sunrise className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <div className="text-xs text-emerald-600 font-bold uppercase tracking-wide">Təravət</div>
+                  <div className="text-sm font-bold text-emerald-800">{item.freshness}</div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Enhanced Variant Selector */}
+            <div className="space-y-3">
+              <div className="text-xs font-black uppercase text-slate-400 tracking-wider">Paket Seçimi</div>
+              <div className="grid grid-cols-3 gap-2 bg-slate-50 rounded-2xl p-2">
+                {(["econom", "standard", "premium"] as BasketVariant[]).map(v => (
+                  <motion.button
+                    key={v}
+                    onClick={() => { setVariant(v); setQty(1); }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className={`relative px-4 py-4 rounded-xl text-xs font-black uppercase transition-all ${
+                      variant === v 
+                        ? "bg-gradient-to-br from-emerald-600 to-green-600 text-white shadow-xl shadow-emerald-200" 
+                        : "bg-white text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {v}
+                    {variant === v && (
+                      <motion.div
+                        layoutId="activeVariant"
+                        className="absolute inset-0 border-2 border-emerald-400 rounded-xl"
+                      />
+                    )}
+                  </motion.button>
+                ))}
+              </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex gap-3">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={onClear}
-                className="flex-1 bg-slate-200 text-slate-700 py-3 rounded-xl font-bold text-sm"
-              >
-                Təmizlə
-              </motion.button>
-              
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 text-white py-3 rounded-xl font-bold text-sm"
-              >
-                Sifariş Et
-              </motion.button>
+            {/* Contents Preview with Better Design */}
+            <div className="space-y-3">
+              <div className="text-xs font-black uppercase text-slate-400 tracking-wider">Tərkib</div>
+              <div className="space-y-2">
+                {variantData.contents.slice(0, 3).map((c, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="flex items-start gap-3 text-sm text-slate-700"
+                  >
+                    <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Check className="w-3 h-3 text-emerald-600" />
+                    </div>
+                    <span className="flex-1">{c}</span>
+                  </motion.div>
+                ))}
+                {variantData.contents.length > 3 && (
+                  <motion.button 
+                    whileHover={{ x: 5 }}
+                    onClick={() => setShowDetails(true)} 
+                    className="text-emerald-600 text-sm font-bold flex items-center gap-2 mt-2 hover:text-emerald-700"
+                  >
+                    +{variantData.contents.length - 3} daha çox məhsul
+                    <ChevronDown className="w-4 h-4" />
+                  </motion.button>
+                )}
+              </div>
+            </div>
+
+            {/* Price & Quantity Section with Enhanced Design */}
+            <div className="flex items-end justify-between pt-6 border-t-2 border-slate-100">
+              <div className="space-y-2">
+                <div className="flex items-baseline gap-3">
+                  <motion.span 
+                    key={price}
+                    initial={{ scale: 1.2, color: "#10b981" }}
+                    animate={{ scale: 1, color: "#059669" }}
+                    className="text-5xl font-black text-emerald-600"
+                  >
+                    {price}
+                  </motion.span>
+                  <span className="text-xl font-bold text-slate-400">AZN</span>
+                </div>
+                {variantData.originalPrice && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-base text-slate-400 line-through">
+                      {variantData.originalPrice * qty} AZN
+                    </span>
+                    <span className="text-xs font-black text-red-500 bg-red-50 px-2 py-1 rounded-full">
+                      {discount}% qənaət
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Enhanced Quantity Selector */}
+              <div className="flex items-center gap-3 bg-slate-50 rounded-2xl p-2">
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setQty(q => Math.max(1, q - 1))}
+                  className="w-12 h-12 rounded-xl bg-white shadow-md font-black text-xl hover:bg-slate-100 transition flex items-center justify-center"
+                >
+                  −
+                </motion.button>
+                <span className="font-black text-2xl w-10 text-center">{qty}</span>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setQty(q => q + 1)}
+                  className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-md font-black text-xl hover:shadow-lg transition flex items-center justify-center"
+                >
+                  +
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Enhanced CTA Button */}
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() =>
+                onAdd({
+                  id: `${item.id}-${variant}`,
+                  name: `${item.name} (${variant})`,
+                  price: variantData.price,
+                  quantity: qty,
+                  image: item.media[0].src,
+                  variant: variant, // Variant məlumatını da göndəririk
+                })
+              }
+              className="w-full bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-600 bg-[length:200%_auto] hover:bg-right text-white py-5 rounded-2xl font-black text-lg flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl transition-all duration-500 group"
+            >
+              <ShoppingCart className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+              Səbətə əlavə et
+              <Sparkles className="w-5 h-5 group-hover:scale-125 transition-transform" />
+            </motion.button>
+
+            {/* Trust Indicators */}
+            <div className="grid grid-cols-3 gap-3 pt-4">
+              {[
+                { icon: ShieldCheck, text: "100% təbii" },
+                { icon: Truck, text: "Sürətli çatdırılma" },
+                { icon: Gift, text: "Hədiyyə qablaşdırma" },
+              ].map((item, i) => (
+                <div key={i} className="flex flex-col items-center gap-2 p-3 bg-slate-50 rounded-xl">
+                  <item.icon className="w-5 h-5 text-emerald-600" />
+                  <span className="text-[10px] font-bold text-slate-600 text-center">{item.text}</span>
+                </div>
+              ))}
             </div>
           </div>
-        )}
+        </motion.div>
       </motion.div>
+
+      {/* Enhanced Details Modal */}
+      <AnimatePresence>
+        {showDetails && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDetails(false)}
+              className="fixed inset-0 bg-black/70 backdrop-blur-md z-[80]"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 50 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 50 }}
+              className="fixed inset-0 z-[90] flex items-center justify-center p-6"
+            >
+              <div className="bg-white rounded-[3rem] max-w-3xl w-full max-h-[85vh] overflow-y-auto p-12 relative shadow-2xl">
+                <motion.button 
+                  whileHover={{ scale: 1.1, rotate: 90 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setShowDetails(false)} 
+                  className="absolute top-8 right-8 w-12 h-12 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition"
+                >
+                  <X className="w-6 h-6" />
+                </motion.button>
+
+                <div className="mb-8">
+                  <h3 className="text-5xl font-black mb-4 bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+                    {item.name}
+                  </h3>
+                  <p className="text-slate-600 text-lg leading-relaxed">{item.description}</p>
+                </div>
+
+                {item.nutrition && (
+                  <div className="mb-8">
+                    <h4 className="text-sm font-black uppercase text-slate-400 mb-4 tracking-wider">Qida Dəyəri</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      {item.nutrition.map((n, i) => (
+                        <motion.div 
+                          key={i}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="bg-gradient-to-br from-emerald-50 to-green-50 px-5 py-3 rounded-xl text-sm font-bold text-emerald-700 border border-emerald-100"
+                        >
+                          {n}
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mb-8">
+                  <h4 className="text-sm font-black uppercase text-slate-400 mb-4 tracking-wider">
+                    Tam Tərkib ({variant} paket)
+                  </h4>
+                  <div className="space-y-3">
+                    {variantData.contents.map((c, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="flex items-start gap-3 text-slate-700 bg-slate-50 p-4 rounded-xl"
+                      >
+                        <Check className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                        <span>{c}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+
+                {variantData.extras && variantData.extras.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-black uppercase text-slate-400 mb-4 tracking-wider">Əlavə Bonuslar</h4>
+                    <div className="space-y-3">
+                      {variantData.extras.map((e, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="flex items-center gap-3 text-emerald-700 font-semibold bg-gradient-to-r from-emerald-50 to-green-50 p-4 rounded-xl border border-emerald-100"
+                        >
+                          <Sparkles className="w-5 h-5 flex-shrink-0" />
+                          {e}
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Video Modal */}
+      <AnimatePresence>
+        {showVideo && hasVideo && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowVideo(false)}
+              className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[80]"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="fixed inset-0 z-[90] flex items-center justify-center p-6"
+            >
+              <div className="relative max-w-4xl w-full">
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setShowVideo(false)}
+                  className="absolute -top-16 right-0 w-12 h-12 rounded-full bg-white flex items-center justify-center"
+                >
+                  <X className="w-6 h-6" />
+                </motion.button>
+                <video 
+                  src={item.media.find(m => m.type === "video")?.src} 
+                  controls 
+                  autoPlay
+                  className="w-full rounded-3xl shadow-2xl"
+                />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 };
 
-/* -------------------------------------------------------------------------- */
-/* MAIN PAGE                                                                  */
-/* -------------------------------------------------------------------------- */
-
-export default function BasketsPage() {
-  const { cart, addToCart, removeFromCart, updateQuantity, clearCart, showToast, toastMessage } = useCart();
-  const { scrollYProgress } = useScroll();
+// Main Component
+export default function PremiumBasketsPage() {
   const [filter, setFilter] = useState<string>("all");
-  const [wishlist, setWishlist] = useState<string[]>([]);
-  const [showCart, setShowCart] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const { scrollYProgress } = useScroll();
   
-  const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -50]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
+  // Zustand store-dan cart funksiyalarını alırıq
+  const products = useApp((state) => state.products);
+  const addToCartStore = useApp((state) => state.addToCart);
+  const cart = useApp((state) => state.cart);
+  
+  const heroY = useTransform(scrollYProgress, [0, 0.3], [0, -80]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0.3]);
 
   const filteredBaskets = useMemo(() => {
     if (filter === "all") return BASKETS;
     if (filter === "trending") return BASKETS.filter(b => b.trending);
     if (filter === "new") return BASKETS.filter(b => b.new);
     if (filter === "bestseller") return BASKETS.filter(b => b.bestseller);
-    if (filter === "sahar") return BASKETS.filter(b => b.type === "sahar");
-    if (filter === "ramazan") return BASKETS.filter(b => b.type === "ramazan");
-    if (filter === "gedebey") return BASKETS.filter(b => b.type === "gedebey");
-    if (filter === "novruz") return BASKETS.filter(b => b.type === "novruz");
-    return BASKETS;
+    return BASKETS.filter(b => b.type === filter);
   }, [filter]);
 
-  const toggleWishlist = (id: string) => {
-    setWishlist(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
+  // Basket məhsullarını store-a əlavə edən helper funksiya
+  const handleAddToCart = (basketItem: { 
+    id: string; 
+    name: string; 
+    price: number; 
+    quantity: number; 
+    image: string;
+    variant: string;
+  }) => {
+    try {
+      // 1. Basketi store-da mövcud məhsul kimi axtarırıq
+      // Basket ID formatı: "basket-{type}-{variant}" məsələn: "basket-sahar-standard"
+      const productId = `basket-${basketItem.id}`;
+      
+      let existingProduct = products.find(p => p.id === productId);
+      
+      // 2. Əgər məhsul store-da yoxdursa, dinamik olaraq yaradırıq
+      if (!existingProduct) {
+        const basketData = BASKETS.find(b => basketItem.id.startsWith(b.id));
+        if (!basketData) {
+          throw new Error('Basket məlumatı tapılmadı');
+        }
+
+        // Yeni məhsul yaradırıq
+        const newProduct = {
+          id: productId,
+          name: basketItem.name,
+          slug: `basket-${basketItem.id.toLowerCase().replace(/\s+/g, '-')}`,
+          description: basketData.description,
+          price: basketItem.price,
+          categoryId: 'baskets', // Xüsusi basket kateqoriyası
+          images: [basketItem.image],
+          featured: basketData.bestseller || false,
+          archived: false,
+          tags: ['basket', 'gedebey', basketData.type],
+          variants: [
+            {
+              id: `${productId}-${basketItem.variant}`,
+              name: basketItem.variant,
+              price: basketItem.price,
+              stock: 100, // Sonsuz stok
+              sku: `BSK-${basketItem.id}-${basketItem.variant}`,
+            }
+          ],
+          reviews: [],
+          createdAt: new Date().toISOString(),
+        };
+
+        // Store-a məhsulu əlavə edirik
+        useApp.getState().addProduct(newProduct);
+        existingProduct = newProduct;
+      }
+
+      // 3. Variant ID-ni tapırıq
+      const variantId = existingProduct.variants?.find(
+        v => v.name === basketItem.variant
+      )?.id || existingProduct.variants?.[0]?.id;
+
+      if (!variantId) {
+        throw new Error('Variant tapılmadı');
+      }
+
+      // 4. Store-un addToCart funksiyasını çağırırıq
+      addToCartStore(existingProduct.id, variantId, basketItem.quantity);
+
+      // 5. Success toast göstəririk
+      setToastMessage(`${basketItem.name} səbətə əlavə olundu! 🎉`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+
+      // 6. Custom event trigger edirik (əgər başqa komponentlər dinləyirsə)
+      window.dispatchEvent(new CustomEvent('cart-updated', { 
+        detail: { 
+          productId: existingProduct.id,
+          variantId,
+          quantity: basketItem.quantity,
+          action: 'add' 
+        } 
+      }));
+      
+    } catch (error) {
+      console.error('Səbətə əlavə edilərkən xəta:', error);
+      setToastMessage('Xəta baş verdi, yenidən cəhd edin');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
   };
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-[#fafcf9] via-emerald-50/30 to-[#fafcf9] overflow-x-hidden pt-20">
+    <div className="relative min-h-screen bg-gradient-to-br from-[#fafcf9] via-emerald-50/40 to-[#fafcf9] overflow-x-hidden">
       
       {/* Toast Notification */}
       <AnimatePresence>
         {showToast && (
           <motion.div
-            initial={{ opacity: 0, y: -100, scale: 0.8 }}
+            initial={{ opacity: 0, y: -100, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -100, scale: 0.8 }}
-            className="fixed top-24 right-6 z-[100] bg-emerald-600 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3"
+            exit={{ opacity: 0, y: -100, scale: 0.9 }}
+            className="fixed top-6 right-6 z-[100] bg-gradient-to-r from-emerald-600 to-green-600 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border-2 border-white/20"
           >
-            <Check className="w-5 h-5" />
-            <span className="font-bold">{toastMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Cart Drawer */}
-      <AnimatePresence>
-        {showCart && (
-          <CartDrawer
-            cart={cart}
-            onClose={() => setShowCart(false)}
-            onRemove={removeFromCart}
-            onUpdateQuantity={updateQuantity}
-            onClear={clearCart}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Floating Cart Button */}
-      <AnimatePresence>
-        {cart.length > 0 && (
-          <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            exit={{ scale: 0, rotate: 180 }}
-            className="fixed bottom-8 right-8 z-50"
-          >
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setShowCart(true)}
-              className="relative bg-emerald-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center"
+            <motion.div
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 0.5, repeat: Infinity }}
             >
-              <ShoppingCart className="w-6 h-6" />
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="absolute -top-2 -right-2 bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-xs font-black"
-              >
-                {cart.reduce((sum, item) => sum + item.quantity, 0)}
-              </motion.span>
-            </motion.button>
+              <Check className="w-6 h-6" />
+            </motion.div>
+            <span className="font-bold text-lg">{toastMessage}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Background Ornaments */}
+      {/* Enhanced Floating Background */}
       <div className="hidden lg:block">
-        <FloatingOrnament emoji="🥛" delay={0} x="5%" y="20%" />
-        <FloatingOrnament emoji="🍯" delay={2} x="90%" y="15%" size="text-7xl" />
-        <FloatingOrnament emoji="🧀" delay={1} x="12%" y="70%" size="text-6xl" />
-        <FloatingOrnament emoji="🥚" delay={3} x="85%" y="80%" />
-        <FloatingOrnament emoji="🌿" delay={4} x="45%" y="10%" size="text-8xl" />
-        <FloatingOrnament emoji="🍎" delay={1.5} x="92%" y="55%" />
-        <FloatingOrnament emoji="🧈" delay={5} x="8%" y="45%" size="text-4xl" />
-        <FloatingOrnament emoji="🍞" delay={3.5} x="75%" y="30%" />
+        <FloatingIcon icon={Mountain} delay={0} x="8%" y="15%" />
+        <FloatingIcon icon={Trees} delay={2} x="88%" y="20%" />
+        <FloatingIcon icon={Droplets} delay={1} x="15%" y="65%" />
+        <FloatingIcon icon={Wind} delay={3} x="82%" y="75%" />
+        <FloatingIcon icon={Leaf} delay={4} x="45%" y="12%" />
+        <FloatingIcon icon={Sunrise} delay={5} x="92%" y="45%" />
       </div>
 
-      {/* Hero Section */}
+      {/* Premium Hero Section */}
       <motion.section 
-        style={{ y: heroY, opacity: heroOpacity }}
-        className="relative py-20 px-6 text-center z-10"
+        style={{ y: heroY, opacity: heroOpacity }} 
+        className="relative py-32 px-6 text-center overflow-hidden"
       >
-        <div className="max-w-5xl mx-auto">
+        {/* Animated gradient background */}
+        <motion.div 
+          animate={{
+            background: [
+              "radial-gradient(circle at 20% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 50%)",
+            ]
+          }}
+          transition={{ duration: 10, repeat: Infinity }}
+          className="absolute inset-0 -z-10"
+        />
+
+        <div className="max-w-6xl mx-auto relative z-10">
+          {/* Premium Badge with Animation */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-6 py-2 rounded-full text-[10px] font-black tracking-[0.2em] mb-8"
+            initial={{ opacity: 0, scale: 0.8, y: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 200 }}
+            className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-100 via-green-50 to-emerald-100 text-emerald-700 px-8 py-3 rounded-full text-sm font-black mb-10 shadow-lg border border-emerald-200"
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            EKSKLÜZİV REGIONAL SƏBƏTLƏR
+            <Sparkles className="w-5 h-5 animate-pulse" />
+            2200M YÜKSƏKLIKDƏN DAĞLARIN BƏRƏKƏTI
+            <Mountain className="w-5 h-5" />
           </motion.div>
           
+          {/* Main Heading with Enhanced Typography */}
           <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-7xl md:text-9xl font-black text-slate-900 tracking-tighter leading-[0.8] mb-10"
+            transition={{ delay: 0.2 }}
+            className="text-7xl md:text-9xl font-black text-slate-900 tracking-tighter leading-[0.85] mb-10"
           >
-            Kəndin <motion.span 
+            Organik Gədəbəyin <br />
+            <motion.span 
               animate={{ 
                 backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
               }}
-              transition={{ duration: 5, repeat: Infinity }}
-              className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-green-500 to-emerald-600 bg-[length:200%_auto] italic"
+              transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+              className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 via-green-500 via-emerald-400 to-emerald-600 bg-[length:200%_auto]"
             >
-              bərəkəti
-            </motion.span> <br /> 
-            bir qutuda.
+              xüsusi <br />
+              səbətləri
+            </motion.span>
           </motion.h1>
           
+          {/* Enhanced Subtitle */}
           <motion.p 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-xl text-slate-500 max-w-2xl mx-auto font-medium leading-relaxed mb-8"
+            transition={{ delay: 0.4 }}
+            className="text-2xl text-slate-600 max-w-3xl mx-auto mb-12 leading-relaxed font-medium"
           >
-            Gədəbəyin hündür yaylaqlarından və təmiz təbiətindən ilhamlanaraq yığılmış, 
-            hər bir detalı düşünülmüş özəl hədiyyəlik və ailəvi səbətlər.
+            Murovdağ silsiləsinin yüksək yaylaqlarından birbaşa sizə — <br />
+            <span className="text-emerald-600 font-bold">heç bir qatqı və konservant olmadan</span>
           </motion.p>
 
           {/* Live Stats */}
-          <div className="flex flex-wrap items-center justify-center gap-4 mb-8">
-            <LiveViewCounter />
-            <SocialProofTicker />
-            <CountdownTimer />
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="flex flex-wrap items-center justify-center gap-6"
+          >
+            <LiveCounter />
+            
+            <motion.div
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 3, repeat: Infinity }}
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 text-white px-6 py-3 rounded-full text-sm font-bold shadow-lg"
+            >
+              <Users className="w-4 h-4" />
+              <span>500+ xoşbəxt müştəri</span>
+            </motion.div>
+
+            <motion.div
+              animate={{ rotate: [0, 5, -5, 0] }}
+              transition={{ duration: 4, repeat: Infinity }}
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-full text-sm font-bold shadow-lg"
+            >
+              <Award className="w-4 h-4" />
+              <span>Premium keyfiyyət</span>
+            </motion.div>
+          </motion.div>
         </div>
+
+        {/* Decorative Elements */}
+        <motion.div
+          animate={{ y: [0, -20, 0] }}
+          transition={{ duration: 6, repeat: Infinity }}
+          className="absolute left-10 top-20 w-20 h-20 rounded-full bg-emerald-200/30 blur-2xl"
+        />
+        <motion.div
+          animate={{ y: [0, 20, 0] }}
+          transition={{ duration: 8, repeat: Infinity }}
+          className="absolute right-10 bottom-20 w-32 h-32 rounded-full bg-green-200/30 blur-3xl"
+        />
       </motion.section>
 
-      {/* Trust Stats */}
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-6 mb-16 relative z-10">
-        <TrustStat icon={Sunrise} value="Səhər Tezdən" label="Təzə Tədarük" color="bg-orange-100 text-orange-600" />
-        <TrustStat icon={ShieldCheck} value="100% Organik" label="Sertifikatlı" color="bg-emerald-100 text-emerald-600" />
-        <TrustStat icon={Truck} value="24 Saat" label="Çatdırılma" color="bg-blue-100 text-blue-600" />
+      {/* Premium Trust Badges */}
+      <div className="max-w-7xl mx-auto px-6 mb-20">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {[
+            { 
+              icon: ShieldCheck, 
+              label: "100% Təbii", 
+              desc: "Heç bir qatqı yoxdur", 
+              gradient: "from-emerald-500 to-green-500",
+              delay: 0 
+            },
+            { 
+              icon: Truck, 
+              label: "24 Saat", 
+              desc: "Sürətli çatdırılma", 
+              gradient: "from-blue-500 to-cyan-500",
+              delay: 0.1 
+            },
+            { 
+              icon: Mountain, 
+              label: "2200m", 
+              desc: "Yüksək dağlıq", 
+              gradient: "from-purple-500 to-pink-500",
+              delay: 0.2 
+            },
+            { 
+              icon: Heart, 
+              label: "Premium", 
+              desc: "Əla keyfiyyət", 
+              gradient: "from-red-500 to-orange-500",
+              delay: 0.3 
+            },
+          ].map((item, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: item.delay }}
+              whileHover={{ y: -8, scale: 1.02 }}
+              className="relative group"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-white to-slate-50 rounded-[2rem] shadow-xl group-hover:shadow-2xl transition-all" />
+              <div className="relative bg-white/60 backdrop-blur-sm p-8 rounded-[2rem] border border-white">
+                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${item.gradient} flex items-center justify-center text-white mb-5 shadow-lg group-hover:scale-110 transition-transform`}>
+                  <item.icon className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900 mb-2">{item.label}</h3>
+                <p className="text-sm text-slate-600 font-medium">{item.desc}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="max-w-7xl mx-auto px-6 mb-16 sticky top-24 z-20">
+      {/* Enhanced Filter Bar */}
+      <div className="max-w-7xl mx-auto px-6 mb-20 sticky top-6 z-30">
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white/80 backdrop-blur-xl border border-gray-200 rounded-[3rem] p-2 shadow-lg flex items-center gap-2 flex-wrap"
+          className="bg-white/90 backdrop-blur-2xl border border-gray-200/50 rounded-[3rem] p-3 shadow-2xl"
         >
-          {[
-            { key: "all", label: "Hamısı", icon: Package },
-            { key: "sahar", label: "Səhər", icon: Sunrise },
-            { key: "ramazan", label: "Ramazan", icon: Moon },
-            { key: "gedebey", label: "Gədəbəy", icon: Award },
-            { key: "novruz", label: "Novruz", icon: Sun },
-            { key: "trending", label: "Trend", icon: TrendingUp },
-            { key: "bestseller", label: "Populyar", icon: Flame },
-          ].map(item => (
-            <motion.button
-              key={item.key}
-              onClick={() => setFilter(item.key)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className={`flex items-center gap-2 px-6 py-3 rounded-[2rem] text-sm font-bold transition-all ${
-                filter === item.key
-                  ? "bg-emerald-600 text-white shadow-lg"
-                  : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              <item.icon className="w-4 h-4" />
-              {item.label}
-            </motion.button>
-          ))}
+          <div className="flex items-center gap-3 flex-wrap justify-center">
+            {[
+              { key: "all", label: "Hamısı", icon: Package, gradient: "from-slate-500 to-slate-600" },
+              { key: "sahar", label: "Səhər", icon: Sunrise, gradient: "from-amber-500 to-orange-500" },
+              { key: "gedebey", label: "Gədəbəy", icon: Mountain, gradient: "from-emerald-600 to-green-600" },
+              { key: "trending", label: "Trend", icon: TrendingUp, gradient: "from-red-500 to-pink-500" },
+              { key: "bestseller", label: "Bestseller", icon: Award, gradient: "from-amber-600 to-yellow-500" },
+              { key: "new", label: "Yeni", icon: Sparkles, gradient: "from-blue-500 to-cyan-500" },
+            ].map(item => (
+              <motion.button
+                key={item.key}
+                onClick={() => setFilter(item.key)}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className={`relative flex items-center gap-2 px-6 py-4 rounded-[2rem] text-sm font-bold transition-all overflow-hidden ${
+                  filter === item.key 
+                    ? "text-white shadow-xl" 
+                    : "text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {filter === item.key && (
+                  <motion.div
+                    layoutId="activeFilter"
+                    className={`absolute inset-0 bg-gradient-to-r ${item.gradient}`}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                  />
+                )}
+                <item.icon className={`w-5 h-5 relative z-10 ${filter === item.key ? 'animate-pulse' : ''}`} />
+                <span className="relative z-10">{item.label}</span>
+              </motion.button>
+            ))}
+          </div>
         </motion.div>
       </div>
 
-      {/* Baskets Grid */}
-      <div className="max-w-7xl mx-auto px-6 space-y-32 pb-40 relative z-10">
-        <AnimatePresence mode="wait">
-          {filteredBaskets.map((basket, idx) => (
-            <BasketShowcase 
-              key={basket.id} 
-              item={basket} 
-              index={idx} 
-              onAdd={addToCart}
-              isWishlisted={wishlist.includes(basket.id)}
-              onToggleWishlist={() => toggleWishlist(basket.id)}
-            />
-          ))}
-        </AnimatePresence>
+      {/* Products Grid with Enhanced Spacing */}
+      <div className="max-w-7xl mx-auto px-6 pb-32">
+        <motion.div 
+          layout
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
+        >
+          <AnimatePresence mode="wait">
+            {filteredBaskets.map((basket) => (
+              <BasketCard3D 
+                key={basket.id} 
+                item={basket} 
+                onAdd={handleAddToCart} 
+              />
+            ))}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Empty State */}
+        {filteredBaskets.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center py-20"
+          >
+            <Package className="w-20 h-20 text-slate-300 mx-auto mb-6" />
+            <h3 className="text-2xl font-black text-slate-400 mb-2">Məhsul tapılmadı</h3>
+            <p className="text-slate-500">Bu kateqoriyada hələ məhsul yoxdur</p>
+          </motion.div>
+        )}
       </div>
 
-      {/* CTA Section */}
-      <section className="bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 py-32 relative overflow-hidden">
+      {/* Premium CTA Section with Village Atmosphere */}
+      <section className="relative bg-gradient-to-br from-slate-900 via-emerald-900 to-slate-900 py-32 overflow-hidden">
+        {/* Animated Background Pattern */}
         <motion.div
-          animate={{
+          animate={{ 
             backgroundPosition: ["0% 0%", "100% 100%"],
           }}
           transition={{ duration: 20, repeat: Infinity, repeatType: "reverse" }}
           className="absolute inset-0 opacity-10"
           style={{
-            backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
-            backgroundSize: "50px 50px",
+            backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
+            backgroundSize: "60px 60px",
           }}
         />
-        
-        <div className="max-w-4xl mx-auto text-center px-6 relative z-10">
-          <motion.div
-            initial={{ scale: 0 }}
-            whileInView={{ scale: 1 }}
+
+        <div className="max-w-5xl mx-auto text-center px-6 relative z-10">
+          <motion.div 
+            initial={{ scale: 0, rotate: -180 }} 
+            whileInView={{ scale: 1, rotate: 0 }} 
             transition={{ type: "spring", stiffness: 200 }}
+            viewport={{ once: true }}
+            className="inline-block mb-8"
           >
-            <Leaf className="w-16 h-16 text-emerald-400 mx-auto mb-8" />
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center shadow-2xl">
+              <Leaf className="w-12 h-12 text-white" />
+            </div>
           </motion.div>
           
           <motion.h2 
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            className="text-4xl md:text-6xl font-black text-white mb-8 tracking-tight"
+            viewport={{ once: true }}
+            className="text-5xl md:text-7xl font-black text-white mb-8 leading-tight"
           >
-            Səbətinizi Özünüz Yığın?
+            Xüsusi Sifarişlər <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-400">
+              Sizin Üçün
+            </span>
           </motion.h2>
           
           <motion.p 
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="text-slate-300 text-lg mb-12 leading-loose"
+            className="text-xl text-slate-300 max-w-3xl mx-auto mb-12 leading-relaxed"
           >
-            Hazır seçimlərimiz kifayət etmirsə, bizimlə əlaqə saxlayaraq öz büdcənizə və zövqünüzə 
-            uyğun xüsusi tərkibli səbət sifariş edə bilərsiniz.
+            Hazır seçimlərimiz kifayət etmirsə, öz büdcənizə və zövqünüzə uyğun 
+            <span className="text-emerald-400 font-bold"> xüsusi səbət </span>
+            sifariş edə bilərsiniz. Kənd təravətini hiss edin! 🌾
           </motion.p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-            <motion.button 
-              whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(16, 185, 129, 0.4)" }}
+            <motion.a
+              href="tel:+994775878588"
+              whileHover={{ scale: 1.05, y: -3 }}
               whileTap={{ scale: 0.95 }}
-              className="bg-emerald-600 text-white px-12 py-5 rounded-3xl font-black text-sm uppercase tracking-widest shadow-2xl flex items-center gap-3"
+              className="group flex items-center gap-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white px-10 py-5 rounded-[2rem] font-black text-base uppercase shadow-2xl hover:shadow-emerald-500/50 transition-all"
             >
-              <MessageCircle className="w-5 h-5" />
-              Məsləhətçi ilə Əlaqə
-            </motion.button>
+              <Phone className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+              Zəng Et
+              <motion.span
+                animate={{ x: [0, 5, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              >
+                →
+              </motion.span>
+            </motion.a>
             
-            <motion.button 
-              whileHover={{ scale: 1.05 }}
+            <motion.button
+              whileHover={{ scale: 1.05, y: -3 }}
               whileTap={{ scale: 0.95 }}
-              className="border-2 border-white/30 text-white px-12 py-5 rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-white/10 transition flex items-center gap-3"
+              className="flex items-center gap-3 border-2 border-white/30 text-white px-10 py-5 rounded-[2rem] font-black text-base uppercase hover:bg-white/10 hover:border-white/50 transition-all shadow-xl"
             >
-              <Gift className="w-5 h-5" />
+              <Gift className="w-6 h-6" />
               Hədiyyə Səbəti
             </motion.button>
+          </div>
+
+          {/* Trust Micro-Indicators */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4 }}
+            className="flex items-center justify-center gap-8 mt-12 text-slate-400 text-sm"
+          >
+            <div className="flex items-center gap-2">
+              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+              <span>4.9/5 reytinq</span>
+            </div>
+            <div className="w-px h-4 bg-slate-600" />
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-emerald-400" />
+              <span>500+ müştəri</span>
+            </div>
+            <div className="w-px h-4 bg-slate-600" />
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-green-400" />
+              <span>Təhlükəsiz ödəniş</span>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Decorative Blur Elements */}
+        <div className="absolute top-20 left-20 w-64 h-64 bg-emerald-500/20 rounded-full blur-[100px]" />
+        <div className="absolute bottom-20 right-20 w-96 h-96 bg-green-500/20 rounded-full blur-[120px]" />
+      </section>
+
+      {/* Social Proof Section */}
+      <section className="py-20 px-6">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <h3 className="text-4xl font-black text-slate-900 mb-4">
+              Müştərilərimiz nə deyir?
+            </h3>
+            <p className="text-slate-600">Real rəylər, real insanlar</p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { name: "Aynur H.", text: "Gədəbəy səbətini aldım və ailəmlə birlikdə çox bəyəndik. Hər şey təzə və dad əla idi!", rating: 5 },
+              { name: "Rəşad M.", text: "Premium paket heyrətamizdir! Qonaqlarımıza təqdim etdim, hamı çox bəyəndi.", rating: 5 },
+              { name: "Leyla S.", text: "Təbii məhsulları sevənlər üçün ideal. Çatdırılma da çox sürətli oldu.", rating: 5 },
+            ].map((review, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                whileHover={{ y: -5 }}
+                className="bg-white p-8 rounded-3xl shadow-lg border border-emerald-100"
+              >
+                <div className="flex gap-1 mb-4">
+                  {[...Array(review.rating)].map((_, i) => (
+                    <Star key={i} className="w-5 h-5 text-amber-400 fill-amber-400" />
+                  ))}
+                </div>
+                <p className="text-slate-700 mb-4 leading-relaxed">"{review.text}"</p>
+                <p className="text-sm font-bold text-emerald-600">— {review.name}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
     </div>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* BASKET SHOWCASE                                                            */
-/* -------------------------------------------------------------------------- */
-/* BASKET SHOWCASE                                                            */
-/* -------------------------------------------------------------------------- */
-
-const BasketShowcase = ({
-  item,
-  index,
-  onAdd,
-  isWishlisted,
-  onToggleWishlist,
-}: {
-  item: BasketItem;
-  index: number;
-  onAdd: (data: any) => void;
-  isWishlisted: boolean;
-  onToggleWishlist: () => void;
-}) => {
-  const [variant, setVariant] = useState<BasketVariant>("standard");
-  const [qty, setQty] = useState(1);
-  const [showInfo, setShowInfo] = useState(false);
-
-  // BUG FIX: variant dəyişəndə quantity reset
-  useEffect(() => {
-    setQty(1);
-  }, [variant]);
-
-  const variantData = item.variants[variant];
-  const price = variantData.price * qty;
-  const hasDiscount = variantData.originalPrice && variantData.originalPrice > variantData.price;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 80 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, delay: index * 0.05 }}
-      viewport={{ once: true }}
-      className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center"
-    >
-      {/* IMAGE SIDE */}
-      <motion.div
-        whileHover={{ scale: 1.02 }}
-        className="relative rounded-[3rem] overflow-hidden shadow-2xl"
-      >
-        <motion.img
-          src={item.media[0].src}
-          alt={item.name}
-          whileHover={{ scale: 1.08 }}
-          transition={{ duration: 0.8 }}
-          className="w-full h-[420px] object-cover"
-        />
-
-        {/* BADGES */}
-        <div className="absolute top-6 left-6 flex gap-2">
-          {item.bestseller && (
-            <span className="bg-amber-500 text-white px-4 py-1 rounded-full text-xs font-black">
-              Bestseller
-            </span>
-          )}
-          {item.new && (
-            <span className="bg-emerald-600 text-white px-4 py-1 rounded-full text-xs font-black">
-              Yeni
-            </span>
-          )}
-          {item.trending && (
-            <span className="bg-red-500 text-white px-4 py-1 rounded-full text-xs font-black">
-              Trend
-            </span>
-          )}
-        </div>
-
-        {/* ACTIONS */}
-        <div className="absolute top-6 right-6 flex flex-col gap-3">
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={onToggleWishlist}
-            className={`w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-md ${
-              isWishlisted ? "bg-red-500 text-white" : "bg-white/80"
-            }`}
-          >
-            <Heart className="w-5 h-5" />
-          </motion.button>
-
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => setShowInfo(true)}
-            className="w-11 h-11 rounded-full bg-white/80 flex items-center justify-center backdrop-blur-md"
-          >
-            <Info className="w-5 h-5" />
-          </motion.button>
-        </div>
-      </motion.div>
-
-      {/* CONTENT SIDE */}
-      <div className="space-y-8">
-        <div>
-          <h3 className="text-4xl font-black text-slate-900 mb-3">
-            {item.name}
-          </h3>
-          <p className="text-slate-500 text-lg leading-relaxed">
-            {item.description}
-          </p>
-        </div>
-
-        {/* VARIANT SELECT */}
-        <div className="flex bg-slate-100 rounded-full p-1 w-fit">
-          {(["econom", "standard", "premium"] as BasketVariant[]).map(v => (
-            <motion.button
-              key={v}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setVariant(v)}
-              className={`px-6 py-3 rounded-full text-xs font-black uppercase transition ${
-                variant === v
-                  ? "bg-emerald-600 text-white shadow"
-                  : "text-slate-500"
-              }`}
-            >
-              {v}
-            </motion.button>
-          ))}
-        </div>
-
-        {/* CONTENTS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {variantData.contents.map((c, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 text-sm text-slate-700"
-            >
-              <Check className="w-4 h-4 text-emerald-600" />
-              {c}
-            </div>
-          ))}
-
-          {variantData.extras?.map((e, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 text-sm text-emerald-700 font-semibold"
-            >
-              <Sparkles className="w-4 h-4" />
-              {e}
-            </div>
-          ))}
-        </div>
-
-        {/* PRICE + QTY */}
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-4xl font-black text-emerald-600">
-              {price} AZN
-            </div>
-            {hasDiscount && (
-              <div className="text-sm text-slate-400 line-through">
-                {variantData.originalPrice} AZN
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setQty(q => Math.max(1, q - 1))}
-              className="w-10 h-10 rounded-full bg-slate-200 font-black"
-            >
-              −
-            </motion.button>
-            <span className="font-black text-lg w-6 text-center">
-              {qty}
-            </span>
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setQty(q => q + 1)}
-              className="w-10 h-10 rounded-full bg-emerald-200 text-emerald-800 font-black"
-            >
-              +
-            </motion.button>
-          </div>
-        </div>
-
-        {/* CTA */}
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() =>
-            onAdd({
-              id: `${item.id}-${variant}`,
-              name: item.name,
-              price: variantData.price,
-              quantity: qty,
-              image: item.media[0].src,
-            })
-          }
-          className="w-full bg-gradient-to-r from-emerald-600 to-green-600 text-white py-5 rounded-3xl font-black text-lg flex items-center justify-center gap-3 shadow-xl"
-        >
-          <ShoppingCart className="w-5 h-5" />
-          Səbətə əlavə et
-        </motion.button>
-      </div>
-
-      {/* INFO MODAL */}
-      <AnimatePresence>
-        {showInfo && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowInfo(false)}
-              className="fixed inset-0 bg-black/60 z-[80]"
-            />
-
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              className="fixed inset-0 z-[90] flex items-center justify-center px-6"
-            >
-              <div className="bg-white rounded-[3rem] max-w-xl w-full p-10 space-y-6 relative">
-                <button
-                  onClick={() => setShowInfo(false)}
-                  className="absolute top-6 right-6"
-                >
-                  <X />
-                </button>
-
-                <h4 className="text-3xl font-black">{item.name}</h4>
-                <p className="text-slate-500">{item.description}</p>
-
-                {item.reviews && (
-                  <div className="flex items-center gap-3">
-                    <Star className="text-amber-400" />
-                    <span className="font-bold">
-                      {item.reviews.rating} / 5 ({item.reviews.count} rəy)
-                    </span>
-                  </div>
-                )}
-
-                {item.stock && <StockTicker stock={item.stock} />}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-};

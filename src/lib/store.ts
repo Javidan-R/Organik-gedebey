@@ -38,45 +38,49 @@ import {
 import { Product } from '@/types/products';
 import { Order, OrderStatus } from '@/types/orders';
 
-// =====================
-// ID generator
-// =====================
+// ═══════════════════════════════════════════════════════════════════════════
+// API BRIDGE — Server store ilə sinxronizasiya (fire-and-forget)
+// ═══════════════════════════════════════════════════════════════════════════
+function apiBridge(method: string, url: string, body?: unknown) {
+  if (typeof window === 'undefined') return;
+  
+  fetch(url, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  })
+    .then(res => {
+      if (!res.ok) {
+        console.warn(`[API Bridge] ${method} ${url} failed:`, res.status);
+      }
+    })
+    .catch(err => {
+      console.warn(`[API Bridge] ${method} ${url} error:`, err.message);
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ID Generator
+// ═══════════════════════════════════════════════════════════════════════════
 export function cryptoId(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
+    : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-// Yeni util: SSR üçün təhlükəsiz ID
 export function cryptoIdSafe(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2);
+  return cryptoId();
 }
 
-// =====================
-// Slug helper-lər
-// =====================
-
-// Azərbaycan əlifbasını normalizə edən slugify
+// ═══════════════════════════════════════════════════════════════════════════
+// Slug Helpers
+// ═══════════════════════════════════════════════════════════════════════════
 export function slugifyProductSlug(input: string): string {
   if (!input) return 'product';
   const charMap: Record<string, string> = {
-    ə: 'e',
-    Ə: 'e',
-    ö: 'o',
-    Ö: 'o',
-    ü: 'u',
-    Ü: 'u',
-    ğ: 'g',
-    Ğ: 'g',
-    ç: 'c',
-    Ç: 'c',
-    ş: 's',
-    Ş: 's',
-    ı: 'i',
-    İ: 'i',
+    ə: 'e', Ə: 'e', ö: 'o', Ö: 'o', ü: 'u', Ü: 'u',
+    ğ: 'g', Ğ: 'g', ç: 'c', Ç: 'c', ş: 's', Ş: 's',
+    ı: 'i', İ: 'i',
   };
   const normalized = input
     .trim()
@@ -84,8 +88,8 @@ export function slugifyProductSlug(input: string): string {
     .map((ch) => charMap[ch] ?? ch)
     .join('')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-') // hər şey → tire
-    .replace(/^-+|-+$/g, ''); // baş/son tirləri sil
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
   return normalized || 'product';
 }
 
@@ -107,9 +111,9 @@ function ensureUniqueSlug(
   return slug;
 }
 
-// =====================
-// Premium Store Event tipi (log üçün)
-// =====================
+// ═══════════════════════════════════════════════════════════════════════════
+// Store Event Type
+// ═══════════════════════════════════════════════════════════════════════════
 export type StoreEvent = {
   id: string;
   type: 'order' | 'stock' | 'product' | 'system' | 'cart';
@@ -118,9 +122,9 @@ export type StoreEvent = {
   meta?: Record<string, unknown>;
 };
 
-// =====================
-// App State tipi
-// =====================
+// ═══════════════════════════════════════════════════════════════════════════
+// App State Type — FULL TYPE DEFINITIONS
+// ═══════════════════════════════════════════════════════════════════════════
 export type AppState = {
   storefrontConfig: StorefrontConfig & {
     locale: string;
@@ -138,17 +142,11 @@ export type AppState = {
   coupons: Coupon[];
   expenses: Expense[];
   adminUIState: AdminUIState;
-
-  // Premium event log
   events: StoreEvent[];
-
-  // Hydration flag
   _hasHydrated: boolean;
   markHydrated: () => void;
 
-  // =====================
-  // SELECTORS
-  // =====================
+  // ═══ SELECTORS ═══
   cartTotal: () => number;
   productPriceNow: (p: Product, v?: Variant) => number;
   productRatingAvg: (p: Product) => number;
@@ -164,12 +162,10 @@ export type AppState = {
     sort?: 'price_asc' | 'price_desc' | 'rating' | 'newest',
   ) => Product[];
   couponIsValid: (code: string, total: number) => Coupon | undefined;
-
-  // PREMIUM SELECTORS (əlavə funksionallıq)
-  cartItemCount: () => number; // səbətdə ümumi ədəd
-  cartLineCount: () => number; // səbətdə neçə sətir var
+  cartItemCount: () => number;
+  cartLineCount: () => number;
   notificationsUnreadCount: () => number;
-  lowStockAlerts: (limit?: number) => Product[]; // aşağı stoklu məhsullar
+  lowStockAlerts: (limit?: number) => Product[];
   recentOrders: (limit?: number) => Order[];
   topSellingProducts: (limit?: number) => Product[];
   dailySalesTotal: (isoDate: string) => number;
@@ -182,114 +178,92 @@ export type AppState = {
     productsOnSaleCount: number;
   };
 
-  // =====================
-  // ACTIONS: Categories
-  // =====================
+  // ═══ ACTIONS: Categories ═══
   addCategory: (c: Category) => void;
   updateCategory: (c: Category) => void;
+  deleteCategory: (id: ID) => void;
   archiveCategory: (id: ID) => void;
   unarchiveCategory: (id: ID) => void;
 
-  // =====================
-  // ACTIONS: Products
-  // =====================
+  // ═══ ACTIONS: Products ═══
   addProduct: (p: Product) => void;
   updateProduct: (p: Product) => void;
   deleteProduct: (id: ID) => void;
   archiveProduct: (id: ID) => void;
   unarchiveProduct: (id: ID) => void;
-  // ƏLAVƏ EDİLDİ: ProductCard üçün bir toggle funksiyası
   toggleProductArchived: (id: ID, archive: boolean) => void;
   updateProductTags: (id: ID, tags: string[]) => void;
   updateProductAttributes: (id: ID, attributes: Product['attributes']) => void;
   updateProductImageAltText: (id: ID, url: string, alt: string) => void;
 
-  // =====================
-  // ACTIONS: Reviews
-  // =====================
+  // ═══ ACTIONS: Reviews ═══
   submitReview: (r: Review) => void;
   approveReview: (pid: ID, rid: ID) => void;
   deleteReview: (pid: ID, rid: ID) => void;
   unapproveReview: (pid: ID, rid: ID) => void;
 
-  // =====================
-  // ACTIONS: Inventory & Finance
-  // =====================
+  // ═══ ACTIONS: Inventory & Finance ═══
   adjustStock: (productId: ID, delta: number, variantId: ID) => void;
   adjustMinStock: (productId: ID, minStock: number) => void;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   removeExpense: (id: ID) => void;
 
-  // =====================
-  // UX
-  // =====================
+  // ═══ UX ═══
   toggleFavorite: (pid: ID) => void;
   isFavorite: (pid: ID) => boolean;
   setLocale: (locale: string) => void;
 
-  // =====================
-  // Cart / Orders
-  // =====================
+  // ═══ Cart / Orders ═══
   addToCart: (pid: ID, vid?: ID, qty?: number) => void;
   removeFromCart: (pid: ID, vid?: ID) => void;
-  // ƏLAVƏ EDİLDİ: Səbətdəki məhsul sayını dəyişdirmək
   updateCartItemQty: (pid: ID, vid: ID | undefined, qty: number) => void;
-  // ƏLAVƏ EDİLDİ: Səbətdən elementi tam çıxarmaq (eyni məqsədli, lakin daha aydın adlandırma)
   removeCartItem: (pid: ID, vid: ID | undefined) => void;
   clearCart: () => void;
   placeOrder: (o: Order) => void;
   updateOrderStatus: (id: ID, status: OrderStatus) => void;
+  cancelOrder: (id: ID, reason?: string) => void;
+  assignDelivery: (orderId: ID, courierId: ID) => void;
 
-  // =====================
-  // Coupons
-  // =====================
+  // ═══ Coupons ═══
   addCoupon: (coupon: Omit<Coupon, 'id'>) => void;
   updateCoupon: (coupon: Coupon) => void;
   deleteCoupon: (id: ID) => void;
 
-  // =====================
-  // Admin config
-  // =====================
+  // ═══ Admin config ═══
   updateStorefrontConfig: (
     config: Partial<
       StorefrontConfig & { vatRate: number; contactEmail: string; locale: string }
     >,
   ) => void;
-
-  // Mövcud API-ni saxlayırıq:
   setAdminUIState: (state: Partial<AdminUIState>) => void;
-
-  // ✨ YENİ: AdminSettingsPage-in çağırdığı updateAdminUIState
   updateAdminUIState: (state: Partial<AdminUIState>) => void;
 
-  // =====================
-  // Notifications & Events
-  // =====================
+  // ═══ Notifications & Events ═══
   notify: (payload: Omit<Notification, 'id' | 'createdAt' | 'read'>) => void;
   markNotificationRead: (id: ID) => void;
   markAllNotificationsRead: () => void;
   logEvent: (payload: Omit<StoreEvent, 'id' | 'createdAt'> & { createdAt?: string }) => void;
 
-  // =====================
-  // Chat
-  // =====================
+  // ═══ Chat ═══
   sendChat: (m: ChatMessage) => void;
 
-  // =====================
-  // Analytics
-  // =====================
+  // ═══ Analytics ═══
   analytics: () => ReturnType<typeof kpis>;
   kpis: (orders: Order[], products: Product[]) => ReturnType<typeof kpis>;
   finalPrice: (p: Product, v?: Variant) => number;
   variantFinalPrice: (p: Product, v: Variant) => number;
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Initial Config
+// ═══════════════════════════════════════════════════════════════════════════
 const initialStorefrontConfig: AppState['storefrontConfig'] = {
   primaryColor: '#16a34a',
   currency: 'AZN',
   locale: 'az-AZ',
   vatRate: 0.18,
   contactEmail: 'info@organikgedebey.az',
+  contactPhone: '+994773676021',
 };
 
 const initialAdminUIState: AdminUIState = {
@@ -298,12 +272,13 @@ const initialAdminUIState: AdminUIState = {
   lastVisited: new Date().toISOString(),
 };
 
-// =====================
-// STORE
-// =====================
+// ═══════════════════════════════════════════════════════════════════════════
+// STORE — MAIN STORE IMPLEMENTATION
+// ═══════════════════════════════════════════════════════════════════════════
 export const useApp = create<AppState>()(
   persist(
     (set, get) => ({
+      // ═══ INITIAL STATE ═══
       storefrontConfig: initialStorefrontConfig,
       categories: initialCategories,
       products: initialProducts,
@@ -313,34 +288,14 @@ export const useApp = create<AppState>()(
       chat: [],
       notifications: [],
       users: [],
-      coupons: [
-        {
-          id: cryptoId(),
-          code: 'SUMMER20',
-          discountType: 'percentage',
-          value: 20,
-          expiresAt: '2025-08-31',
-          minCartValue: 50,
-          isActive: true,
-        },
-        {
-          id: cryptoId(),
-          code: 'FREE5',
-          discountType: 'fixed',
-          value: 5,
-          expiresAt: '2025-12-31',
-          isActive: true,
-        },
-      ],
+      coupons: [],
       expenses: [],
       adminUIState: initialAdminUIState,
       events: [],
       _hasHydrated: false,
       markHydrated: () => set({ _hasHydrated: true }),
 
-      // =====================
-      // SELECTORS
-      // =====================
+      // ═══ SELECTORS ═══
       cartTotal: () =>
         get().cart.reduce((sum, item) => {
           const p = get().products.find((x) => x.id === item.productId);
@@ -348,10 +303,7 @@ export const useApp = create<AppState>()(
             p?.variants?.find((vv) => vv.id === item.variantId) ??
             p?.variants?.[0];
           if (!p || !v) return sum;
-          return (
-            sum +
-            calcVariantFinalPrice(p, v as Variant) * (item.qty || 1)
-          );
+          return sum + calcVariantFinalPrice(p, v as Variant) * (item.qty || 1);
         }, 0),
 
       productPriceNow: (p, v) => {
@@ -360,12 +312,9 @@ export const useApp = create<AppState>()(
       },
 
       productRatingAvg: (p) => avgRating(p),
-
       isDiscountActive: (p) => calcIsDiscountActive(p),
-
       productTotalStock: (p) => calcProductTotalStock(p),
 
-      // Slug selector – slug normalize olunmuş şəkildə
       productBySlug: (slug) => {
         const target = slugifyProductSlug(slug);
         return (get().products || []).find(
@@ -374,9 +323,7 @@ export const useApp = create<AppState>()(
       },
 
       productsByCategorySlug: (slug) => {
-        const category = (get().categories || []).find(
-          (c) => c.slug === slug,
-        );
+        const category = (get().categories || []).find((c) => c.slug === slug);
         if (!category) return [];
         return (get().products || []).filter(
           (p) => p.categoryId === category.id && !p.archived,
@@ -390,7 +337,7 @@ export const useApp = create<AppState>()(
 
       productsFeatured: () =>
         (get().products || []).filter(
-          (p) => !p.archived && p.featured,
+          (p) => !p.archived && (p.isFeatured || p.featured),
         ),
 
       productsFilterSearch: (query, categoryId, sort) => {
@@ -402,7 +349,7 @@ export const useApp = create<AppState>()(
           const inTags = (p.tags || []).some((t) =>
             t.toLowerCase().includes(q),
           );
-          const inDesc = p.description?.toLowerCase().includes(q); // FIX: description null ola bilər
+          const inDesc = p.description?.toLowerCase().includes(q);
           return !q || inName || inTags || inDesc;
         });
         if (categoryId) {
@@ -412,16 +359,10 @@ export const useApp = create<AppState>()(
           const sorted = [...filtered];
           switch (sort) {
             case 'price_asc':
-              sorted.sort(
-                (a, b) =>
-                  productDisplayPrice(a) - productDisplayPrice(b),
-              );
+              sorted.sort((a, b) => productDisplayPrice(a) - productDisplayPrice(b));
               break;
             case 'price_desc':
-              sorted.sort(
-                (a, b) =>
-                  productDisplayPrice(b) - productDisplayPrice(a),
-              );
+              sorted.sort((a, b) => productDisplayPrice(b) - productDisplayPrice(a));
               break;
             case 'rating':
               sorted.sort((a, b) => avgRating(b) - avgRating(a));
@@ -443,10 +384,7 @@ export const useApp = create<AppState>()(
         const now = new Date();
         const coupon = get()
           .coupons.filter((c) => c.isActive)
-          .find(
-            (c) =>
-              c.code.toLowerCase() === code.trim().toLowerCase(),
-          );
+          .find((c) => c.code.toLowerCase() === code.trim().toLowerCase());
         if (!coupon) return undefined;
         if (new Date(coupon.expiresAt) < now) return undefined;
         if (coupon.minCartValue && total < coupon.minCartValue) {
@@ -455,9 +393,6 @@ export const useApp = create<AppState>()(
         return coupon;
       },
 
-      // =====================
-      // PREMIUM SELECTORS
-      // =====================
       cartItemCount: () =>
         get().cart.reduce((sum, item) => sum + (item.qty || 0), 0),
 
@@ -486,10 +421,7 @@ export const useApp = create<AppState>()(
           });
         });
         return [...(get().products || [])]
-          .map((p) => ({
-            product: p,
-            qty: totals.get(p.id) || 0,
-          }))
+          .map((p) => ({ product: p, qty: totals.get(p.id) || 0 }))
           .sort((a, b) => b.qty - a.qty)
           .slice(0, limit)
           .map((x) => x.product);
@@ -498,21 +430,11 @@ export const useApp = create<AppState>()(
       dailySalesTotal: (isoDate) => {
         const target = new Date(isoDate).toDateString();
         return (get().orders || [])
-          .filter(
-            (o) => new Date(o.createdAt).toDateString() === target,
-          )
+          .filter((o) => new Date(o.createdAt).toDateString() === target)
           .reduce((sum, o) => sum + (o.total ?? 0), 0);
       },
-      resetDailySales: () => set(() => ({
-  cart: [],
-  orders: [],
-  dailyStats: {
-    totalSales: 0,
-    totalProfit: 0,
-    totalCustomers: 0,
-    itemsSold: {}
-  }
-})),
+
+      resetDailySales: () => set(() => ({ cart: [], orders: [] })),
 
       dashboardSummary: () => {
         const orders = get().orders || [];
@@ -528,13 +450,9 @@ export const useApp = create<AppState>()(
             revenueToday += total;
           }
         });
-        const avgOrderValue = orders.length
-          ? totalRevenue / orders.length
-          : 0;
-        const lowStockCount =
-          get().lowStockAlerts(9999).length || 0;
-        const productsOnSaleCount =
-          get().productsOnSale().length || 0;
+        const avgOrderValue = orders.length ? totalRevenue / orders.length : 0;
+        const lowStockCount = get().lowStockAlerts(9999).length || 0;
+        const productsOnSaleCount = get().productsOnSale().length || 0;
 
         return {
           totalRevenue,
@@ -545,18 +463,27 @@ export const useApp = create<AppState>()(
         };
       },
 
-      // =====================
-      // Categories
-      // =====================
-      addCategory: (c) =>
-        set((s) => ({ categories: [c, ...(s.categories || [])] })),
+      // ═══ CATEGORIES ═══
+      addCategory: (c) => {
+        apiBridge('POST', '/api/categories', c);
+        set((s) => ({ categories: [c, ...(s.categories || [])] }));
+      },
 
-      updateCategory: (c) =>
+      updateCategory: (c) => {
+        apiBridge('PATCH', `/api/categories/${c.id}`, c);
         set((s) => ({
           categories: (s.categories || []).map((x) =>
             x.id === c.id ? { ...x, ...c } : x,
           ),
-        })),
+        }));
+      },
+
+      deleteCategory: (id) => {
+        apiBridge('DELETE', `/api/categories/${id}`);
+        set((s) => ({
+          categories: (s.categories || []).filter((x) => x.id !== id),
+        }));
+      },
 
       archiveCategory: (id) =>
         set((s) => ({
@@ -572,96 +499,103 @@ export const useApp = create<AppState>()(
           ),
         })),
 
-      // =====================
-      // Products
-      // =====================
+      // ═══ PRODUCTS ═══
       addProduct: (p) =>
         set((s) => {
           const price = p.price ?? p.variants?.[0]?.price ?? 0;
           const existing = s.products || [];
-          const baseSlugSource =
-            (p.slug && p.slug.trim()) || p.name || '';
+          const baseSlugSource = (p.slug && p.slug.trim()) || p.name || '';
           const rawSlug = slugifyProductSlug(baseSlugSource);
-          const uniqueSlug = ensureUniqueSlug(
-            rawSlug,
-            existing,
-            p.id as ID,
-          );
+          const uniqueSlug = ensureUniqueSlug(rawSlug, existing, p.id as ID);
+          
           const normalized: Product = {
             ...p,
             slug: uniqueSlug,
             price,
             reviews: p.reviews ?? [],
-            // FIX: default dəyərləri təmin etmək
             minStock: p.minStock ?? 5,
             createdAt: p.createdAt ?? new Date().toISOString(),
           };
+
+          // ✅ API Bridge
+          apiBridge('POST', '/api/products', normalized);
+
+          console.log('[Store] addProduct:', normalized.name, normalized.id);
           return { products: [normalized, ...existing] };
         }),
 
       updateProduct: (p) =>
         set((s) => {
           const existing = s.products || [];
-          return {
-            products: existing.map((x) => {
-              if (x.id !== p.id) return x;
-              const merged: Product = {
-                ...(x as Product),
-                ...(p as Product),
-              };
-              const baseSlugSource =
-                (merged.slug && merged.slug.trim()) ||
-                p.slug?.trim() ||
-                merged.name ||
-                x.name ||
-                '';
-              const rawSlug = slugifyProductSlug(baseSlugSource);
-              merged.slug = ensureUniqueSlug(
-                rawSlug,
-                existing,
-                merged.id as ID,
-              );
-              if (merged.price == null) {
-                merged.price =
-                  merged.variants?.[0]?.price ??
-                  x.variants?.[0]?.price ??
-                  0; // FIX: default qiymət
-              }
-              // FIX: Tarix və review-lərin itməsinin qarşısını almaq
-              merged.createdAt = merged.createdAt ?? x.createdAt;
-              merged.reviews = merged.reviews ?? x.reviews ?? [];
+          const updated = existing.map((x) => {
+            if (x.id !== p.id) return x;
+            const merged: Product = { ...(x as Product), ...(p as Product) };
+            const baseSlugSource =
+              (merged.slug && merged.slug.trim()) ||
+              p.slug?.trim() ||
+              merged.name ||
+              x.name ||
+              '';
+            const rawSlug = slugifyProductSlug(baseSlugSource);
+            merged.slug = ensureUniqueSlug(rawSlug, existing, merged.id as ID);
+            if (merged.price == null) {
+              merged.price =
+                merged.variants?.[0]?.price ??
+                x.variants?.[0]?.price ??
+                0;
+            }
+            merged.createdAt = merged.createdAt ?? x.createdAt;
+            merged.reviews = merged.reviews ?? x.reviews ?? [];
+            return merged;
+          });
 
-              return merged;
-            }),
-          };
+          // ✅ API Bridge
+          const mergedProduct = updated.find((x) => x.id === p.id);
+          if (mergedProduct) {
+            apiBridge('PATCH', `/api/products/${p.id}`, mergedProduct);
+            console.log('[Store] updateProduct:', mergedProduct.name, mergedProduct.id);
+          }
+
+          return { products: updated };
         }),
 
-      deleteProduct: (id) =>
+      deleteProduct: (id) => {
+        apiBridge('DELETE', `/api/products/${id}`);
+        console.log('[Store] deleteProduct:', id);
         set((s) => ({
           products: (s.products || []).filter((x) => x.id !== id),
-        })),
+        }));
+      },
 
-      archiveProduct: (id) =>
+      archiveProduct: (id) => {
+        apiBridge('PATCH', `/api/products/${id}/archive`);
+        console.log('[Store] archiveProduct:', id);
         set((s) => ({
           products: (s.products || []).map((p) =>
             p.id === id ? { ...p, archived: true } : p,
           ),
-        })),
+        }));
+      },
 
-      unarchiveProduct: (id) =>
+      unarchiveProduct: (id) => {
+        apiBridge('PATCH', `/api/products/${id}/unarchive`);
+        console.log('[Store] unarchiveProduct:', id);
         set((s) => ({
           products: (s.products || []).map((p) =>
             p.id === id ? { ...p, archived: false } : p,
           ),
-        })),
+        }));
+      },
 
-      // ƏLAVƏ EDİLDİ: Arxiv statusunu dəyişdirmək üçün universal funksiya
-      toggleProductArchived: (id, archive) =>
+      toggleProductArchived: (id, archive) => {
+        const action = archive ? 'archive' : 'unarchive';
+        apiBridge('PATCH', `/api/products/${id}/${action}`);
         set((s) => ({
           products: (s.products || []).map((p) =>
             p.id === id ? { ...p, archived: archive } : p,
           ),
-        })),
+        }));
+      },
 
       updateProductTags: (id, tags) =>
         set((s) => ({
@@ -683,19 +617,15 @@ export const useApp = create<AppState>()(
             p.id === id
               ? {
                   ...p,
-                  images: (p.images || []).map((img) => {
-                    if (typeof img === 'string') return img;
-                    if (img.url === url) return { ...img, alt };
-                    return img;
-                  }),
+                  images: (p.images || []).map((img: any) =>
+                    img.url === url ? { ...img, alt } : img,
+                  ),
                 }
               : p,
           ),
         })),
 
-      // =====================
-      // Reviews
-      // =====================
+      // ═══ REVIEWS ═══
       submitReview: (r) =>
         set((s) => ({
           products: (s.products || []).map((p) =>
@@ -750,17 +680,13 @@ export const useApp = create<AppState>()(
             p.id === pid
               ? {
                   ...p,
-                  reviews: (p.reviews || []).filter(
-                    (r) => r.id !== rid,
-                  ),
+                  reviews: (p.reviews || []).filter((r) => r.id !== rid),
                 }
               : p,
           ),
         })),
 
-      // =====================
-      // Inventory & Finance
-      // =====================
+      // ═══ INVENTORY & FINANCE ═══
       adjustStock: (productId, delta, variantId) => {
         if (!variantId) return;
         set((s) => ({
@@ -770,10 +696,7 @@ export const useApp = create<AppState>()(
               v.id === variantId
                 ? {
                     ...v,
-                    stock: Math.max(
-                      0,
-                      Number(v.stock || 0) + delta,
-                    ),
+                    stock: Math.max(0, Number(v.stock || 0) + delta),
                   }
                 : v,
             );
@@ -785,25 +708,22 @@ export const useApp = create<AppState>()(
       adjustMinStock: (productId, minStock) =>
         set((s) => ({
           products: (s.products || []).map((p) =>
-            p.id === productId
-              ? { ...p, minStock: Math.max(0, minStock) }
-              : p,
+            p.id === productId ? { ...p, minStock: Math.max(0, minStock) } : p,
           ),
         })),
 
-      addExpense: (expense) =>
-        set((s) => ({
-          expenses: [{ ...expense, id: cryptoId() }, ...s.expenses],
-        })),
+      addExpense: (expense) => {
+        const full = { ...expense, id: cryptoId() };
+        apiBridge('POST', '/api/expenses', full);
+        set((s) => ({ expenses: [full, ...s.expenses] }));
+      },
 
-      removeExpense: (id) =>
-        set((s) => ({
-          expenses: s.expenses.filter((e) => e.id !== id),
-        })),
+      removeExpense: (id) => {
+        apiBridge('DELETE', `/api/expenses/${id}`);
+        set((s) => ({ expenses: s.expenses.filter((e) => e.id !== id) }));
+      },
 
-      // =====================
-      // UX
-      // =====================
+      // ═══ UX ═══
       toggleFavorite: (pid) =>
         set((s) => ({
           favorites: s.favorites.includes(pid)
@@ -818,27 +738,14 @@ export const useApp = create<AppState>()(
           storefrontConfig: { ...s.storefrontConfig, locale },
         })),
 
-
-// ...
-      // =====================
-      // Cart / Orders
-      // =====================
-      
-      addToCart: (pid, vid, qty) => // qty-nin default dəyərini ( = 1) funksiyadan çıxarırıq
+      // ═══ CART / ORDERS ═══
+      addToCart: (pid, vid, qty) =>
         set((s) => {
           const product = s.products.find((p) => p.id === pid);
-          
-          // Məhsulun minimum satıla bilən addım dəyərini tap (Əgər yoxdursa 1)
           const defaultStep = product?.quantityStep ?? 1;
-
-          // Əlavə ediləcək YEKUN miqdarı təyin et: ötürülən qty və ya defaultStep
-          // Qeyd: qty-nin default dəyəri funksiya imzasından çıxarıldı, ona görə burada ?? istifadə edilir.
-          const quantityToAdd = qty ?? defaultStep; 
-
-          // Variant ID-nin yoxlanılması və tapılması sadələşdirildi
+          const quantityToAdd = qty ?? defaultStep;
           const variantId = vid ?? product?.variants?.[0]?.id;
-          
-          // Məhsul mövcud deyilsə və ya variantı yoxdursa, state-i qaytar
+
           if (!product || !variantId || quantityToAdd <= 0) return s;
 
           const exist = s.cart.find(
@@ -849,60 +756,47 @@ export const useApp = create<AppState>()(
             return {
               cart: s.cart.map((c) =>
                 c === exist
-                  ? { ...c, qty: (c.qty || 0) + quantityToAdd } // qty-i quantityToAdd ilə əvəz etdik
+                  ? { ...c, qty: (c.qty || 0) + quantityToAdd }
                   : c,
               ),
             };
           }
-          
-          // Yeni məhsulu əlavə et
+
           return {
-            cart: [{ productId: pid, variantId, qty: quantityToAdd }, ...s.cart],
+            cart: [
+              { productId: pid, variantId, qty: quantityToAdd },
+              ...s.cart,
+            ],
           };
         }),
-// ...
 
-
-// ...
-      // ƏLAVƏ EDİLDİ: Səbətdəki məhsul sayını dəyişdirmək
       updateCartItemQty: (pid, vid, qty) =>
         set((s) => {
-          // Axtarılacaq elementi bir dəfə tapırıq
           const existingItem = s.cart.find(
             (c) => c.productId === pid && c.variantId === vid,
           );
-          
-          if (!existingItem) return s; // Əgər element yoxdursa, heç nə etmə
+
+          if (!existingItem) return s;
 
           if (qty <= 0) {
-            // Əgər say 0 və ya daha azdırsa, elementi səbətdən çıxar (filter istifadə edilir)
             return {
-              cart: s.cart.filter(c => c !== existingItem), // Tapılmış elementi çıxarmaq
+              cart: s.cart.filter((c) => c !== existingItem),
             };
           }
-          
-          // Sayı yenilə
+
           return {
             cart: s.cart.map((c) =>
-              c === existingItem
-                ? { ...c, qty } // Sayı birbaşa yenilə
-                : c,
+              c === existingItem ? { ...c, qty } : c,
             ),
           };
         }),
-// ...
 
-      // Bu funksiya əslində 'removeFromCart' ilə eynidir, lakin adı daha aydındır
       removeFromCart: (pid, vid) => get().removeCartItem(pid, vid),
 
       removeCartItem: (pid, vid) =>
         set((s) => ({
           cart: s.cart.filter(
-            (c) =>
-              !(
-                c.productId === pid &&
-                (!vid || c.variantId === vid)
-              ),
+            (c) => !(c.productId === pid && (!vid || c.variantId === vid)),
           ),
         })),
 
@@ -912,32 +806,31 @@ export const useApp = create<AppState>()(
         set((s) => {
           const items = o.items.map((it) => ({
             ...it,
-            costAtOrder:
-              it.costAtOrder ?? it.priceAtOrder * 0.6,
+            costAtOrder: it.costAtOrder ?? it.priceAtOrder * 0.6,
           }));
+
           const products = (s.products || []).map((p) => {
-            const lineItems = items.filter(
-              (i) => i.productId === p.id,
-            );
+            const lineItems = items.filter((i) => i.productId === p.id);
             if (!lineItems.length) return p;
             return {
               ...p,
               variants: (p.variants || []).map((v) => {
-                const li = lineItems.find(
-                  (i) => i.variantId === v.id,
-                );
+                const li = lineItems.find((i) => i.variantId === v.id);
                 if (!li) return v;
                 return {
                   ...v,
-                  stock: Math.max(
-                    0,
-                    Number(v.stock || 0) - li.qty,
-                  ),
+                  stock: Math.max(0, Number(v.stock || 0) - li.qty),
                 };
               }),
             };
           });
+
           const orderSaved: Order = { ...o, items };
+
+          // ✅ API Bridge
+          apiBridge('POST', '/api/orders', orderSaved);
+          console.log('[Store] placeOrder:', orderSaved.id);
+
           return {
             products,
             orders: [orderSaved, ...s.orders],
@@ -956,16 +849,46 @@ export const useApp = create<AppState>()(
           };
         }),
 
-      updateOrderStatus: (id, status) =>
+      updateOrderStatus: (id, status) => {
+        apiBridge('PATCH', `/api/orders/${id}`, { status });
         set((s) => ({
-          orders: s.orders.map((o) =>
-            o.id === id ? { ...o, status } : o,
-          ),
-        })),
+          orders: s.orders.map((o) => (o.id === id ? { ...o, status } : o)),
+        }));
+      },
 
-      // =====================
-      // Coupons
-      // =====================
+      cancelOrder: (id, reason) => {
+        apiBridge('PATCH', `/api/orders/${id}`, {
+          status: 'cancelled',
+          cancelReason: reason,
+        });
+        set((s) => ({
+          orders: (s.orders || []).map((o) =>
+            o.id === id
+              ? {
+                  ...o,
+                  status: 'cancelled' as OrderStatus,
+                  cancelReason: reason,
+                }
+              : o,
+          ),
+        }));
+      },
+
+      assignDelivery: (orderId, courierId) => {
+        apiBridge('PATCH', `/api/orders/${orderId}`, {
+          courierId,
+          status: 'delivering',
+        });
+        set((s) => ({
+          orders: (s.orders || []).map((o) =>
+            o.id === orderId
+              ? { ...o, courierId, status: 'delivering' as OrderStatus }
+              : o,
+          ),
+        }));
+      },
+
+      // ═══ COUPONS ═══
       addCoupon: (coupon) =>
         set((s) => ({
           coupons: [
@@ -976,9 +899,7 @@ export const useApp = create<AppState>()(
 
       updateCoupon: (coupon) =>
         set((s) => ({
-          coupons: s.coupons.map((c) =>
-            c.id === coupon.id ? coupon : c,
-          ),
+          coupons: s.coupons.map((c) => (c.id === coupon.id ? coupon : c)),
         })),
 
       deleteCoupon: (id) =>
@@ -986,9 +907,7 @@ export const useApp = create<AppState>()(
           coupons: s.coupons.filter((c) => c.id !== id),
         })),
 
-      // =====================
-      // Admin config
-      // =====================
+      // ═══ ADMIN CONFIG ═══
       updateStorefrontConfig: (config) =>
         set((s) => ({
           storefrontConfig: {
@@ -997,7 +916,6 @@ export const useApp = create<AppState>()(
           },
         })),
 
-      // Köhnə API (Admin Layout və s üçün)
       setAdminUIState: (state) =>
         set((s) => ({
           adminUIState: {
@@ -1007,7 +925,6 @@ export const useApp = create<AppState>()(
           },
         })),
 
-      // YENİ: AdminSettingsPage üçün daha aydın ad (amma eyni işi görür)
       updateAdminUIState: (state) =>
         set((s) => ({
           adminUIState: {
@@ -1017,9 +934,7 @@ export const useApp = create<AppState>()(
           },
         })),
 
-      // =====================
-      // Notifications & Events
-      // =====================
+      // ═══ NOTIFICATIONS & EVENTS ═══
       notify: (payload) =>
         set((s) => ({
           notifications: [
@@ -1055,13 +970,10 @@ export const useApp = create<AppState>()(
             ...payload,
           };
           const next = [event, ...s.events];
-          // Son 100 event saxlayırıq
           return { events: next.slice(0, 100) };
         }),
 
-      // =====================
-      // Chat
-      // =====================
+      // ═══ CHAT ═══
       sendChat: (m) =>
         set((s) => ({
           chat: [...s.chat, m],
@@ -1078,11 +990,8 @@ export const useApp = create<AppState>()(
           ],
         })),
 
-      // =====================
-      // Analytics helpers
-      // =====================
+      // ═══ ANALYTICS ═══
       analytics: () => kpis(get().orders, get().products || []),
-
       kpis: (orders, products) => kpis(orders, products),
 
       finalPrice: (p, v) => {
@@ -1095,25 +1004,38 @@ export const useApp = create<AppState>()(
     {
       name: 'organik-gedebey-store',
       storage: createJSONStorage(() =>
-        typeof window !== 'undefined'
-          ? window.localStorage
-          : undefined,
+        typeof window !== 'undefined' ? window.localStorage : undefined,
       ),
-      // Hydration bitəndə _hasHydrated = true
       onRehydrateStorage: () => (state, error) => {
         if (!error && state && typeof state.markHydrated === 'function') {
           state.markHydrated();
+          console.log('[Store] Hydrated with', state.products.length, 'products');
         }
       },
+      partialize: (s) => ({
+        products: s.products,
+        categories: s.categories,
+        orders: s.orders,
+        cart: s.cart,
+        favorites: s.favorites,
+        users: s.users,
+        coupons: s.coupons,
+        expenses: s.expenses,
+        storefrontConfig: s.storefrontConfig,
+        adminUIState: s.adminUIState,
+      }),
     },
   ),
 );
 
-// Hydration hook
-export const useHasHydrated = () =>
-  useApp((state) => state._hasHydrated);
+// ═══════════════════════════════════════════════════════════════════════════
+// Hydration Hook
+// ═══════════════════════════════════════════════════════════════════════════
+export const useHasHydrated = () => useApp((state) => state._hasHydrated);
 
-// Utility exportlar
+// ═══════════════════════════════════════════════════════════════════════════
+// Utility Exports
+// ═══════════════════════════════════════════════════════════════════════════
 export {
   calcFinalPrice as finalPrice,
   calcVariantFinalPrice as variantFinalPrice,

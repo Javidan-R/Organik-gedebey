@@ -79,6 +79,8 @@ export type Product = {
     categoryId: ID;
     tags: string[];
     metaTitle?: string;
+    image?:string;
+    isNew?:string;
     // DÜZƏLİŞ: Şəkil tipləri daha ətraflı olmalıdır (alt-text üçün)
     images: ProductImage[];
     video?: string;

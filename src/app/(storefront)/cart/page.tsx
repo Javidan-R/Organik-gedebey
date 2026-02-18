@@ -105,7 +105,7 @@ export default function CartPage() {
         .join('\n') +
       `\n\n*Yekun Məbləğ:* ${total.toFixed(2)} AZN\n\nSifarişə davam etmək istəyirəm.`
 
-    window.open(whatsappLink('994775878588', text), '_blank')
+    window.open(whatsappLink('994773676021', text), '_blank')
   }
 
   const toSystem = () => {
@@ -122,15 +122,33 @@ export default function CartPage() {
         priceAtOrder: productPriceNow(p!, v),
       }
     })
+const vatRate = 0.18
+const vatAmount = total * vatRate
 
-    placeOrder({
-      id: crypto.randomUUID(),
-      customerName: 'Anonim Müştəri',
-      channel: 'system',
-      items,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    })
+placeOrder({
+  id: crypto.randomUUID(),
+  createdAt: new Date().toISOString(),
+  status: 'pending',
+  channel: 'system',
+
+  customerName: 'Anonim Müştəri',
+  customerPhone: '',
+  address: '',
+  note: '',
+
+  items,
+
+  paymentMethod: 'cash',
+  cashAmount: total,
+  cardAmount: 0,
+
+  total,
+  totalAmount: total + vatAmount,
+  vatAmount,
+
+  shippingAddress: '',
+})
+
 
     clearCart()
     toast.success('Sifariş qəbul edildi! Təşəkkür edirik.')

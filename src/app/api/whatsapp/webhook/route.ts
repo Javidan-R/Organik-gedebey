@@ -1,33 +1,34 @@
-import { NextResponse } from 'next/server';
-import { WhatsQueue, WhatsDraft } from '@/server/whQueue';
+// app/api/whatsapp/webhook/route.ts
+import { NextRequest, NextResponse } from "next/server"
+import { db } from "@/lib/db"
+import { whatsappMessages } from "@/lib/db/schema"
 
-// Sadə parser: "p-1x2, p-3x1" və ya "slug:dag-bali x2" formalı
-function parseText(text: string) {
-  const items: { productId: string; qty: number }[] = [];
-  const re = /([a-z0-9\-]+)\s*(?:x|\*)\s*(\d+)/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text))) {
-    items.push({ productId: m[1], qty: +m[2] });
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.text()
+    const params = new URLSearchParams(body)
+    
+    const from = params.get('From')?.replace('whatsapp:', '')
+    const messageBody = params.get('Body')
+    const mediaUrl = params.get('MediaUrl0')
+    const messageType = mediaUrl ? 'image' : 'text'
+    
+    // Log incoming message
+    await db.insert(whatsappMessages).values({
+      phone: from!,
+      direction: "INBOUND",
+      messageType,
+      content: messageBody || undefined,
+      mediaUrl: mediaUrl || undefined,
+      status: "DELIVERED",
+    })
+    
+    // Auto-respond (optional)
+    // TODO: Add AI chatbot logic here
+    
+    return new Response('OK', { status: 200 })
+  } catch (error) {
+    console.error("WhatsApp webhook error:", error)
+    return new Response('Error', { status: 500 })
   }
-  return items;
-}
-
-export async function POST(req: Request) {
-  const body = await req.json().catch(()=>({}));
-  const raw = (body.message || body.text || '').toString();
-  if (!raw) return NextResponse.json({ ok:false, reason:'empty' }, { status:400 });
-
-  const items = parseText(raw);
-  if (!items.length) return NextResponse.json({ ok:false, reason:'no_items' }, { status:422 });
-
-  const draft: WhatsDraft = {
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
-    text: raw,
-    items,
-    customerName: body.customer || 'WhatsApp',
-    channel: 'whatsapp',
-  };
-  WhatsQueue.push(draft);
-  return NextResponse.json({ ok:true, id:draft.id, count: items.length });
 }

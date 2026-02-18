@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { useApp } from '@/lib/store';
+import ProductCard from '@/components/product-card';
 
 // --- Utility: store-dakı reytinq helper-i səliqəli çağırmaq üçün ---
 const getRatingAvg = (p: any) => useApp.getState().productRatingAvg(p);
