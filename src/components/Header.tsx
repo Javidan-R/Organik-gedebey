@@ -207,28 +207,29 @@ export default function Header() {
         >
           <div className="container-page flex h-full items-center justify-between gap-4">
             {/* Sol: LOGO */}
-            <motion.div
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-            >
-              <Link
-                href="/"
-                className="flex items-center gap-2 text-2xl md:text-3xl font-extrabold tracking-tight"
-                style={{ color: primary }}
-              >
-                <motion.span
-                  initial={{ scale: 0.85, rotate: -8 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: "spring", stiffness: 220, damping: 16 }}
-                >
-                  🌿
-                </motion.span>
-                <span className="leading-none">
-                  Organik
-                  <span className="hidden sm:inline"> Gədəbəy</span>
-                </span>
-              </Link>
-            </motion.div>
+           {/* Sol: LOGO */}
+<motion.div
+  initial={{ opacity: 0, x: -12 }}
+  animate={{ opacity: 1, x: 0 }}
+>
+  <Link href="/" className="flex items-center gap-2 group">
+    <div className="relative overflow-hidden rounded-full border-2 border-emerald-100 bg-white p-0.5 transition-transform group-hover:scale-105 shadow-sm">
+      <img
+        src="/organik_gedebey_logo.jpeg" // Şəkli public qovluğuna yerləşdirdiyinizdən əmin olun
+        alt="Organik Gədəbəy Logo"
+        className="h-10 w-10 md:h-12 md:w-12 object-contain rounded-full"
+      />
+    </div>
+    {/* <div className="flex flex-col leading-tight">
+      <span className="text-lg md:text-xl font-black tracking-tight text-emerald-700 uppercase">
+        Organik
+      </span>
+      <span className="text-[10px] md:text-xs font-bold tracking-[0.2em] text-gray-500 uppercase">
+        Gədəbəy
+      </span>
+    </div> */}
+  </Link>
+</motion.div>
 
             {/* ORTA: DESKTOP NAV */}
             <nav className="hidden lg:flex items-center gap-6">

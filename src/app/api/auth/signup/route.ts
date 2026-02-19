@@ -1,41 +1,35 @@
-// app/api/auth/login/route.ts
+// app/api/auth/signup/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-
-const MOCK_USERS = [
-  { email: 'admin@organikgedebey.az', password: 'admin123', role: 'admin', name: 'Admin User' },
-  { email: 'delivery@organikgedebey.az', password: 'delivery123', role: 'delivery', name: 'Delivery Personnel' },
-  { email: 'vendor@organikgedebey.az', password: 'vendor123', role: 'vendor', name: 'Vendor User' },
-  { email: 'customer@example.com', password: 'customer123', role: 'customer', name: 'Customer User' },
-]
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, role } = await req.json()
+    const { email, password, name, phone } = await req.json()
 
-    // Mock authentication
-    const user = MOCK_USERS.find(
-      u => u.email === email && u.password === password && (!role || u.role === role)
-    )
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Email və ya şifrə yanlışdır' },
-        { status: 401 }
-      )
+    // Validation
+    if (!email || !password || !name) {
+      return NextResponse.json({ error: 'Bütün xanaları doldurun' }, { status: 400 })
     }
 
+    if (password.length < 6) {
+      return NextResponse.json({ error: 'Şifrə ən azı 6 simvol olmalıdır' }, { status: 400 })
+    }
+
+    // Mock: Check if user exists
+    // In production: Check database
+
+    const userId = Math.random().toString(36).slice(2)
+    
     const response = NextResponse.json({
-      user: { id: Math.random().toString(36).slice(2), email: user.email, name: user.name, role: user.role },
-      message: 'Uğurlu giriş'
+      user: { id: userId, email, name, role: 'customer' },
+      message: 'Qeydiyyat uğurlu oldu'
     })
 
-    // Set auth cookie
-    response.cookies.set('og_auth', JSON.stringify({ email: user.email, role: user.role }), {
+    response.cookies.set('og_auth', JSON.stringify({ email, role: 'customer' }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
     })
 
     return response
@@ -43,48 +37,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
   }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// app/api/auth/signup/route.ts
-// ═══════════════════════════════════════════════════════════════════════════
-// import { NextRequest, NextResponse } from 'next/server'
-// 
-// export async function POST(req: NextRequest) {
-//   try {
-//     const { email, password, name, phone } = await req.json()
-// 
-//     // Validation
-//     if (!email || !password || !name) {
-//       return NextResponse.json({ error: 'Bütün xanaları doldurun' }, { status: 400 })
-//     }
-// 
-//     if (password.length < 6) {
-//       return NextResponse.json({ error: 'Şifrə ən azı 6 simvol olmalıdır' }, { status: 400 })
-//     }
-// 
-//     // Mock: Check if user exists
-//     // In production: Check database
-// 
-//     const userId = Math.random().toString(36).slice(2)
-//     
-//     const response = NextResponse.json({
-//       user: { id: userId, email, name, role: 'customer' },
-//       message: 'Qeydiyyat uğurlu oldu'
-//     })
-// 
-//     response.cookies.set('og_auth', JSON.stringify({ email, role: 'customer' }), {
-//       httpOnly: true,
-//       secure: process.env.NODE_ENV === 'production',
-//       sameSite: 'lax',
-//       path: '/',
-//       maxAge: 60 * 60 * 24 * 7,
-//     })
-// 
-//     return response
-//   } catch (error) {
-//     return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
-//   }
-// }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // app/api/auth/logout/route.ts
