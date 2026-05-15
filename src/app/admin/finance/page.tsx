@@ -39,11 +39,11 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import ScenarioSimulator from '@/components/admin/finance/ScenarioSimulator';
-import FinanceSelect from '@/components/atoms/atoms/FinanceSelect';
+import FinanceSelect from '@/components/atoms/finance/FinanceSelect';
 
-import { FinanceChannelCard } from '@/components/atoms/atoms/FinanceChannelCard';
-import { KpiCard } from '@/components/atoms/atoms/KpiCard';
-import { FinanceRangeCard } from '@/components/atoms/atoms/FinanceRangeCard';
+import { FinanceChannelCard } from '@/components/atoms/finance/FinanceChannelCard';
+import { KpiCard } from '@/components/atoms/finance/KpiCard';
+import { FinanceRangeCard } from '@/components/atoms/finance/FinanceRangeCard';
 import { Input } from '@/components/atoms/input';
 import AiInsightPanel from '@/components/admin/molecules/AiInsightPanel';
 import InventorySummary from '@/components/admin/molecules/InventorySummary';

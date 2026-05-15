@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { ID, OrderStatus, useApp, useHasHydrated } from "@/lib/store";
-import { KpiCard } from "@/components/atoms/atoms/KpiCard";
+import { KpiCard } from "@/components/atoms/finance/KpiCard";
 import ConfirmationModal from "@/components/admin/orders/ConfirmationModal";
 import OrdersPageSkeleton from "@/components/admin/molecules/OrdersPageSkeleton";
 import { OrderDetailsFlyout } from "@/components/admin/orders/OrderDetailsFlyout";

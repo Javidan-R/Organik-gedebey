@@ -320,24 +320,6 @@ export default function CategoryPage() {
                 Gədəbəydəki tərəfdaş kəndlilərimiz tərəfindən heç bir kimyəvi qatqı olmadan hazırlanmışdır.
               </p>
             </section>
-
-            {/* Trending Items List Mini */}
-            <section>
-              <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">Trenddə olanlar</h4>
-              <div className="space-y-4">
-                {products.slice(0, 3).map((tp) => (
-                  <Link key={tp.id} href={`/product/${tp.slug}`} className="flex items-center gap-4 group">
-                    <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-gray-100">
-                      <Image src={tp.images?.[0]?.url || ''} alt="" fill className="object-cover group-hover:scale-110 transition-transform" />
-                    </div>
-                    <div>
-                      <h5 className="text-sm font-bold group-hover:text-emerald-600 transition-colors">{tp.name}</h5>
-                      <p className="text-xs text-gray-500">{safePrice(tp)} ₼</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
           </aside>
 
           {/* Product Grid */}
@@ -356,7 +338,7 @@ export default function CategoryPage() {
                       exit={{ opacity: 0, scale: 0.9 }}
                       transition={{ delay: idx * 0.05 }}
                     >
-                      <StorefrontProductCard p={product} />
+                      <StorefrontProductCard product={product} />
                     </motion.div>
                   ))}
                 </AnimatePresence>

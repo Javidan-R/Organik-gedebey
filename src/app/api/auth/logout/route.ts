@@ -1,7 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server'
 
 export async function POST() {
-  const res = NextResponse.json({ ok: true });
-  res.cookies.delete('og_admin');
-  return res;
+  const response = NextResponse.json({
+    success: true,
+    message: 'Uğurla çıxış edildi',
+  })
+
+  // Bütün auth cookie-ləri təmizlə
+  response.cookies.delete('og_auth')
+  response.cookies.delete('og_admin')
+
+  return response
 }

@@ -1,52 +1,122 @@
-// app/api/products/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { tempProducts } from '@/lib/db/temp-store'
-import type { Product } from '@/types/products'
+import { db } from '@/lib/db'
+import { products, categories, productImages, productTags, productVariants } from '@/lib/db/schema'
+import { eq, and, or, like, desc } from 'drizzle-orm'
 
-// GET /api/products
 export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const search = searchParams.get('search') || ''
+  const categorySlug = searchParams.get('categorySlug') || ''
+  const showArchived = searchParams.get('showArchived') === 'true'
+
   try {
-    const { searchParams } = new URL(req.url)
-    const search = searchParams.get('search') ?? ''
-    const categoryId = searchParams.get('categoryId') ?? ''
-    const showArchived = searchParams.get('showArchived') === 'true'
+    const whereClause = []
+    
+    // Arxivlənmiş məhsullar üçün filtr
+    if (!showArchived) whereClause.push(eq(products.archived, false))
+    
+    if (categorySlug) {
+      const cat = await db.query.categories.findFirst({
+        where: eq(categories.slug, categorySlug)
+      })
+      if (cat) {
+        whereClause.push(eq(products.categoryId, cat.id))
+      } else {
+        return NextResponse.json({ products: [], pagination: { total: 0 } })
+      }
+    }
 
-    let list = tempProducts.getAll()
-
-    if (!showArchived) list = list.filter(p => !p.archived)
-    if (categoryId)   list = list.filter(p => p.categoryId === categoryId)
     if (search) {
-      const s = search.toLowerCase()
-      list = list.filter(p =>
-        p.name.toLowerCase().includes(s) ||
-        p.description?.toLowerCase().includes(s) ||
-        p.tags?.some(t => t.toLowerCase().includes(s))
+      whereClause.push(
+        or(
+          like(products.name, `%${search}%`),
+          like(products.description, `%${search}%`)
+        )
       )
     }
 
-    return NextResponse.json({
-      products: list,
-      pagination: { total: list.length, page: 1, limit: list.length, totalPages: 1 },
+    const list = await db.query.products.findMany({
+      where: and(...whereClause),
+      with: {
+        category: true,
+        reviews: true,
+        images: true, // productImages cədvəli ilə əlaqə
+        tags: true,   // productTags cədvəli ilə əlaqə
+      },
+      orderBy: [desc(products.createdAt)],
     })
-  } catch (err) {
-    console.error('GET /api/products error:', err)
-    return NextResponse.json({ error: 'Məhsullar yüklənmədi' }, { status: 500 })
+
+    return NextResponse.json({ products: list, pagination: { total: list.length } })
+  } catch (error) {
+    console.error('GET /api/products error:', error)
+    return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
   }
 }
+// app/api/products/route.ts daxilində POST funksiyasının sonu
 
-// POST /api/products  ← ProductEditModal buraya yazır (yeni məhsul)
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as Product
+    const body = await req.json()
 
-    if (!body.id || !body.name) {
-      return NextResponse.json({ error: 'id və name mütləqdir' }, { status: 400 })
-    }
+    const newProduct = await db.transaction(async (tx) => {
+      // 1. Əsas məhsulu yaradın
+      const [insertedProduct] = await tx.insert(products).values({
+        name: body.name,
+        slug: body.slug || body.name.toLowerCase().replace(/\s+/g, '-'),
+        description: body.description || '',
+        basePrice: body.basePrice?.toString() || "0",
+        unit: body.unit || 'ədəd',
+        categoryId: body.categoryId || null,
+        // ... digər sahələr
+      }).returning()
 
-    const saved = tempProducts.add(body)
-    return NextResponse.json({ product: saved }, { status: 201 })
-  } catch (err) {
-    console.error('POST /api/products error:', err)
-    return NextResponse.json({ error: 'Məhsul əlavə edilmədi' }, { status: 500 })
+      // 2. Şəkilləri əlavə edin
+      if (body.images && body.images.length > 0) {
+        await tx.insert(productImages).values(
+          body.images.map((url: string, index: number) => ({
+            productId: insertedProduct.id,
+            url,
+            displayOrder: index,
+          }))
+        )
+      }
+
+      // 3. Taqları əlavə edin
+      if (body.tags && body.tags.length > 0) {
+        await tx.insert(productTags).values(
+          body.tags.map((tag: string) => ({
+            productId: insertedProduct.id,
+            tag,
+          }))
+        )
+      }
+
+      // 4. Default variant yaradın (stock üçün)
+      await tx.insert(productVariants).values({
+        productId: insertedProduct.id,
+        name: 'Standart',
+        stock: body.stock || 0,
+        basePrice: body.basePrice?.toString() || "0",
+        isDefault: true
+      })
+
+      return insertedProduct
+    })
+
+    // --- Sizin istədiyiniz hissə: Tam məlumatı geri qaytarmaq ---
+    const completeProduct = await db.query.products.findFirst({
+      where: eq(products.id, newProduct.id),
+      with: {
+        images: true,
+        tags: true,
+        variants: true,
+        category: true
+      }
+    })
+
+    return NextResponse.json(completeProduct, { status: 201 })
+  } catch (error) {
+    console.error('POST /api/products error:', error)
+    return NextResponse.json({ error: 'Xəta baş verdi' }, { status: 500 })
   }
 }

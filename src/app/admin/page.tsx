@@ -2,10 +2,9 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useApp } from '@/lib/store'
-// ageInDays funksiyası calc faylında olmalıdır - mövcud olduğunu güman edirik
-import { ageInDays, isDiscountActive as checkDiscountActive } from '@/lib/calc' 
+import { ageInDays } from '@/lib/calc' 
 import { 
   TrendingUp, Clock, Layers, ShieldCheck, PackageOpen, Activity, BarChart3, 
   Zap, ShoppingBag, Flame, Brain, LineChart as LineChartIcon, AlertTriangle, 
@@ -26,10 +25,6 @@ const YAxis = dynamic(async () => ({ default: (await import('recharts')).YAxis }
 const Tooltip = dynamic(async () => ({ default: (await import('recharts')).Tooltip }), { ssr: false })
 const CartesianGrid = dynamic(async () => ({ default: (await import('recharts')).CartesianGrid }), { ssr: false })
 const Legend = dynamic(async () => ({ default: (await import('recharts')).Legend }), { ssr: false })
-
-
-// Helpers
-const DATE_30_DAYS_AGO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
 
 export default function AdminDashboardPage() {
@@ -102,7 +97,7 @@ export default function AdminDashboardPage() {
         adoptionRate,
         discountedRevenue: orders.filter(o=>o.status==='delivered').flatMap(o=>o.items)
             .filter(it=>active.some(p=>p.id===it.productId))
-            .reduce((s,it)=>(s+(it.price*it.qty)),0) // Burada final price-ı hesablamaq lazımdır, sadəlik üçün item-in qiyməti götürülür
+            .reduce((s,it)=>(s+(it.priceAtOrder*it.qty)),0) // Burada final price-ı hesablamaq lazımdır, sadəlik üçün item-in qiyməti götürülür
             .toFixed(2)
     }
   }, [products, orders])
@@ -110,7 +105,7 @@ export default function AdminDashboardPage() {
   // Məhsul dövriyyə sürəti (yaş və stok səviyyəsinə görə)
   const productAging = useMemo(()=>{
     return products.map(p=>{
-      const stock = (p.variants||[]).reduce((s,v)=>s+v.stock,0)
+      const stock = (p.variants || []).reduce((s, v) => s + (v.stock ?? 0), 0)
       const age = ageInDays(p.createdAt)
       const risk = age>120 && stock>0 // Riski 90-dan 120 günə qaldırdım
       return { id:p.id, name:p.name, age, stock, risk }
@@ -165,7 +160,7 @@ export default function AdminDashboardPage() {
     const forecastNext = +(last * (1 + Math.max(0, avgGrowth))).toFixed(0) // Mənfi artımı 0-a kəsirik
     
     // Chart üçün data
-    const chartData = arr.map(item => ({ month: item.month, historical: item.qty, forecast: null }));
+       const chartData: { month: string; historical: number | null; forecast: number | null }[] = arr.map(item => ({ month: item.month, historical: item.qty, forecast: null }));
     if (chartData.length > 0) {
         chartData.at(-1)!.forecast = chartData.at(-1)!.historical;
         chartData.push({ 
@@ -204,26 +199,24 @@ export default function AdminDashboardPage() {
       // Tükənmə günləri
       const runoutDays = burnRate > 0 ? Math.round(totalStock / burnRate) : Infinity
       const risk = runoutDays < 15 && totalStock > 0 // 15 gündən az qalıbsa və stok > 0 isə
-      
-      return { id: p.id, name: p.name, totalStock, runoutDays, burnRate, risk }
 
       return { id: p.id, name: p.name, totalStock, runoutDays, burnRate, risk }
-      
-    }).filter(x => x.risk || (x.runoutDays < 30 && x.totalStock > 0) ).sort((a, b) => a.runoutDays - b.runoutDays).slice(0, 10)
+    }).filter(x => x.risk || (x.runoutDays < 30 && x.totalStock > 0)).sort((a, b) => a.runoutDays - b.runoutDays).slice(0, 10)
   }, [products, orders])
 
   // Endirimlərin gəlirə proqnozlaşdırılmış təsiri
   const discountImpact = useMemo(() => {
-    const discounted = products.filter(p => checkDiscountActive(p))
-    const totalRevenue = orders.filter(o=>o.status==='delivered').reduce((s,o)=>s+o.items.reduce((sum,it)=>sum+(it.qty*it.price),0),0) // Sadə gəlir
+    const discounted = products.filter(p => isDiscountActive(p))
+    const totalRevenue = orders.filter(o=>o.status==='delivered').reduce((s,o)=>s+o.items.reduce((sum,it)=>sum+(it.qty*it.priceAtOrder),0),0) // Sadə gəlir
     const discountedRevenue = +discountEffectiveness.discountedRevenue
-    
+
     // Proqnoz: Təsir = (Endirimli Gəlir / Ümumi Gəlir) * Çarpan (2)
     const estRevenueBoost = totalRevenue ? +((discountedRevenue / totalRevenue) * 2000).toFixed(1) : 0
-    const confidence = 85 + Math.random() * 10 
-    
+    // Sabit seed ilə təsadüfi rəqəm (hydration mismatch olmaması üçün)
+    const confidence = 85 + ((totalRevenue * 7) % 10)
+
     return { discountedCount: discounted.length, estRevenueBoost, confidence }
-  }, [products, discountEffectiveness.discountedRevenue])
+  }, [products, orders, discountEffectiveness.discountedRevenue, isDiscountActive])
 
   // Smart KPI-lar (AI-based)
   const aiKpi = useMemo(() => {
@@ -374,7 +367,7 @@ export default function AdminDashboardPage() {
                 <li key={r.id} className="flex justify-between py-2 hover:bg-gray-50 rounded-md px-2 transition">
                 <span className='font-medium text-gray-700 truncate'>{r.name}</span>
                 <span className="text-right text-gray-600 whitespace-nowrap">
-                    {r.count} rəy • <Star className='w-4 h-4 inline text-amber-400 fill-amber-400'/> **{r.avg}**
+                    {r.count} rəy • <Star className='w-4 h-4 inline text-amber-400 fill-amber-400'/> <strong>{r.avg}</strong>
                 </span>
                 </li>
             ))}
@@ -500,7 +493,7 @@ export default function AdminDashboardPage() {
 // --- Köməkçi Komponentlər ---
 
 // Rəngləri daha müasir etdik
-function Kpi({ icon, label, value, subtitle, color }: { icon: React.ReactNode; label: string; value: string|number; subtitle?: string; color: 'emerald' | 'rose' | 'blue' | 'purple' }) {
+function Kpi({ icon, label, value, subtitle, color }: { icon: ReactNode; label: string; value: string|number; subtitle?: string; color: 'emerald' | 'rose' | 'blue' | 'purple' }) {
     const colorClasses = {
         emerald: { bg: 'bg-emerald-500', text: 'text-emerald-600' },
         rose: { bg: 'bg-rose-500', text: 'text-rose-600' },
@@ -520,7 +513,7 @@ function Kpi({ icon, label, value, subtitle, color }: { icon: React.ReactNode; l
     )
 }
 
-function AiKpi({ icon, title, value, color }: { icon: React.ReactNode; title: string; value: string | number; color: 'emerald' | 'red' | 'blue' | 'amber' }) {
+function AiKpi({ icon, title, value, color }: { icon: ReactNode; title: string; value: string | number; color: 'emerald' | 'red' | 'blue' | 'amber' }) {
     const colorClasses = {
         emerald: 'bg-emerald-50 text-emerald-800 border-emerald-200',
         red: 'bg-red-50 text-red-800 border-red-200',

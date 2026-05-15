@@ -34,6 +34,7 @@ export type NutritionalFact = {
 
 // --- Məhsulun Çeşidi (Variant) ---
 export type Variant = {
+    label: string;
     id: ID;
     name: string;
     sku?: string;
@@ -70,6 +71,9 @@ export type Review = {
 };
 // --- Product ---
 export type Product = {
+    isNewArrival: boolean | undefined;
+  isFeatured: boolean | undefined;
+  basePrice: undefined;
   stock: number;
     id: ID;
     name: string;
@@ -97,6 +101,9 @@ export type Product = {
     costPrice?: number;
     minStock?: number;
     price?: number;
+    discountPercent?: number;
+    discountStartDate?: string;
+    discountEndDate?: string;
 grade?: ProductGrade;
     reviews?: Review[];
     archived?: boolean;
@@ -134,6 +141,7 @@ export type ProductCardProps = {
   setEditingProduct: (p: Product | null) => void;
   archiveProduct: (id: ID) => void;
   unarchiveProduct: (id: ID) => void;
+  deleteProduct: (id: ID) => void;
   viewMode?: ProductCardViewMode;
 };
 

@@ -1,30 +1,108 @@
-// app/api/auth/signup/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { users } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
+import bcrypt from 'bcryptjs'
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, name, phone } = await req.json()
+    const { email, password, firstName, lastName, phone } = await req.json()
 
-    // Validation
-    if (!email || !password || !name) {
-      return NextResponse.json({ error: 'Bütün xanaları doldurun' }, { status: 400 })
+    // Validasiya
+    if (!email || !password || !firstName || !lastName) {
+      return NextResponse.json(
+        { error: 'Bütün məcburi xanaları doldurun' },
+        { status: 400 }
+      )
     }
 
     if (password.length < 6) {
-      return NextResponse.json({ error: 'Şifrə ən azı 6 simvol olmalıdır' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Şifrə ən azı 6 simvol olmalıdır' },
+        { status: 400 }
+      )
     }
 
-    // Mock: Check if user exists
-    // In production: Check database
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: 'Düzgün email ünvanı daxil edin' },
+        { status: 400 }
+      )
+    }
 
-    const userId = Math.random().toString(36).slice(2)
-    
+    // Email unikallığını yoxla
+    const [existingUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email.toLowerCase().trim()))
+      .limit(1)
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'Bu email artıq qeydiyyatdan keçib' },
+        { status: 409 }
+      )
+    }
+
+    // Telefon unikallığını yoxla
+    if (phone) {
+      const [existingPhone] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.phone, phone))
+        .limit(1)
+
+      if (existingPhone) {
+        return NextResponse.json(
+          { error: 'Bu telefon nömrəsi artıq qeydiyyatdan keçib' },
+          { status: 409 }
+        )
+      }
+    }
+
+    // Şifrəni hash-lə
+    const passwordHash = await bcrypt.hash(password, 12)
+
+    // İstifadəçini yarat
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        email: email.toLowerCase().trim(),
+        passwordHash,
+        firstName,
+        lastName,
+        phone: phone || null,
+        role: 'CUSTOMER',
+        isEmailVerified: false,
+        isActive: true,
+      })
+      .returning()
+
+    // Cavab hazırla
+    const userData = {
+      id: newUser.id,
+      email: newUser.email,
+      firstName: newUser.firstName,
+      lastName: newUser.lastName,
+      role: newUser.role,
+      phone: newUser.phone,
+    }
+
     const response = NextResponse.json({
-      user: { id: userId, email, name, role: 'customer' },
-      message: 'Qeydiyyat uğurlu oldu'
-    })
+      success: true,
+      message: 'Qeydiyyat uğurla tamamlandı',
+      user: userData,
+    }, { status: 201 })
 
-    response.cookies.set('og_auth', JSON.stringify({ email, role: 'customer' }), {
+    // Cookie set et
+    response.cookies.set('og_auth', JSON.stringify({
+      id: newUser.id,
+      email: newUser.email,
+      role: newUser.role,
+      firstName: newUser.firstName,
+      lastName: newUser.lastName,
+    }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -33,69 +111,12 @@ export async function POST(req: NextRequest) {
     })
 
     return response
+
   } catch (error) {
-    return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
+    console.error('Signup error:', error)
+    return NextResponse.json(
+      { error: 'Server xətası baş verdi' },
+      { status: 500 }
+    )
   }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// app/api/auth/logout/route.ts
-// ═══════════════════════════════════════════════════════════════════════════
-// import { NextResponse } from 'next/server'
-// 
-// export async function POST() {
-//   const response = NextResponse.json({ message: 'Uğurla çıxış edildi' })
-//   response.cookies.delete('og_auth')
-//   return response
-// }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// app/api/auth/me/route.ts
-// ═══════════════════════════════════════════════════════════════════════════
-// import { NextRequest, NextResponse } from 'next/server'
-// 
-// export async function GET(req: NextRequest) {
-//   const cookie = req.cookies.get('og_auth')
-//   
-//   if (!cookie) {
-//     return NextResponse.json({ user: null }, { status: 401 })
-//   }
-// 
-//   try {
-//     const auth = JSON.parse(cookie.value)
-//     return NextResponse.json({
-//       user: {
-//         id: Math.random().toString(36).slice(2),
-//         email: auth.email,
-//         role: auth.role,
-//         name: auth.email.split('@')[0],
-//       }
-//     })
-//   } catch {
-//     return NextResponse.json({ user: null }, { status: 401 })
-//   }
-// }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// app/api/auth/forgot-password/route.ts
-// ═══════════════════════════════════════════════════════════════════════════
-// import { NextRequest, NextResponse } from 'next/server'
-// 
-// export async function POST(req: NextRequest) {
-//   try {
-//     const { email } = await req.json()
-// 
-//     if (!email) {
-//       return NextResponse.json({ error: 'Email tələb olunur' }, { status: 400 })
-//     }
-// 
-//     // Mock: Send reset email
-//     // In production: Generate token, send email with reset link
-//     
-//     return NextResponse.json({
-//       message: 'Şifrə bərpası linki emailinizə göndərildi'
-//     })
-//   } catch (error) {
-//     return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
-//   }
-// }

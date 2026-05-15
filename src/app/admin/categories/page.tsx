@@ -580,23 +580,6 @@ export default function AdminCategoriesPage() {
   const [confirmState, setConfirmState] = useState<ConfirmState>(null);
   const [showSavedToast, setShowSavedToast] = useState(false);
 
-  // ===========================
-  // Skeleton while hydrating
-  // ===========================
-  if (!hydrated) {
-    return (
-      <AdminPageShell>
-        <div className="h-7 w-40 animate-pulse rounded-full bg-slate-200/70" />
-        <div className="mt-4 h-10 w-full animate-pulse rounded-2xl bg-slate-200/70" />
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <div className="h-40 animate-pulse rounded-3xl bg-slate-200/60" />
-          <div className="h-40 animate-pulse rounded-3xl bg-slate-200/60" />
-        </div>
-        <div className="mt-6 h-72 animate-pulse rounded-3xl bg-slate-200/60" />
-      </AdminPageShell>
-    );
-  }
-
   // ===================================================
   // Derived data
   // ===================================================
@@ -800,6 +783,23 @@ export default function AdminCategoriesPage() {
 
     setConfirmState(null);
   };
+
+  // ===========================
+  // Skeleton while hydrating
+  // ===========================
+  if (!hydrated) {
+    return (
+      <AdminPageShell>
+        <div className="h-7 w-40 animate-pulse rounded-full bg-slate-200/70" />
+        <div className="mt-4 h-10 w-full animate-pulse rounded-2xl bg-slate-200/70" />
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="h-40 animate-pulse rounded-3xl bg-slate-200/60" />
+          <div className="h-40 animate-pulse rounded-3xl bg-slate-200/60" />
+        </div>
+        <div className="mt-6 h-72 animate-pulse rounded-3xl bg-slate-200/60" />
+      </AdminPageShell>
+    );
+  }
 
   // ===================================================
   // Render

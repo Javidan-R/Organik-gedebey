@@ -97,6 +97,7 @@ export type Manufacturer = {
 };
 // --- Category ---
 export type Category = {
+    _count: any;
     image: string;
     id: ID;
     slug: string;
@@ -203,3 +204,6 @@ export type ChatMessage = {
     isCustomer: boolean; // True - müştəri, False - admin/staff
     createdAt: string;
 };
+
+export { Product };
+

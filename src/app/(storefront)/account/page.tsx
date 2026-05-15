@@ -280,11 +280,7 @@ export default function AccountPage() {
             <span className="hidden sm:block font-black text-gray-800">Organik Gədəbəy</span>
           </Link>
           <div className="flex items-center gap-2">
-            {/* Dark mode toggle (NEW 1) */}
-            <motion.button onClick={() => setDarkMode(!darkMode)} whileTap={{ scale: 0.9 }}
-              className="p-2 rounded-xl bg-white border border-gray-200 shadow-sm hover:border-emerald-300 transition-all">
-              {darkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-gray-500" />}
-            </motion.button>
+           
             <motion.button onClick={() => { logout(); router.push('/') }} whileTap={{ scale: 0.95 }}
               className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-200 transition-all text-sm font-semibold shadow-sm">
               <LogOut className="w-4 h-4" />

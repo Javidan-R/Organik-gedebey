@@ -1,24 +1,24 @@
-// app/api/products/[id]/archive/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { tempProducts } from '@/lib/db/temp-store'
+import { db } from '@/lib/db'
+import { products } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
 
 export async function PATCH(_: NextRequest, { params }: { params: { id: string } }) {
-  const existing = tempProducts.getById(params.id)
-  if (!existing) return NextResponse.json({ error: 'Tapılmadı' }, { status: 404 })
-  tempProducts.archive(params.id)
-  return NextResponse.json({ success: true })
-}
+  try {
+    // Məhsulu tapırıq və arxivləyirik
+    const result = await db
+      .update(products)
+      .set({ archived: true, updatedAt: new Date() })
+      .where(eq(products.id, params.id))
+      .returning({ id: products.id })
 
-// ─────────────────────────────────────────────────────────
-// app/api/products/[id]/unarchive/route.ts
-// (Bu faylı ayrı yaradın: app/api/products/[id]/unarchive/route.ts)
-// ─────────────────────────────────────────────────────────
-// import { NextRequest, NextResponse } from 'next/server'
-// import { tempProducts } from '@/lib/db/temp-store'
-// 
-// export async function PATCH(_: NextRequest, { params }: { params: { id: string } }) {
-//   const existing = tempProducts.getById(params.id)
-//   if (!existing) return NextResponse.json({ error: 'Tapılmadı' }, { status: 404 })
-//   tempProducts.unarchive(params.id)
-//   return NextResponse.json({ success: true })
-// }
+    if (result.length === 0) {
+      return NextResponse.json({ error: 'Məhsul tapılmadı' }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, message: 'Məhsul arxivləndi' })
+  } catch (error) {
+    console.error('Archive error:', error)
+    return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
+  }
+}

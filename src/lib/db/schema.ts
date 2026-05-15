@@ -237,7 +237,7 @@ export const products = pgTable(
     categoryId: uuid('category_id').references(() => categories.id, { onDelete: 'set null' }),
     
     // Pricing
-    price: decimal('price', { precision: 10, scale: 2 }).default('0').notNull(),
+    basePrice: decimal('base_price', { precision: 10, scale: 2 }).default('0').notNull(),
     costPrice: decimal('cost_price', { precision: 10, scale: 2 }).default('0'),
     
     // Discount
@@ -321,7 +321,7 @@ export const productVariants = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     sku: varchar('sku', { length: 100 }).unique(),
     
-    price: decimal('price', { precision: 10, scale: 2 }).notNull(),
+    basePrice: decimal('base_price', { precision: 10, scale: 2 }).notNull(),
     costPrice: decimal('cost_price', { precision: 10, scale: 2 }),
     arrivalCost: decimal('arrival_cost', { precision: 10, scale: 2 }),
     
@@ -833,7 +833,25 @@ export const productsRelations = relations(products, ({ many, one }) => ({
   tags: many(productTags),
   reviews: many(reviews),
 }))
+// src/lib/db/schema.ts faylının sonuna əlavə edin
 
+export const reviewsRelations = relations(reviews, ({ one }) => ({
+  product: one(products, {
+    fields: [reviews.productId],
+    references: [products.id],
+  }),
+  user: one(users, {
+    fields: [reviews.userId],
+    references: [users.id],
+  }),
+}))
+
+export const productTagsRelations = relations(productTags, ({ one }) => ({
+  product: one(products, {
+    fields: [productTags.productId],
+    references: [products.id],
+  }),
+}))
 export const productImagesRelations = relations(productImages, ({ one }) => ({
   product: one(products, {
     fields: [productImages.productId],
