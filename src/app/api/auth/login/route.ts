@@ -1,34 +1,21 @@
-// src/app/api/auth/login/route.ts
+// app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { users } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
-import bcrypt from 'bcryptjs'
+
+const MOCK_USERS = [
+  { email: 'admin@organikgedebey.az', password: 'admin123', role: 'admin', name: 'Admin User' },
+  { email: 'delivery@organikgedebey.az', password: 'delivery123', role: 'delivery', name: 'Delivery Personnel' },
+  { email: 'vendor@organikgedebey.az', password: 'vendor123', role: 'vendor', name: 'Vendor User' },
+  { email: 'customer@example.com', password: 'customer123', role: 'customer', name: 'Customer User' },
+]
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { email, password } = body
+    const { email, password, role } = await req.json()
 
-    console.log('🔑 Login cəhdi:', email)
-
-    // Validasiya
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email və şifrə tələb olunur' },
-        { status: 400 }
-      )
-    }
-
-    // İstifadəçini database-dən tap
-    const userList = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email.toLowerCase().trim()))
-      .limit(1)
-
-    const user = userList[0]
-    console.log('👤 İstifadəçi:', user ? 'tapıldı' : 'tapılmadı')
+    // Mock authentication
+    const user = MOCK_USERS.find(
+      u => u.email === email && u.password === password && (!role || u.role === role)
+    )
 
     if (!user) {
       return NextResponse.json(
@@ -37,75 +24,126 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Aktivlik yoxlaması
-    if (user.isBlocked) {
-      return NextResponse.json(
-        { error: 'Hesabınız bloklanıb' },
-        { status: 403 }
-      )
-    }
-
-    // Şifrə yoxlaması
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
-    console.log('🔐 Şifrə:', isPasswordValid ? 'doğrudur' : 'yanlışdır')
-
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        { error: 'Email və ya şifrə yanlışdır' },
-        { status: 401 }
-      )
-    }
-
-    // Son giriş vaxtını yenilə
-    await db
-      .update(users)
-      .set({ lastLoginAt: new Date() })
-      .where(eq(users.id, user.id))
-
-    const userData = {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      phone: user.phone,
-    }
-
-    console.log('✅ Login uğurlu:', user.email, user.role)
-
     const response = NextResponse.json({
-      success: true,
-      message: 'Uğurla daxil oldunuz',
-      user: userData,
+      user: { id: Math.random().toString(36).slice(2), email: user.email, name: user.name, role: user.role },
+      message: 'Uğurlu giriş'
     })
 
-    // Auth cookie
-    response.cookies.set('og_auth', JSON.stringify(userData), {
+    // Set auth cookie
+    response.cookies.set('og_auth', JSON.stringify({ email: user.email, role: user.role }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 24 * 7, // 7 days
     })
 
-    // Admin cookie
-    if (user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'WAREHOUSE_STAFF') {
-      response.cookies.set('og_admin', 'ok', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24,
-      })
-    }
-
     return response
-
   } catch (error) {
-    console.error('❌ Login xətası:', error)
-    return NextResponse.json(
-      { error: 'Server xətası baş verdi' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// app/api/auth/signup/route.ts
+// ═══════════════════════════════════════════════════════════════════════════
+// import { NextRequest, NextResponse } from 'next/server'
+// 
+// export async function POST(req: NextRequest) {
+//   try {
+//     const { email, password, name, phone } = await req.json()
+// 
+//     // Validation
+//     if (!email || !password || !name) {
+//       return NextResponse.json({ error: 'Bütün xanaları doldurun' }, { status: 400 })
+//     }
+// 
+//     if (password.length < 6) {
+//       return NextResponse.json({ error: 'Şifrə ən azı 6 simvol olmalıdır' }, { status: 400 })
+//     }
+// 
+//     // Mock: Check if user exists
+//     // In production: Check database
+// 
+//     const userId = Math.random().toString(36).slice(2)
+//     
+//     const response = NextResponse.json({
+//       user: { id: userId, email, name, role: 'customer' },
+//       message: 'Qeydiyyat uğurlu oldu'
+//     })
+// 
+//     response.cookies.set('og_auth', JSON.stringify({ email, role: 'customer' }), {
+//       httpOnly: true,
+//       secure: process.env.NODE_ENV === 'production',
+//       sameSite: 'lax',
+//       path: '/',
+//       maxAge: 60 * 60 * 24 * 7,
+//     })
+// 
+//     return response
+//   } catch (error) {
+//     return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
+//   }
+// }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// app/api/auth/logout/route.ts
+// ═══════════════════════════════════════════════════════════════════════════
+// import { NextResponse } from 'next/server'
+// 
+// export async function POST() {
+//   const response = NextResponse.json({ message: 'Uğurla çıxış edildi' })
+//   response.cookies.delete('og_auth')
+//   return response
+// }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// app/api/auth/me/route.ts
+// ═══════════════════════════════════════════════════════════════════════════
+// import { NextRequest, NextResponse } from 'next/server'
+// 
+// export async function GET(req: NextRequest) {
+//   const cookie = req.cookies.get('og_auth')
+//   
+//   if (!cookie) {
+//     return NextResponse.json({ user: null }, { status: 401 })
+//   }
+// 
+//   try {
+//     const auth = JSON.parse(cookie.value)
+//     return NextResponse.json({
+//       user: {
+//         id: Math.random().toString(36).slice(2),
+//         email: auth.email,
+//         role: auth.role,
+//         name: auth.email.split('@')[0],
+//       }
+//     })
+//   } catch {
+//     return NextResponse.json({ user: null }, { status: 401 })
+//   }
+// }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// app/api/auth/forgot-password/route.ts
+// ═══════════════════════════════════════════════════════════════════════════
+// import { NextRequest, NextResponse } from 'next/server'
+// 
+// export async function POST(req: NextRequest) {
+//   try {
+//     const { email } = await req.json()
+// 
+//     if (!email) {
+//       return NextResponse.json({ error: 'Email tələb olunur' }, { status: 400 })
+//     }
+// 
+//     // Mock: Send reset email
+//     // In production: Generate token, send email with reset link
+//     
+//     return NextResponse.json({
+//       message: 'Şifrə bərpası linki emailinizə göndərildi'
+//     })
+//   } catch (error) {
+//     return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
+//   }
+// }

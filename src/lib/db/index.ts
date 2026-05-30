@@ -7,14 +7,8 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL is not set')
 }
 
-// Connection pool
-const connectionString = process.env.DATABASE_URL
-
-// For migrations
-export const migrationClient = postgres(connectionString, { max: 1 })
-
-// For queries
-const queryClient = postgres(connectionString)
+// Tək bağlantı (migrasiya üçün ayrıca client-ə ehtiyac yoxdur)
+const queryClient = postgres(process.env.DATABASE_URL)
 export const db = drizzle(queryClient, { schema })
 
 // Helper type

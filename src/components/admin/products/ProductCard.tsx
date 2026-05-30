@@ -195,7 +195,7 @@ const EnhancedProductCardBase = ({
   const price        = productDisplayPrice(p);
   const regularPrice = minPrice(p);
   const rating       = avgRating(p);
-  const isArchived   = p.archived;
+  const isArchived   = p.archived ?? false;
   const hasSlug      = !!p.slug;
 
   const productAgeDays = useMemo(() => {
@@ -282,8 +282,8 @@ const EnhancedProductCardBase = ({
             <MapPin className="h-2.5 w-2.5" /> {p.originRegion}
           </span>
         )}
-        {tags.map(t => (
-          <span key={t} className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
+        {tags.map((t, index) => (
+          <span key={index} className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
             <Tag className="h-2.5 w-2.5" /> {t}
           </span>
         ))}

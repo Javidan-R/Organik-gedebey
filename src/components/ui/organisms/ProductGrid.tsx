@@ -1,3 +1,4 @@
+// components/ui/organisms/ProductGrid.tsx
 // ===================================================
 // PRODUCT GRID – Ultra Premium Version
 // ===================================================
@@ -8,7 +9,7 @@ import { Product } from "@/types/products"
 import { motion, AnimatePresence } from "framer-motion"
 import { RusticProductCard } from "./RusticProductCard"
 import { useState, useCallback } from "react"
-import { Grid, List, SlidersHorizontal, ArrowUpDown } from "lucide-react"
+import { Grid, List, SlidersHorizontal, ArrowUpDown, Sparkles } from "lucide-react"
 
 export type ProductGridVariant = 'default' | 'discount' | 'breakfast' | 'gedebey' | 'highlight'
 
@@ -38,15 +39,15 @@ const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: { staggerChildren: 0.07 },
+    transition: { staggerChildren: 0.06 },
   },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20, scale: 0.96 },
+  hidden: { opacity: 0, y: 16, scale: 0.97 },
   visible: {
     opacity: 1, y: 0, scale: 1,
-    transition: { type: 'spring' as const, stiffness: 100, damping: 14 },
+    transition: { type: 'spring' as const, stiffness: 120, damping: 16 },
   },
 }
 
@@ -176,11 +177,11 @@ export function ProductGrid({
             {/* View mode toggle */}
             <div className="flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
               {([
-                { mode: 'grid', icon: Grid },
-                { mode: 'list', icon: List },
-              ] as const).map(({ mode, icon: Icon }) => (
+                { mode: 'grid' as const, icon: Grid },
+                { mode: 'list' as const, icon: List },
+              ]).map(({ mode, icon: Icon }) => (
                 <motion.button
-                  key={mode+1}
+                  key={mode}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setViewMode(mode)}
                   className={`p-2 transition-colors ${viewMode === mode ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
@@ -201,7 +202,7 @@ export function ProductGrid({
           animate="visible"
           variants={containerVariants}
           className={viewMode === 'grid'
-            ? "grid grid-cols-1 gap-3 sm:grid-cols-1 sm:gap-4 lg:grid-cols-4 lg:gap-5"
+            ? "grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 lg:gap-4"
             : "flex flex-col gap-3"
           }
         >
@@ -235,6 +236,7 @@ export function ProductGrid({
               onClick={handleLoadMore}
               className="flex items-center gap-2 px-6 py-3 rounded-2xl border-2 border-emerald-200 bg-white text-emerald-700 text-sm font-bold hover:bg-emerald-50 hover:border-emerald-400 transition-all shadow-sm"
             >
+              <Sparkles className="w-4 h-4" />
               Daha çox göstər ({sorted.length - visibleCount} qalıb)
             </motion.button>
           </motion.div>

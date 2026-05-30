@@ -57,28 +57,37 @@ export function MediaTab({ product, setProduct }: MediaTabProps) {
   };
 
   /* 🔹 2. Qalereyadan & kameradan şəkil əlavə (high quality) */
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setIsUploading(true);
+ // MediaTab.tsx – handleFileUpload funksiyasını bununla əvəz edin
+const handleFileUpload = async (files: FileList | null) => {
+  if (!files || files.length === 0) return;
+  setIsUploading(true);
 
-    const created: ProductImage[] = [];
+  const created: ProductImage[] = [];
 
-    for (const file of Array.from(files)) {
-      // Keyfiyyəti qorumaq üçün file-i birbaşa object URL kimi istifadə edirik
-      const url = URL.createObjectURL(file);
+  for (const file of Array.from(files)) {
+    const formData = new FormData();
+    formData.append('file', file);
 
-      created.push({
-        id: cryptoId(),
-        url,
-        alt: file.name.replace(/\.[^/.]+$/, ''),
-        source: 'upload',
-      });
-    }
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
 
-    updateImages([...normalizedImages, ...created]);
-    setIsUploading(false);
-  };
+    if (!res.ok) continue;
 
+    const data = await res.json();
+
+    created.push({
+      id: cryptoId(),
+      url: data.url, // Cloudinary-dən gələn daimi URL
+      alt: file.name.replace(/\.[^/.]+$/, ''),
+      source: 'upload',
+    });
+  }
+
+  updateImages([...normalizedImages, ...created]);
+  setIsUploading(false);
+};
   /* 🔹 3. Drag & Drop reorder */
   const onDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -191,7 +200,7 @@ export function MediaTab({ product, setProduct }: MediaTabProps) {
                 {...provided.droppableProps}
               >
                 {normalizedImages.map((img, index) => (
-                  <Draggable key={img.id} draggableId={img.id} index={index}>
+                  <Draggable key={img.id} draggableId={img.id!} index={index}>
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
@@ -217,7 +226,7 @@ export function MediaTab({ product, setProduct }: MediaTabProps) {
                           onClick={() => setPreviewImage(img)}
                         >
                           <Image
-                            src={img.url}
+                            src={img.url || ''}
                             alt={img.alt || `Məhsul şəkli ${index + 1}`}
                             fill
                             sizes="240px"
@@ -245,7 +254,7 @@ export function MediaTab({ product, setProduct }: MediaTabProps) {
                           placeholder="Alt mətni (SEO üçün: məhsulun adı, rəngi, növü...)"
                           value={img.alt ?? ''}
                           onChange={(e) =>
-                            handleAltChange(img.id, e.target.value)
+                            handleAltChange(img.id!, e.target.value || '')
                           }
                         />
 
@@ -258,7 +267,7 @@ export function MediaTab({ product, setProduct }: MediaTabProps) {
                             {index > 0 && (
                               <button
                                 type="button"
-                                onClick={() => handleSetPrimary(img.id)}
+                                onClick={() => handleSetPrimary(img.id!)}
                                 className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100"
                               >
                                 Əsas et
@@ -266,7 +275,7 @@ export function MediaTab({ product, setProduct }: MediaTabProps) {
                             )}
                             <button
                               type="button"
-                              onClick={() => handleDelete(img.id)}
+                              onClick={() => handleDelete(img.id!)}
                               className="rounded-full bg-red-50 p-1 text-red-600 hover:bg-red-100"
                             >
                               <Trash2 className="h-3 w-3" />
@@ -313,7 +322,7 @@ export function MediaTab({ product, setProduct }: MediaTabProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <Image
-              src={previewImage.url}
+              src={previewImage.url || ''}
               alt={previewImage.alt || 'Preview'}
               width={1600}
               height={1200}

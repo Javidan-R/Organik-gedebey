@@ -1,150 +1,300 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Leaf, ShoppingBag, ArrowRight, ShieldCheck, Truck, HeartHandshake, Sparkles } from "lucide-react";
+/**
+ * HeroContent — Premium editorial left panel.
+ * Design: Ağ / Yaşıl / Sarı — Organic farm premium.
+ * Creative "Organik Gədəbəy" heading with floating accents.
+ * Stats removed. Flash-deal ready buttons.
+ */
+
+import { motion, useTransform, MotionValue } from "framer-motion";
+import {
+  Leaf, ShoppingBag, ArrowRight, ShieldCheck, Truck,
+  HeartHandshake, Sparkles, Zap,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useScroll, useTransform } from "framer-motion";
 
 interface HeroContentProps {
-  scrollYProgress: any;
+  scrollYProgress: MotionValue<number>;
+}
+
+const CONTAINER = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.07, delayChildren: 0.1 },
+  },
+};
+
+const ITEM = {
+  hidden: { opacity: 0, y: 18 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
+/* Floating leaf decoration */
+function FloatingLeaf({
+  delay,
+  x,
+  y,
+  size,
+  rotate,
+}: {
+  delay: number;
+  x: string;
+  y: string;
+  size: number;
+  rotate: number;
+}) {
+  return (
+    <motion.div
+      className="absolute pointer-events-none select-none"
+      style={{ left: x, top: y }}
+      animate={{
+        y: [0, -8, 0],
+        rotate: [rotate, rotate + 10, rotate],
+        opacity: [0.18, 0.32, 0.18],
+      }}
+      transition={{
+        repeat: Infinity,
+        duration: 3.5 + delay,
+        ease: "easeInOut",
+        delay,
+      }}
+    >
+      <Leaf
+        style={{ width: size, height: size }}
+        className="text-emerald-400"
+      />
+    </motion.div>
+  );
 }
 
 export default function HeroContent({ scrollYProgress }: HeroContentProps) {
-  const textY = useTransform(scrollYProgress, [0, 1], [0, 30]);
+  const y = useTransform(scrollYProgress, [0, 1], [0, 28]);
+  const opacity = useTransform(scrollYProgress, [0, 0.6], [1, 0.6]);
 
-  const [currentTime, setCurrentTime] = useState<"morning" | "day" | "evening">("day");
+  type TimeSlot = "morning" | "day" | "evening";
+  const [time, setTime] = useState<TimeSlot>("day");
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 10) setCurrentTime("morning");
-    else if (hour >= 10 && hour < 17) setCurrentTime("day");
-    else setCurrentTime("evening");
+    setMounted(true);
+    const h = new Date().getHours();
+    if (h >= 5 && h < 10) setTime("morning");
+    else if (h >= 10 && h < 17) setTime("day");
+    else setTime("evening");
   }, []);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.06, delayChildren: 0.05 },
-    },
+  const greetings: Record<TimeSlot, { emoji: string; text: string }> = {
+    morning: { emoji: "🌅", text: "Sabahınız xeyir!" },
+    day: { emoji: "☀️", text: "Günortanız xeyir!" },
+    evening: { emoji: "🌙", text: "Axşamınız xeyir!" },
   };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 15 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.4, ease: "easeOut" },
-    },
-  };
-
-  const timeGreeting = {
-    morning: "Sabahınız xeyir! 🌅",
-    day: "Günortanız xeyir! ☀️",
-    evening: "Axşamınız xeyir! 🌙",
-  };
+  const g = greetings[time];
 
   return (
     <motion.div
-      style={{ y: textY }}
-      variants={containerVariants}
+      style={{ y, opacity }}
+      variants={CONTAINER}
       initial="hidden"
       animate="visible"
-      className="flex flex-col justify-center gap-2.5 px-3 pt-4 pb-0 md:gap-5 md:px-0 md:pt-0 md:pb-0"
+      className="relative flex flex-col justify-center gap-4 px-4 pt-5 pb-3
+        md:gap-5 md:px-0 md:pt-0 md:pb-0 overflow-hidden"
     >
-      {/* Salam */}
-      <motion.p
-        variants={itemVariants}
-        className="text-[11px] font-medium text-emerald-700/80 md:text-sm"
-      >
-        {timeGreeting[currentTime]}
-      </motion.p>
+      {/* ── DECORATIVE FLOATING LEAVES (desktop only) ── */}
+      <div className="hidden md:block absolute inset-0 overflow-hidden pointer-events-none">
+        <FloatingLeaf delay={0}   x="82%" y="12%" size={18} rotate={25}  />
+        <FloatingLeaf delay={0.8} x="75%" y="55%" size={13} rotate={-15} />
+        <FloatingLeaf delay={1.5} x="88%" y="72%" size={16} rotate={40}  />
+        <FloatingLeaf delay={0.4} x="68%" y="30%" size={11} rotate={-30} />
+      </div>
 
-      {/* Badge */}
-      <motion.div
-        variants={itemVariants}
-        className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[9px] font-semibold text-emerald-800 shadow-sm backdrop-blur-sm md:px-4 md:py-1.5 md:text-xs"
-      >
-        <Leaf className="h-3 w-3 text-emerald-600 md:h-4 md:w-4" />
-        <span className="hidden sm:inline">
-          Gədəbəy & Gəncə ailə təsərrüfatları
-        </span>
-        <span className="sm:hidden">Gədəbəy təbii məhsulları</span>
+      {/* ── GREETING ── */}
+      {mounted && (
+        <motion.div variants={ITEM} className="flex items-center gap-2">
+          <motion.span
+            animate={{ rotate: [0, 10, -5, 0] }}
+            transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+            className="text-xl"
+          >
+            {g.emoji}
+          </motion.span>
+          <span className="text-sm font-bold text-emerald-700">{g.text}</span>
+        </motion.div>
+      )}
+
+      {/* ── TRUST BADGE ── */}
+      <motion.div variants={ITEM}>
+        <div className="inline-flex items-center gap-2
+          bg-gradient-to-r from-emerald-600 to-emerald-700
+          text-white rounded-full px-3.5 py-1.5 text-[11px] font-black
+          shadow-lg shadow-emerald-600/25">
+          <motion.span
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+          >
+            <Leaf className="w-3.5 h-3.5 text-yellow-300" />
+          </motion.span>
+          Gədəbəy · Gəncə · Ailə Təsərrüfatları
+          <span className="text-yellow-300 text-[10px]">✦</span>
+        </div>
       </motion.div>
 
-      {/* Başlıq */}
-      <motion.h1
-        variants={itemVariants}
-        className="text-lg font-extrabold leading-tight text-emerald-900 sm:text-3xl md:text-4xl lg:text-5xl"
-      >
-        <span className="block">Organik Gədəbəy</span>
-        <span className="mt-0.5 block text-[0.75em] font-semibold text-emerald-700 sm:mt-2">
-          təbii kənd məhsulları və ev dadı
-        </span>
-      </motion.h1>
+      {/* ── CREATIVE HEADING ── */}
+      <motion.div variants={ITEM} className="space-y-2">
+        {/* "Organik" — with sparkle */}
+        <div className="flex items-center gap-2">
+          <motion.span
+            animate={{ scale: [1, 1.2, 1], rotate: [0, 15, 0] }}
+            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+            className="text-yellow-400"
+          >
+            <Sparkles className="w-5 h-5 md:w-6 md:h-6" />
+          </motion.span>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl
+            font-black text-emerald-900 leading-[1] tracking-tight">
+            Organik
+          </h1>
+        </div>
 
-      {/* Təsvir */}
+        {/* "Gədəbəy" — highlighted + underline */}
+        <div className="relative inline-block">
+          {/* Yellow marker highlight sweep */}
+          <motion.div
+            className="absolute inset-y-1 left-0 right-0 bg-yellow-300/40
+              rounded-lg -mx-1 -rotate-1"
+            initial={{ scaleX: 0, originX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ delay: 0.55, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          />
+          <h2 className="relative z-10 text-3xl sm:text-4xl md:text-5xl lg:text-6xl
+            font-black text-emerald-800 leading-[1.05] tracking-tight px-1">
+            Gədəbəy
+          </h2>
+          {/* Dual animated underline */}
+          <svg
+            className="absolute -bottom-2 left-0 w-full"
+            viewBox="0 0 200 10"
+            fill="none"
+            preserveAspectRatio="none"
+          >
+            <motion.path
+              d="M2 7 C 50 3, 130 3, 198 7"
+              stroke="#EAB308"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              fill="none"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ delay: 0.65, duration: 0.65, ease: "easeOut" }}
+            />
+            <motion.path
+              d="M10 9 C 60 5, 140 5, 190 9"
+              stroke="#84CC16"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeDasharray="4 3"
+              fill="none"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ delay: 0.8, duration: 0.65, ease: "easeOut" }}
+            />
+          </svg>
+        </div>
+
+        <p className="text-sm md:text-base font-semibold text-emerald-600/90 mt-3">
+          Kənd dadı · Təbii · Üzvi məhsullar
+        </p>
+      </motion.div>
+
+      {/* ── DESCRIPTION ── */}
       <motion.p
-        variants={itemVariants}
-        className="text-[11px] leading-relaxed text-emerald-800/80 sm:text-base"
+        variants={ITEM}
+        className="text-[13px] md:text-sm text-slate-600 leading-relaxed max-w-sm"
       >
-        Kənd həyətindən birbaşa evinizə: 🍯 bal, 🧀 pendir, qaymaq, 🥬 təzə tərəvəz və 🍎 meyvələr.
-        <span className="mt-0.5 block font-medium text-emerald-700">
-          Tam təbii organik kənd dadı 🌿
-        </span>
+        Kənd həyətindən birbaşa evinizə:{" "}
+        <span className="font-bold text-slate-700">🍯 bal, 🧀 pendir, qaymaq,</span>{" "}
+        🥬 təzə tərəvəz və 🍎 meyvələr. Tam organik, tam təbii.
       </motion.p>
 
-      {/* Düymələr */}
-      <motion.div variants={itemVariants} className="flex items-center gap-2 pt-1 sm:flex-row sm:gap-3 sm:pt-2">
+      {/* ── FEATURE PILLS (desktop) ── */}
+      <motion.div
+        variants={ITEM}
+        className="hidden md:flex flex-wrap gap-1.5"
+      >
+        {[
+          { icon: <ShieldCheck className="w-3 h-3" />, text: "Sertifikatlı üzvi", color: "bg-yellow-50 border-yellow-200 text-amber-800" },
+          { icon: <Truck className="w-3 h-3" />, text: "Eyni gün çatdırılma", color: "bg-emerald-50 border-emerald-200 text-emerald-800" },
+          { icon: <HeartHandshake className="w-3 h-3" />, text: "Şəhid ailələrinə endirim", color: "bg-yellow-50 border-yellow-200 text-amber-800" },
+        ].map((f) => (
+          <span
+            key={f.text}
+            className={`flex items-center gap-1.5 text-[10px] font-bold
+              border px-3 py-1.5 rounded-full ${f.color}`}
+          >
+            {f.icon}
+            {f.text}
+          </span>
+        ))}
+      </motion.div>
+
+      {/* ── CTA BUTTONS ── */}
+      <motion.div
+        variants={ITEM}
+        className="flex items-center gap-2.5 flex-wrap"
+      >
         <Link
           href="/products"
-          className="group inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 px-4 py-2.5 text-[11px] font-semibold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 sm:px-5 sm:py-3 sm:text-sm md:px-6 md:text-base"
+          className="group inline-flex items-center gap-2
+            bg-emerald-700 text-white font-black text-sm rounded-2xl
+            px-5 py-3 shadow-xl shadow-emerald-700/20
+            hover:bg-emerald-800 active:scale-95 transition-all"
         >
-          <ShoppingBag className="h-3.5 w-3.5 md:h-4 md:w-4" />
+          <ShoppingBag className="w-4 h-4" />
           Məhsullar
-          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1 md:h-4 md:w-4" />
+          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </Link>
+
         <Link
-          href="/category/gedebey"
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-white/90 px-4 py-2.5 text-[11px] font-semibold text-emerald-700 shadow-md backdrop-blur-sm transition hover:bg-white hover:shadow-lg sm:px-5 sm:py-3 sm:text-sm md:text-base"
+          href="/fresh-today"
+          className="inline-flex items-center gap-2
+            bg-yellow-400 text-emerald-900 font-black text-sm rounded-2xl
+            px-4 py-3 shadow-lg shadow-yellow-400/30
+            hover:bg-yellow-300 active:scale-95 transition-all"
         >
-          ⛰️ Gədəbəy
+          <motion.span
+            animate={{ scale: [1, 1.15, 1] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+          >
+            <Zap className="w-4 h-4" />
+          </motion.span>
+          Bu Gün Gələnlər
         </Link>
       </motion.div>
 
-      {/* Özəlliklər – Mobil */}
+      {/* ── MOBILE: feature row ── */}
       <motion.div
-        variants={itemVariants}
-        className="flex items-center gap-2.5 text-[10px] text-emerald-700 md:hidden"
+        variants={ITEM}
+        className="flex items-center gap-3 text-[10px] text-emerald-800
+          font-bold md:hidden"
       >
         <span className="flex items-center gap-1">
-          <ShieldCheck className="h-3 w-3" /> Təzə
+          <ShieldCheck className="w-3 h-3 text-emerald-500" /> Üzvi
         </span>
+        <span className="w-px h-3 bg-emerald-200" />
         <span className="flex items-center gap-1">
-          <Truck className="h-3 w-3" /> Sürətli
+          <Truck className="w-3 h-3 text-emerald-500" /> Sürətli
         </span>
+        <span className="w-px h-3 bg-emerald-200" />
         <span className="flex items-center gap-1">
-          <HeartHandshake className="h-3 w-3" /> Endirim
+          <HeartHandshake className="w-3 h-3 text-yellow-500" /> Endirim
         </span>
-      </motion.div>
-
-      {/* Özəlliklər – Desktop */}
-      <motion.div variants={containerVariants} className="mt-2 hidden flex-wrap gap-2 md:flex">
-        {[
-          { icon: ShieldCheck, text: "Təzə yığım" },
-          { icon: Truck, text: "Sürətli çatdırılma" },
-          { icon: HeartHandshake, text: "Şəhid/qazi ailələrinə endirim" },
-        ].map((item, i) => (
-          <motion.span
-            key={i}
-            variants={itemVariants}
-            className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-emerald-700 shadow-sm backdrop-blur-sm"
-          >
-            <item.icon className="h-3.5 w-3.5 text-emerald-600" />
-            <span>{item.text}</span>
-          </motion.span>
-        ))}
       </motion.div>
     </motion.div>
   );

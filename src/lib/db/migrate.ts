@@ -11,10 +11,8 @@ const db = drizzle(migrationClient)
 async function main() {
   console.log("Running migrations...")
   
-  await migrate(db, {
-    migrationsFolder: './drizzle'
-  })
-  
+ await migrate(db, { migrationsFolder: './src/generated/drizzle' })
+
   console.log("Migrations complete!")
   process.exit(0)
 }

@@ -3,8 +3,8 @@
 
 import { useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { pusherClient, subscribeToNotifications } from '@/lib/pusher/client'
-import { toast } from 'sonner' // or your toast library
+import { subscribeToNotifications } from '@/lib/pusher/client'
+import toast from 'react-hot-toast'
 
 export function NotificationListener() {
   const { data: session } = useSession()
@@ -16,7 +16,10 @@ export function NotificationListener() {
       session.user.id,
       (notification) => {
         toast.success(notification.title, {
-          description: notification.message,
+          duration: 3000,
+          position: 'top-right',
+
+
         })
       }
     )

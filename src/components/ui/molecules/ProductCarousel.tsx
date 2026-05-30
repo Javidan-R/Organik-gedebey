@@ -1,5 +1,5 @@
 import { Product } from "@/types/products"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { Package, ChevronRight, ChevronLeft } from "lucide-react"
 import { useRef, useState, useCallback, useEffect } from "react"
 import { RusticProductCard } from "../organisms"
@@ -102,19 +102,7 @@ export function ProductCarousel({
         </div>
       </div>
 
-      {/* Edge fades */}
-      <AnimatePresence>
-        {canLeft && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute left-0 top-8 bottom-6 w-12 bg-gradient-to-r from-[#f3f9e7] to-transparent z-10 pointer-events-none"
-          />
-        )}
-        {canRight && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute right-0 top-8 bottom-6 w-12 bg-gradient-to-l from-[#f3f9e7] to-transparent z-10 pointer-events-none"
-          />
-        )}
-      </AnimatePresence>
+      
 
       {/* Scrollable container */}
       <div
@@ -128,18 +116,22 @@ export function ProductCarousel({
           }
         }}
       >
-        {products.map((p, i) => (
-          <motion.div
-            key={p.id}
-            initial={{ opacity: 0, x: 24 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: Math.min(i * 0.05, 0.4) }}
-            className="min-w-[66%] snap-start sm:min-w-[42%] md:min-w-[31%] lg:min-w-[23%]"
-          >
-            <RusticProductCard product={p} currency={currency} addToCart={addToCart} />
-          </motion.div>
-        ))}
+      {products.map((p, i) => (
+        <motion.div
+          key={`${p.id ?? "product"}-${i}`}
+          initial={{ opacity: 0, x: 24 }}
+          whileInView={{ opacity: 1, x: 0 }}
+          viewport={{ once: true }}
+          transition={{ delay: Math.min(i * 0.05, 0.4) }}
+          className="min-w-[66%] snap-start sm:min-w-[42%] md:min-w-[31%] lg:min-w-[23%]"
+        >
+          <RusticProductCard
+            product={p}
+            currency={currency}
+            addToCart={addToCart}
+          />
+        </motion.div>
+      ))}
       </div>
 
       {/* Dot indicators */}

@@ -1,53 +1,31 @@
-import { NextResponse, NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
 
-const ADMIN_PREFIX = '/admin'
-const AUTH_ROUTES = ['/login', '/signup', '/forgot-password']
-
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
-  const authCookie = req.cookies.get('og_auth')
-  const adminCookie = req.cookies.get('og_admin')
 
-  let userData: { role?: string } | null = null
-  try {
-    if (authCookie?.value) {
-      userData = JSON.parse(authCookie.value)
-    }
-  } catch {
-    // Cookie səhvdirsə, təmizlə
-  }
-
-  // === ADMIN ROUTES ===
-  if (pathname.startsWith(ADMIN_PREFIX)) {
-    // Admin login səhifəsi
-    if (pathname === '/admin/login') {
-      if (adminCookie?.value === 'ok' || userData?.role === 'ADMIN' || userData?.role === 'MANAGER') {
-        const url = req.nextUrl.clone()
-        url.pathname = '/admin/dashboard'
-        return NextResponse.redirect(url)
-      }
-      return NextResponse.next()
-    }
-
-    // Digər admin səhifələri
-    if (adminCookie?.value !== 'ok' && 
-        userData?.role !== 'ADMIN' && 
-        userData?.role !== 'MANAGER' &&
-        userData?.role !== 'WAREHOUSE_STAFF') {
-      const url = req.nextUrl.clone()
-      url.pathname = '/admin/login'
-      url.searchParams.set('next', pathname)
-      return NextResponse.redirect(url)
-    }
-
+  // Admin login səhifəsini yoxlama
+  if (pathname === '/admin/login') {
     return NextResponse.next()
   }
 
-  // === AUTH ROUTES (login, signup) ===
-  if (AUTH_ROUTES.some(route => pathname.startsWith(route))) {
-    if (userData) {
-      const url = req.nextUrl.clone()
-      url.pathname = '/'
+  // Digər admin səhifələri
+  if (pathname.startsWith('/admin')) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+    if (!token || token.role !== 'ADMIN') {
+      const url = new URL('/admin/login', req.url)
+      return NextResponse.redirect(url)
+    }
+    return NextResponse.next()
+  }
+
+  // Hesab / Sifarişlər
+  if (pathname.startsWith('/account') || pathname.startsWith('/orders')) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+    if (!token) {
+      const url = new URL('/login', req.url)
+      url.searchParams.set('callbackUrl', pathname)
       return NextResponse.redirect(url)
     }
     return NextResponse.next()
@@ -57,5 +35,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/login', '/signup', '/forgot-password'],
+  matcher: ['/admin/:path*', '/account/:path*', '/orders/:path*'],
 }

@@ -24,7 +24,7 @@ const LEAF_POSITIONS = [
 
 // ─── Recent logins (mock localStorage simulation) ──────────────────────────
 const RECENT_ACCOUNTS = [
-  { email: 'customer@example.com', name: 'Test Müştəri', avatar: 'T' },
+  { email: 'customer@example.com', name: 'Test Müştəri', avatar: 'T', role: 'customer', password: 'password123' },
 ]
 
 // ─── Social providers ──────────────────────────────────────────────────────
@@ -56,8 +56,6 @@ export default function LoginPage() {
   const [loginAttempts, setLoginAttempts] = useState(0)
   const [lockedUntil, setLockedUntil] = useState<number | null>(null)
   const [showQuickAccess, setShowQuickAccess] = useState(false)
-  const [passwordStrengthVisible, setPasswordStrengthVisible] = useState(false)
-  const [showTip, setShowTip] = useState(true)
   const [socialLoading, setSocialLoading] = useState<string | null>(null)
   const [timeGreeting, setTimeGreeting] = useState('')
 

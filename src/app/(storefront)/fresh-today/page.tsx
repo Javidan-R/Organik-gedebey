@@ -1,11 +1,11 @@
 "use client";
- 
+
 /**
  * Bu Gün Gələnlər — Premium Storefront
  * Instagram Stories + Luxury E-Commerce hybrid
  * Mobile-first, gesture-friendly, cinematic animations
  */
- 
+
 import {
   useMemo, useState, useCallback, useRef, useEffect, useLayoutEffect,
 } from "react";
@@ -30,15 +30,15 @@ import {
   formatCurrency,
 } from "@/utils/storefront_home";
 import type { ID, Product } from "@/types/products";
- 
+
 /* ══════════════════════════════════════════════════════════════════
    TYPES & CONSTANTS
 ══════════════════════════════════════════════════════════════════ */
 type ViewMode = "grid" | "feed";
 type TabMode = "fresh" | "upcoming";
- 
+
 const STORY_DURATION = 5000; // ms per story slide
- 
+
 /* ══════════════════════════════════════════════════════════════════
    HOOKS
 ══════════════════════════════════════════════════════════════════ */
@@ -57,7 +57,7 @@ function useLocalStorage<T>(key: string, initial: T) {
   }, [key, val]);
   return [val, setVal] as const;
 }
- 
+
 /* ══════════════════════════════════════════════════════════════════
    TOAST
 ══════════════════════════════════════════════════════════════════ */
@@ -78,7 +78,7 @@ function Toast({ msg, icon }: { msg: string; icon?: React.ReactNode }) {
     </motion.div>
   );
 }
- 
+
 /* ══════════════════════════════════════════════════════════════════
    STORY PROGRESS BAR
 ══════════════════════════════════════════════════════════════════ */
@@ -111,7 +111,7 @@ function StoryProgressBars({
     </div>
   );
 }
- 
+
 /* ══════════════════════════════════════════════════════════════════
    FULL-SCREEN STORY VIEWER
 ══════════════════════════════════════════════════════════════════ */
@@ -133,11 +133,11 @@ function StoryViewer({
   const [swipedUp, setSwipedUp] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const product = products[current];
- 
+
   const clearTimer = () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
   };
- 
+
   const startTimer = useCallback(() => {
     clearTimer();
     setProgress(0);
@@ -157,16 +157,16 @@ function StoryViewer({
       }
     }, 50);
   }, [paused, products.length, onClose]);
- 
+
   useEffect(() => {
     if (open) { setCurrent(startIndex); setProgress(0); }
   }, [open, startIndex]);
- 
+
   useEffect(() => {
     if (open) startTimer();
     return clearTimer;
   }, [open, current, paused, startTimer]);
- 
+
   const goNext = () => {
     if (current < products.length - 1) setCurrent((c) => c + 1);
     else onClose();
@@ -174,14 +174,14 @@ function StoryViewer({
   const goPrev = () => {
     if (current > 0) setCurrent((c) => c - 1);
   };
- 
+
   if (!product || !open) return null;
- 
+
   const basePrice = getProductBasePrice(product);
   const price = finalPrice(basePrice, product.discountType, product.discountValue);
   const discount = basePrice > 0 ? Math.round((1 - price / basePrice) * 100) : 0;
   const stock = product.variants?.[0]?.stock ?? 0;
- 
+
   const handleShare = async () => {
     const text = `🌿 *${product.name}*\n\n💰 ${formatCurrency(price)}\n\n🛒 Sifarişlər üçün WhatsApp:\nhttps://wa.me/994773676021`;
     try {
@@ -189,7 +189,7 @@ function StoryViewer({
       else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
     } catch {}
   };
- 
+
   return (
     <AnimatePresence>
       <motion.div
@@ -211,7 +211,7 @@ function StoryViewer({
           {/* Gradient overlays */}
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/80" />
         </div>
- 
+
         {/* TOP BAR */}
         <div className="absolute top-0 left-0 right-0 z-20 pt-safe-top pt-4 space-y-2">
           <StoryProgressBars
@@ -254,7 +254,7 @@ function StoryViewer({
             </div>
           </div>
         </div>
- 
+
         {/* TAP ZONES */}
         <button
           onClick={goPrev}
@@ -264,7 +264,7 @@ function StoryViewer({
           onClick={goNext}
           className="absolute right-0 top-0 bottom-0 w-2/3 z-10"
         />
- 
+
         {/* BOTTOM PRODUCT INFO */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
@@ -292,7 +292,7 @@ function StoryViewer({
                 {product.originRegion || "Gədəbəy"}
               </span>
             </div>
- 
+
             {/* Name & Price */}
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -316,7 +316,7 @@ function StoryViewer({
                 )}
               </div>
             </div>
- 
+
             {/* Actions */}
             <div className="flex items-center gap-2.5 pt-1">
               <motion.button
@@ -348,7 +348,7 @@ function StoryViewer({
                 <Share2 className="w-5 h-5 text-white" />
               </motion.button>
             </div>
- 
+
             {/* WhatsApp quick order */}
             <a
               href={`https://wa.me/994773676021?text=${encodeURIComponent(`Salam! ${product.name} sifariş etmək istəyirəm 🌿`)}`}
@@ -369,7 +369,7 @@ function StoryViewer({
     </AnimatePresence>
   );
 }
- 
+
 /* ══════════════════════════════════════════════════════════════════
    STORY BUBBLE
 ══════════════════════════════════════════════════════════════════ */
@@ -387,7 +387,7 @@ function StoryBubble({
   const isAll = product === null;
   const stock = product?.variants?.[0]?.stock ?? 999;
   const isHot = !isAll && stock > 0 && stock <= 3;
- 
+
   const ringClass = seen
     ? "bg-slate-300"
     : isHot
@@ -395,7 +395,7 @@ function StoryBubble({
     : isAll
     ? "bg-gradient-to-tr from-[#B5E935] via-emerald-400 to-teal-500"
     : "bg-gradient-to-tr from-[#B5E935] via-lime-400 to-emerald-500";
- 
+
   return (
     <motion.button
       whileTap={{ scale: 0.92 }}
@@ -438,7 +438,7 @@ function StoryBubble({
     </motion.button>
   );
 }
- 
+
 /* ══════════════════════════════════════════════════════════════════
    PRODUCT CARD — GRID MODE (compact, premium)
 ══════════════════════════════════════════════════════════════════ */
@@ -461,21 +461,21 @@ function GridCard({
   const cardRef = useRef<HTMLDivElement>(null);
   const inView = useInView(cardRef, { once: true, margin: "-30px" });
   const [added, setAdded] = useState(false);
- 
+
   const basePrice = getProductBasePrice(product);
   const price = finalPrice(basePrice, product.discountType, product.discountValue);
   const discount = basePrice > 0 ? Math.round((1 - price / basePrice) * 100) : 0;
   const stock = product.variants?.[0]?.stock ?? 0;
   const isOut = stock <= 0;
   const isLow = stock > 0 && stock <= 5;
- 
+
   const handleAdd = () => {
     if (isOut) return;
     addToCart(product.id, product.variants?.[0]?.id, 1);
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
   };
- 
+
   return (
     <motion.div
       ref={cardRef}
@@ -502,11 +502,11 @@ function GridCard({
           className="object-cover group-hover:scale-[1.04] transition-transform duration-700 ease-out"
           sizes="(max-width: 640px) 50vw, 33vw"
         />
- 
+
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent
           opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
- 
+
         {/* Badges */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5">
           <div className="flex items-center gap-1 bg-white/95 backdrop-blur rounded-full
@@ -522,7 +522,7 @@ function GridCard({
             </div>
           )}
         </div>
- 
+
         {/* Save button */}
         <motion.button
           whileTap={{ scale: 0.85 }}
@@ -536,7 +536,7 @@ function GridCard({
         >
           <Heart className={`w-3.5 h-3.5 ${saved ? "fill-white" : ""}`} />
         </motion.button>
- 
+
         {/* Low stock banner */}
         {isLow && (
           <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-red-500/90
@@ -553,7 +553,7 @@ function GridCard({
           </div>
         )}
       </div>
- 
+
       {/* Info */}
       <div className="p-3 space-y-2">
         <div className="flex items-center justify-between">
@@ -567,11 +567,11 @@ function GridCard({
             ))}
           </div>
         </div>
- 
+
         <h3 className="text-sm font-black text-slate-900 line-clamp-2 leading-tight">
           {product.name}
         </h3>
- 
+
         <div className="flex items-baseline gap-1.5">
           <span className="text-base font-black text-[#051F0A]">
             {formatCurrency(price)}
@@ -582,7 +582,7 @@ function GridCard({
             </span>
           )}
         </div>
- 
+
         {/* Actions */}
         <div className="flex gap-1.5 pt-0.5">
           <motion.button
@@ -619,7 +619,7 @@ function GridCard({
     </motion.div>
   );
 }
- 
+
 /* ══════════════════════════════════════════════════════════════════
    PRODUCT CARD — FEED MODE (editorial, large)
 ══════════════════════════════════════════════════════════════════ */
@@ -641,20 +641,20 @@ function FeedCard({
   const inView = useInView(cardRef, { once: true, margin: "-40px" });
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
- 
+
   const basePrice = getProductBasePrice(product);
   const price = finalPrice(basePrice, product.discountType, product.discountValue);
   const discount = basePrice > 0 ? Math.round((1 - price / basePrice) * 100) : 0;
   const stock = product.variants?.[0]?.stock ?? 0;
   const isOut = stock <= 0;
- 
+
   const handleAdd = () => {
     if (isOut) return;
     addToCart(product.id, product.variants?.[0]?.id, qty);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
- 
+
   return (
     <motion.div
       ref={cardRef}
@@ -673,7 +673,7 @@ function FeedCard({
           className="object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
- 
+
         {/* Top badges */}
         <div className="absolute top-4 left-4 flex items-center gap-2">
           <div className="flex items-center gap-1.5 bg-[#B5E935] text-[#051F0A]
@@ -689,7 +689,7 @@ function FeedCard({
             </div>
           )}
         </div>
- 
+
         {/* Top right */}
         <div className="absolute top-4 right-4 flex flex-col gap-2">
           <motion.button
@@ -709,7 +709,7 @@ function FeedCard({
             <Share2 className="w-4 h-4 text-slate-600" />
           </motion.button>
         </div>
- 
+
         {/* Bottom product name overlay */}
         <div className="absolute bottom-4 left-4 right-4">
           <h3 className="text-white font-black text-xl leading-tight drop-shadow-lg">
@@ -723,13 +723,13 @@ function FeedCard({
           </div>
         </div>
       </div>
- 
+
       {/* Bottom info */}
       <div className="p-4 space-y-3.5">
         {product.description && (
           <p className="text-sm text-slate-500 line-clamp-2">{product.description}</p>
         )}
- 
+
         <div className="flex items-center justify-between">
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-black text-[#051F0A]">{formatCurrency(price)}</span>
@@ -744,7 +744,7 @@ function FeedCard({
             </span>
           )}
         </div>
- 
+
         {/* Qty + Cart */}
         <div className="flex items-center gap-3">
           {!isOut && (
@@ -788,7 +788,7 @@ function FeedCard({
             )}
           </motion.button>
         </div>
- 
+
         {/* WhatsApp */}
         <a
           href={`https://wa.me/994773676021?text=${encodeURIComponent(`Salam! ${product.name} - ${qty} ədəd sifariş etmək istəyirəm 🌿`)}`}
@@ -807,7 +807,7 @@ function FeedCard({
     </motion.div>
   );
 }
- 
+
 /* ══════════════════════════════════════════════════════════════════
    UPCOMING PRODUCT CARD (pre-save / notify)
 ══════════════════════════════════════════════════════════════════ */
@@ -824,9 +824,9 @@ function UpcomingCard({
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const inView = useInView(cardRef, { once: true, margin: "-30px" });
- 
+
   const basePrice = getProductBasePrice(product);
- 
+
   return (
     <motion.div
       ref={cardRef}
@@ -845,7 +845,7 @@ function UpcomingCard({
           className="object-cover blur-[3px] scale-105 brightness-75"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-slate-600/40" />
- 
+
         {/* Coming soon badge */}
         <div className="absolute top-3 left-3">
           <div className="flex items-center gap-1 bg-amber-400 text-amber-900
@@ -854,7 +854,7 @@ function UpcomingCard({
             GƏLƏCƏK
           </div>
         </div>
- 
+
         {/* Center lock icon */}
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
           <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-2xl
@@ -864,7 +864,7 @@ function UpcomingCard({
           <span className="text-white/70 text-xs font-bold">Tezliklə</span>
         </div>
       </div>
- 
+
       {/* Info */}
       <div className="p-3 space-y-2">
         <h3 className="text-sm font-black text-slate-700 line-clamp-2 leading-tight">
@@ -893,7 +893,7 @@ function UpcomingCard({
     </motion.div>
   );
 }
- 
+
 /* ══════════════════════════════════════════════════════════════════
    QUICK VIEW BOTTOM SHEET
 ══════════════════════════════════════════════════════════════════ */
@@ -909,22 +909,22 @@ function QuickViewSheet({
   const addToCart = useApp((s) => s.addToCart);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
- 
+
   if (!product) return null;
- 
+
   const basePrice = getProductBasePrice(product);
   const price = finalPrice(basePrice, product.discountType, product.discountValue);
   const discount = basePrice > 0 ? Math.round((1 - price / basePrice) * 100) : 0;
   const stock = product.variants?.[0]?.stock ?? 0;
   const isOut = stock <= 0;
- 
+
   const handleAdd = () => {
     if (isOut) return;
     addToCart(product.id, product.variants?.[0]?.id, qty);
     setAdded(true);
     setTimeout(() => { setAdded(false); onClose(); }, 1500);
   };
- 
+
   return (
     <AnimatePresence>
       {open && (
@@ -950,7 +950,7 @@ function QuickViewSheet({
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-12 h-1 bg-slate-200 rounded-full" />
             </div>
- 
+
             {/* Image */}
             <div className="relative aspect-[4/3] mx-4 rounded-2xl overflow-hidden bg-slate-100">
               <Image
@@ -973,7 +973,7 @@ function QuickViewSheet({
                 </div>
               )}
             </div>
- 
+
             {/* Content */}
             <div className="p-5 space-y-4 pb-safe-bottom pb-6">
               <div className="flex items-start justify-between gap-3">
@@ -992,11 +992,11 @@ function QuickViewSheet({
                   )}
                 </div>
               </div>
- 
+
               {product.description && (
                 <p className="text-sm text-slate-500 leading-relaxed">{product.description}</p>
               )}
- 
+
               {/* Features */}
               <div className="grid grid-cols-3 gap-2">
                 {[
@@ -1012,7 +1012,7 @@ function QuickViewSheet({
                   </div>
                 ))}
               </div>
- 
+
               {/* Stock warning */}
               {stock > 0 && stock <= 5 && (
                 <div className="flex items-center gap-2 bg-orange-50 border border-orange-100
@@ -1023,7 +1023,7 @@ function QuickViewSheet({
                   </p>
                 </div>
               )}
- 
+
               {/* Qty + Cart */}
               <div className="flex items-center gap-3">
                 {!isOut && (
@@ -1070,7 +1070,7 @@ function QuickViewSheet({
     </AnimatePresence>
   );
 }
- 
+
 /* ══════════════════════════════════════════════════════════════════
    SAVED DRAWER
 ══════════════════════════════════════════════════════════════════ */
@@ -1088,7 +1088,7 @@ function SavedDrawer({
   onRemove: (id: ID) => void;
 }) {
   const saved = products.filter((p) => savedIds.includes(p.id));
- 
+
   return (
     <AnimatePresence>
       {open && (
@@ -1118,7 +1118,7 @@ function SavedDrawer({
                 <X className="w-4 h-4" />
               </button>
             </div>
- 
+
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {saved.length === 0 ? (
                 <div className="text-center py-12">
@@ -1164,7 +1164,7 @@ function SavedDrawer({
     </AnimatePresence>
   );
 }
- 
+
 /* ══════════════════════════════════════════════════════════════════
    MAIN PAGE
 ══════════════════════════════════════════════════════════════════ */
@@ -1172,28 +1172,28 @@ export default function FreshTodayPage() {
   const hasHydrated = useHasHydrated();
   const products = useApp((s) => s.products);
   const categories = useApp((s) => s.categories);
- 
+
   const [savedIds, setSavedIds] = useLocalStorage<ID[]>("ft-saved", []);
   const [notifiedIds, setNotifiedIds] = useLocalStorage<ID[]>("ft-notified", []);
   const [seenStoryIds, setSeenStoryIds] = useLocalStorage<ID[]>("ft-seen", []);
- 
+
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [activeTab, setActiveTab] = useState<TabMode>("fresh");
   const [activeFilter, setActiveFilter] = useState<string>("all");
- 
+
   const [storyViewerOpen, setStoryViewerOpen] = useState(false);
   const [storyStartIndex, setStoryStartIndex] = useState(0);
- 
+
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [showSaved, setShowSaved] = useState(false);
- 
+
   const [toast, setToast] = useState<{ msg: string; icon?: React.ReactNode } | null>(null);
- 
+
   const showToast = useCallback((msg: string, icon?: React.ReactNode) => {
     setToast({ msg, icon });
     setTimeout(() => setToast(null), 2200);
   }, []);
- 
+
   /* Fresh products */
   const freshProducts = useMemo(() => {
     if (!products) return [];
@@ -1212,7 +1212,7 @@ export default function FreshTodayPage() {
         return bT - aT;
       });
   }, [products]);
- 
+
   /* Upcoming products */
   const upcomingProducts = useMemo(() => {
     if (!products) return [];
@@ -1220,13 +1220,13 @@ export default function FreshTodayPage() {
       (p) => !p.archived && p.statusTags?.includes("upcoming")
     );
   }, [products]);
- 
+
   /* Category filter */
   const freshCategories = useMemo(() => {
     const ids = new Set(freshProducts.map((p) => p.categoryId));
     return categories.filter((c) => ids.has(c.id));
   }, [freshProducts, categories]);
- 
+
   const displayProducts = useMemo(() => {
     const list = activeTab === "fresh" ? freshProducts : upcomingProducts;
     if (activeFilter === "all") return list;
@@ -1234,7 +1234,7 @@ export default function FreshTodayPage() {
     if (!cat) return list;
     return list.filter((p) => p.categoryId === cat.id);
   }, [activeTab, freshProducts, upcomingProducts, activeFilter, categories]);
- 
+
   /* Actions */
   const handleSave = useCallback((id: ID) => {
     setSavedIds((prev) => {
@@ -1243,7 +1243,7 @@ export default function FreshTodayPage() {
       return has ? prev.filter((x) => x !== id) : [...prev, id];
     });
   }, [setSavedIds, showToast]);
- 
+
   const handleNotify = useCallback((id: ID) => {
     setNotifiedIds((prev) => {
       const has = prev.includes(id);
@@ -1251,7 +1251,7 @@ export default function FreshTodayPage() {
       return has ? prev.filter((x) => x !== id) : [...prev, id];
     });
   }, [setNotifiedIds, showToast]);
- 
+
   const handleShare = useCallback(async (product: Product) => {
     const basePrice = getProductBasePrice(product);
     const price = finalPrice(basePrice, product.discountType, product.discountValue);
@@ -1263,7 +1263,7 @@ export default function FreshTodayPage() {
     } catch {}
     showToast("Paylaşma linki kopyalandı!");
   }, [showToast]);
- 
+
   const openStory = (index: number) => {
     setStoryStartIndex(index);
     setStoryViewerOpen(true);
@@ -1273,7 +1273,7 @@ export default function FreshTodayPage() {
       setSeenStoryIds((prev) => [...prev, p.id]);
     }
   };
- 
+
   /* Loading state */
   if (!hasHydrated) {
     return (
@@ -1294,19 +1294,119 @@ export default function FreshTodayPage() {
       </div>
     );
   }
- 
+
   return (
     <div className="min-h-screen bg-[#FDFBF4] font-sans">
       {/* ── TOAST ── */}
       <AnimatePresence>
         {toast && <Toast msg={toast.msg} icon={toast.icon} />}
       </AnimatePresence>
- 
+
       {/* ── HEADER ── */}
       <div className="sticky top-0 z-40 bg-[#FDFBF4]/90 backdrop-blur-xl
         border-b border-slate-200/60">
- 
- 
+
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-4 pt-4 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-2xl bg-[#051F0A] flex items-center justify-center">
+                <Leaf className="w-5 h-5 text-[#B5E935]" />
+              </div>
+              {/* Live dot */}
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full
+                border-2 border-[#FDFBF4]">
+                <span className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75" />
+              </span>
+            </div>
+            <div>
+              <h1 className="text-base font-black text-slate-900 leading-tight">
+                Bu Gün Gələnlər
+              </h1>
+              <p className="text-[10px] text-emerald-600 font-bold">
+                {freshProducts.length} təzə · {upcomingProducts.length} gözlənilir
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* View toggle */}
+            <button
+              onClick={() => setViewMode(viewMode === "grid" ? "feed" : "grid")}
+              className="w-9 h-9 rounded-xl bg-white border border-slate-200
+                flex items-center justify-center shadow-sm active:scale-95 transition-all"
+            >
+              {viewMode === "grid" ? (
+                <svg className="w-4 h-4 text-slate-600" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5">
+                  <rect x="3" y="3" width="8" height="11" rx="2" />
+                  <rect x="13" y="3" width="8" height="11" rx="2" />
+                  <rect x="3" y="17" width="18" height="4" rx="2" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 text-slate-600" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5">
+                  <rect x="3" y="3" width="8" height="8" rx="2" />
+                  <rect x="13" y="3" width="8" height="8" rx="2" />
+                  <rect x="3" y="13" width="8" height="8" rx="2" />
+                  <rect x="13" y="13" width="8" height="8" rx="2" />
+                </svg>
+              )}
+            </button>
+
+            {/* Saved */}
+            <motion.button
+              whileTap={{ scale: 0.92 }}
+              onClick={() => setShowSaved(true)}
+              className="relative w-9 h-9 rounded-xl bg-white border border-slate-200
+                flex items-center justify-center shadow-sm"
+            >
+              <Bookmark className="w-4 h-4 text-slate-600" />
+              <AnimatePresence>
+                {savedIds.length > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500
+                      rounded-full text-[9px] font-black text-white flex items-center justify-center px-1"
+                  >
+                    {savedIds.length}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </motion.button>
+          </div>
+        </div>
+
+        {/* ── STORY BAR ── */}
+        {freshProducts.length > 0 && (
+          <div className="relative py-2">
+            <div className="absolute left-0 top-0 bottom-0 w-6
+              bg-gradient-to-r from-[#FDFBF4] to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-6
+              bg-gradient-to-l from-[#FDFBF4] to-transparent z-10 pointer-events-none" />
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4">
+              {/* "All" bubble */}
+              <StoryBubble
+                product={null}
+                index={-1}
+                seen={false}
+                onClick={() => openStory(0)}
+              />
+              {freshProducts.slice(0, 12).map((p, i) => (
+                <StoryBubble
+                  key={p.id}
+                  product={p}
+                  index={i}
+                  seen={seenStoryIds.includes(p.id)}
+                  onClick={() => openStory(i)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── TABS ── */}
         <div className="flex items-center gap-2 px-4 pb-2.5 pt-1">
           {(["fresh", "upcoming"] as TabMode[]).map((tab) => {
@@ -1336,7 +1436,7 @@ export default function FreshTodayPage() {
             );
           })}
         </div>
- 
+
         {/* ── CATEGORY FILTERS ── */}
         {activeTab === "fresh" && freshCategories.length > 0 && (
           <div className="flex items-center gap-1.5 px-4 pb-3 overflow-x-auto scrollbar-hide">
@@ -1366,7 +1466,7 @@ export default function FreshTodayPage() {
           </div>
         )}
       </div>
- 
+
       {/* ── MAIN CONTENT ── */}
       <main className="max-w-2xl mx-auto px-3 py-4 pb-24">
         {displayProducts.length > 0 ? (
@@ -1466,7 +1566,7 @@ export default function FreshTodayPage() {
             </Link>
           </motion.div>
         )}
- 
+
         {/* ── BOTTOM CTA ── */}
         {displayProducts.length > 0 && (
           <motion.div
@@ -1481,7 +1581,7 @@ export default function FreshTodayPage() {
               rounded-full blur-2xl" />
             <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-emerald-500/20
               rounded-full blur-2xl" />
- 
+
             <div className="relative z-10">
               <motion.div
                 animate={{ rotate: [0, 5, -5, 0], scale: [1, 1.05, 1] }}
@@ -1518,7 +1618,7 @@ export default function FreshTodayPage() {
           </motion.div>
         )}
       </main>
- 
+
       {/* ── STORY VIEWER ── */}
       <StoryViewer
         products={freshProducts}
@@ -1526,14 +1626,14 @@ export default function FreshTodayPage() {
         open={storyViewerOpen}
         onClose={() => setStoryViewerOpen(false)}
       />
- 
+
       {/* ── QUICK VIEW ── */}
       <QuickViewSheet
         product={quickViewProduct}
         open={!!quickViewProduct}
         onClose={() => setQuickViewProduct(null)}
       />
- 
+
       {/* ── SAVED DRAWER ── */}
       <SavedDrawer
         open={showSaved}
@@ -1545,4 +1645,3 @@ export default function FreshTodayPage() {
     </div>
   );
 }
- 

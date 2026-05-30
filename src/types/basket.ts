@@ -12,7 +12,14 @@ export interface BasketItem {
   lowStock?: boolean;
   variants: Record<
     BasketVariant,
-    { price: number; contents: string[]; extras?: string[] }
+    { price: number; originalPrice?: number; contents: string[]; extras?: string[] }
   >;
   highlights?: string[];
+  origin?: string;
+  freshness?: string;
+  bestseller?: boolean;
+  new?: boolean;
+  trending?: boolean;
+  nutrition?: string[];
+  testimonials?: Array<{ name: string; text: string; rating: number }>;
 }

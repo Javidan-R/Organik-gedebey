@@ -20,31 +20,8 @@ import {
 } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { BASKETS } from "./basketsData";
-
-// Types
-type BasketVariant = "econom" | "standard" | "premium";
-
-interface BasketItem {
-  id: string;
-  name: string;
-  type: string;
-  tagline: string;
-  description: string;
-  origin?: string;
-  freshness?: string;
-  bestseller?: boolean;
-  new?: boolean;
-  trending?: boolean;
-  media: Array<{ type: "image" | "video"; src: string }>;
-  variants: Record<BasketVariant, {
-    price: number;
-    originalPrice?: number;
-    contents: string[];
-    extras?: string[];
-  }>;
-  nutrition?: string[];
-  testimonials?: Array<{ name: string; text: string; rating: number }>;
-}
+import { BasketItem, BasketVariant } from "@/types/basket";
+import { ProductGrade } from "@/types/products";
 
 // 3D Tilt Hook
 const use3DTilt = () => {
@@ -638,19 +615,31 @@ export default function PremiumBasketsPage() {
           name: basketItem.name,
           slug: `basket-${basketItem.id.toLowerCase().replace(/\s+/g, '-')}`,
           description: basketData.description,
+          shortDescription: basketData.description,
           price: basketItem.price,
           categoryId: 'baskets', // Xüsusi basket kateqoriyası
-          images: [basketItem.image],
+          images: [{ url: basketItem.image }],
           featured: basketData.bestseller || false,
           archived: false,
           tags: ['basket', 'gedebey', basketData.type],
+          isNewArrival: false,
+          isFeatured: basketData.bestseller || false,
+          basePrice: undefined,
+          stock: 100,
+          quantityStep: 1,
           variants: [
             {
+              label: basketItem.variant,
               id: `${productId}-${basketItem.variant}`,
               name: basketItem.variant,
               price: basketItem.price,
+              costPrice: basketItem.price * 0.7,
               stock: 100, // Sonsuz stok
               sku: `BSK-${basketItem.id}-${basketItem.variant}`,
+              grade: 'A' as ProductGrade,
+              batchDate: new Date().toISOString(),
+              minStock: 10,
+              createdAt: new Date().toISOString(),
             }
           ],
           reviews: [],

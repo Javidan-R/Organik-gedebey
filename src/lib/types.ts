@@ -6,6 +6,8 @@ import { NutritionalFact, Product, ProductGrade, ProductImage } from "@/types/pr
 
 export type ID = string;
 
+export type DiscountType = 'percentage' | 'fixed';
+
 // ————————————————————————————————————————————————————————
 // Yeni Tiplər (Admin/Finance/User)
 // ————————————————————————————————————————————————————————
@@ -110,6 +112,7 @@ export type Category = {
 };
 // --- Məhsulun Çeşidi (Variant) ---
 export type Variant = {
+    label: string;
     id: ID;
     name: string;
     sku?: string;
@@ -205,5 +208,5 @@ export type ChatMessage = {
     createdAt: string;
 };
 
-export { Product };
+export type { Product };
 

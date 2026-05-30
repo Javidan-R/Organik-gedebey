@@ -1,81 +1,38 @@
-// app/api/upload/route.ts
-import { NextRequest, NextResponse } from "next/server"
-import { requireAuth } from "@/lib/auth"
-import { uploadToS3, deleteFromS3 } from "@/lib/storage/s3"
+import { NextRequest, NextResponse } from 'next/server';
+import cloudinary from '@/lib/cloudinary';
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
+});
 
-export async function POST(request: NextRequest) {
-  try {
-    const session = await requireAuth()
-    
-    const formData = await request.formData()
-    const file = formData.get("file") as File
-    const folder = formData.get("folder") as string || "products"
-    
-    if (!file) {
-      return NextResponse.json(
-        { error: "File tələb olunur" },
-        { status: 400 }
-      )
-    }
-    
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "File maksimum 5MB ola bilər" },
-        { status: 400 }
-      )
-    }
-    
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Yalnız şəkil faylları yüklənə bilər" },
-        { status: 400 }
-      )
-    }
-    
-    // Upload to S3
-    const url = await uploadToS3(file, folder)
-    
-    return NextResponse.json({
-      success: true,
-      url,
-      message: "File uğurla yükləndi",
-    })
-  } catch (error) {
-    console.error("Upload error:", error)
-    return NextResponse.json(
-      { error: "File yüklənərkən xəta baş verdi" },
-      { status: 500 }
-    )
+export async function POST(req: NextRequest) {
+  const formData = await req.formData();
+  const file = formData.get('file') as File;
+
+  if (!file) {
+    return NextResponse.json({ error: 'Fayl tapılmadı' }, { status: 400 });
   }
-}
 
-export async function DELETE(request: NextRequest) {
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+  const base64 = `data:${file.type};base64,${buffer.toString('base64')}`;
+
   try {
-    await requireAuth(["ADMIN", "MANAGER"])
-    
-    const { url } = await request.json()
-    
-    if (!url) {
-      return NextResponse.json(
-        { error: "URL tələb olunur" },
-        { status: 400 }
-      )
-    }
-    
-    await deleteFromS3(url)
-    
+    const result = await cloudinary.uploader.upload(base64, {
+      folder: 'organik-gedebey',
+      resource_type: 'auto', // şəkil, video, avtomatik
+    });
+
     return NextResponse.json({
-      success: true,
-      message: "File uğurla silindi",
-    })
+      url: result.secure_url,
+      publicId: result.public_id,
+      width: result.width,
+      height: result.height,
+      format: result.format,
+    });
   } catch (error) {
-    console.error("Delete error:", error)
-    return NextResponse.json(
-      { error: "File silinərkən xəta" },
-      { status: 500 }
-    )
+    console.error('Upload xətası:', error);
+    return NextResponse.json({ error: 'Yükləmə uğursuz' }, { status: 500 });
   }
 }

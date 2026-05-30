@@ -42,6 +42,7 @@ export const newProductStub: Partial<Product> = {
     arrivalCost: 0, unit: 'ədəd', grade: 'A', minStock: 10,
     batchDate: new Date().toISOString().split('T')[0],
     createdAt: new Date().toISOString(),
+    label: ''
   }],
 };
 
@@ -82,12 +83,12 @@ export default function AdminProducts() {
   const filteredProducts = useProductFilters(products, filters);
 
   const categoryMap = useMemo(
-    () => categories.reduce((m, c) => ({ ...m, [c.id]: c.name }), {} as Record<ID, string>),
+    () => categories.reduce((m: any, c: { id: any; name: any; }) => ({ ...m, [c.id]: c.name }), {} as Record<ID, string>),
     [categories],
   );
 
-  const activeProductCount   = useMemo(() => products.filter(p => !p.archived).length, [products]);
-  const archivedProductCount = useMemo(() => products.filter(p =>  p.archived).length, [products]);
+  const activeProductCount   = useMemo(() => products.filter((p: { archived: any; }) => !p.archived).length, [products]);
+  const archivedProductCount = useMemo(() => products.filter((p: { archived: any; }) =>  p.archived).length, [products]);
 
   const handleFilterChange = useCallback(<K extends keyof FilterState>(key: K, value: FilterState[K]) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -129,6 +130,7 @@ export default function AdminProducts() {
         id: cryptoIdSafe(), name: 'Standart', price: 0, stock: 0,
         costPrice: 0, arrivalCost: 0, unit: 'ədəd', grade: 'A', minStock: 10,
         batchDate: now.split('T')[0], createdAt: now,
+        label: ''
       }],
     };
     setEditingProduct(fresh);

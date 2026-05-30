@@ -1,35 +1,19 @@
 // src/app/admin/products/ProductEditModal.tsx
 'use client';
 
-import React, {
-  useState,
-  useMemo,
-  useCallback,
-  useEffect,
-} from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
-  X,
-  Save,
-  Package,
-  Tag,
-  Layers,
-    AlertTriangle,
-  Image as ImageIcon,
-  Star,
-  Zap,
-  Settings,
-  Info,
-  BookOpen,
-  DollarSign,
-  ClipboardList,
-  Percent,
-
+  X, Save, Package, Tag, Layers, AlertTriangle, Image as ImageIcon,
+  Star, Zap, Settings, Info, BookOpen, DollarSign, ClipboardList,
+  Percent, Lightbulb, Plus, Trash2
 } from 'lucide-react';
 
 import { useApp } from '@/lib/store';
-import type { Variant, ID , UnitType,} from '@/lib/types';
+import type { Variant, ID, UnitType } from '@/lib/types';
 import { productTotalStock, variantFinalPrice } from '@/lib/calc';
-import { TabKey, Product, ProductGrade } from '@/types/products';
+import {
+  TabKey, Product, ProductGrade, ProductImage, ProductCardViewMode
+} from '@/types/products';
 import BasicTab from '@/components/admin/molecules/BasicTab';
 import SettingsTab from '@/components/admin/molecules/SettingsTab';
 import SummaryCard from '@/components/admin/molecules/SummaryCard';
@@ -40,7 +24,7 @@ import ReviewsTab from '@/components/admin/organisms/ReviewsTab';
 import StockTab from '@/components/admin/organisms/StockTab';
 import LoadingButton from '@/components/shared/LoadingButton';
 import LabelsTab from '@/components/admin/molecules/LabelsTab';
-
+import { Button } from '@/components/atoms/button';
 
 // Util
 export const cryptoId = () =>
@@ -61,33 +45,26 @@ export const getInputClass = (valid: boolean) =>
       : 'border-red-400 focus:border-red-500 focus:ring-red-100'
   }`;
 
-// Reusable UI components
-
-
-
-
-// Modal props
-
-export type ProductEditModalProps = {
-  open: boolean;
-  onClose: () => void;
-  initial?: Product | null;
-};
-
-// Initial builder
+// Tab definitions
+export const TAB_DEFS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
+  { key: 'basic', label: 'Əsas', icon: <Package className="h-4 w-4" /> },
+  { key: 'stock', label: 'Stok / Variant', icon: <Layers className="h-4 w-4" /> },
+  { key: 'media', label: 'Media', icon: <ImageIcon className="h-4 w-4" /> },
+  { key: 'labels', label: 'Etiketlər', icon: <Tag className="h-4 w-4" /> },
+  { key: 'discount', label: 'Endirim', icon: <Percent className="h-4 w-4" /> },
+  { key: 'benefits', label: 'Faydalar', icon: <Info className="h-4 w-4" /> },
+  { key: 'tips', label: 'Məsləhətlər', icon: <Lightbulb className="h-4 w-4" /> },
+  { key: 'reviews', label: 'Rəylər', icon: <Star className="h-4 w-4" /> },
+  { key: 'settings', label: 'Parametrlər', icon: <Settings className="h-4 w-4" /> },
+];
 
 export const buildInitialProduct = (initial?: Product | null): Product => {
   const now = new Date().toISOString();
-  
-  // Default dəyərlər (types.ts-ə uyğun)
   const defaultGrade: ProductGrade = 'A';
   const defaultUnit: UnitType = 'ədəd';
   const defaultMinStock = 10;
-  
-  // Əgər mövcud məhsul redaktə edilirsə (initial)
+
   if (initial) {
-    
-    // Təminat: Əsas məhsulun default variantı üçün məlumatları əldə etmək
     const fallbackVariant: Variant = {
       id: cryptoId(),
       name: 'Standart',
@@ -95,16 +72,16 @@ export const buildInitialProduct = (initial?: Product | null): Product => {
       stock: 0,
       costPrice: 0,
       arrivalCost: 0,
-      minStock: initial.minStock ?? defaultMinStock, // Məhsuldan miras al
+      minStock: initial.minStock ?? defaultMinStock,
       grade: initial.grade ?? defaultGrade,
       unit: initial.unit ?? defaultUnit,
-      batchDate: new Date().toISOString().split('T')[0], // Cari tarix (YYYY-MM-DD)
+      batchDate: new Date().toISOString().split('T')[0],
       createdAt: now,
+      label: 'Standart'
     };
 
     return {
       ...initial,
-      // Bütün array sahələrinin boş olmamasını təmin edir
       tags: initial.tags ?? [],
       images: initial.images ?? [],
       benefits: initial.benefits ?? [],
@@ -114,18 +91,13 @@ export const buildInitialProduct = (initial?: Product | null): Product => {
       storageNotes: initial.storageNotes ?? [],
       reviews: initial.reviews ?? [],
       statusTags: initial.statusTags ?? ['newArrival'],
-      
-      // Yeni tələb olunan sahələrin default dəyərlərini məhsula tətbiq et
       unit: initial.unit ?? defaultUnit,
       grade: initial.grade ?? defaultGrade,
       minStock: initial.minStock ?? defaultMinStock,
-      
-      // Əgər variantlar varsa, onların da yeni sahələrini tamamla
       variants:
         initial.variants && initial.variants.length > 0
           ? initial.variants.map(v => ({
               ...v,
-              // Əksik sahələri tamamlayır (köhnə datalar üçün vacibdir)
               grade: v.grade ?? initial.grade ?? defaultGrade,
               minStock: v.minStock ?? initial.minStock ?? defaultMinStock,
               unit: v.unit ?? initial.unit ?? defaultUnit,
@@ -133,88 +105,83 @@ export const buildInitialProduct = (initial?: Product | null): Product => {
               costPrice: v.costPrice ?? 0,
               stock: v.stock ?? 0,
               arrivalCost: v.arrivalCost ?? 0,
-              // Variant name, price və id kimi əsas sahələri olduğu kimi qalır
             }))
-          : [fallbackVariant], // Variant yoxdursa, default variant əlavə et
+          : [fallbackVariant],
     };
   }
 
-  // Əgər yeni məhsul yaradılırsa (initial yoxdur)
   return {
-  id: cryptoId(),
-  name: '',
-  slug: '',
-  description: '',
-  categoryId: '',
-  tags: ['organik'],
-  images: [],
-  video: undefined,
-  origin: 'Azərbaycanda istehsal olunub',
-  originRegion: 'Gədəbəy',
-  organic: true,
-  seasonal: false,
-  featured: false,
-  discountType: undefined,
-  discountValue: undefined,
-  discountStart: undefined,
-  discountEnd: undefined,
-  archived: false,
-  createdAt: now,
-
-  // Tələb olunan yeni Product sahələri
-  unit: defaultUnit,
-  grade: defaultGrade,
-  minStock: defaultMinStock,
-  statusTags: ['newArrival'],
-  price: 0,
-  costPrice: 0,
-  reviews: [],
-
-  // Tələb olunan yeni Variant sahələri ilə standart variant
-  variants: [
-    {
-      id: cryptoId(),
-      name: 'Standart',
-      price: 0,
-      stock: 0,
-      costPrice: 0,
-      arrivalCost: 0,
-      // Tələb olunan yeni Variant sahələri
-      minStock: defaultMinStock,
-      grade: defaultGrade,
-      unit: defaultUnit,
-      batchDate: now.split('T')[0],
-      createdAt: now,
-    },
-  ],
-  benefits: [],
-  usageTips: [],
-  certificates: [],
-  allergens: [],
-  storageNotes: [],
-  quantityStep: 0
+    id: cryptoId(),
+    name: '',
+    slug: '',
+    description: '',
+    categoryId: '',
+    tags: ['organik'],
+    images: [],
+    video: undefined,
+    origin: 'Azərbaycanda istehsal olunub',
+    originRegion: 'Gədəbəy',
+    organic: true,
+    seasonal: false,
+    featured: false,
+    discountType: undefined,
+    discountValue: undefined,
+    discountStart: undefined,
+    discountEnd: undefined,
+    archived: false,
+    createdAt: now,
+    unit: defaultUnit,
+    grade: defaultGrade,
+    minStock: defaultMinStock,
+    statusTags: ['newArrival'],
+    price: 0,
+    costPrice: 0,
+    reviews: [],
+    variants: [
+      {
+        id: cryptoId(),
+        name: 'Standart',
+        price: 0,
+        stock: 0,
+        costPrice: 0,
+        arrivalCost: 0,
+        minStock: defaultMinStock,
+        grade: defaultGrade,
+        unit: defaultUnit,
+        batchDate: now.split('T')[0],
+        createdAt: now,
+        label: 'Standart'
+      },
+    ],
+    benefits: [],
+    usageTips: [],
+    certificates: [],
+    allergens: [],
+    storageNotes: [],
+    quantityStep: 0,
+    shortDescription: undefined,
+    isNewArrival: undefined,
+    isFeatured: undefined,
+    basePrice: undefined,
+    stock: 0,
+    metaTitle: '',
+    seoTitle: '',
+    seoDescription: '',
+    metaDescription: '',
+    keywords: [],
+    attributes: [],
+    nutritionalFacts: [],
+    updatedAt: now,
+    weight: undefined,
+    shelfLifeDays: undefined,
+  };
 };
-};
 
-
-
-export const TAB_DEFS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: 'basic', label: 'Əsas', icon: <Package className="h-4 w-4" /> },
-  { key: 'stock', label: 'Stok / Variant', icon: <Layers className="h-4 w-4" /> },
-  { key: 'media', label: 'Media', icon: <ImageIcon className="h-4 w-4" /> },
-  { key: 'labels', label: 'Etiketlər', icon: <Tag className="h-4 w-4" /> },
-  { key: 'discount', label: 'Endirim', icon: <Percent className="h-4 w-4" /> },
-  { key: 'benefits', label: 'Faydalar', icon: <Info className="h-4 w-4" /> },
-  { key: 'reviews', label: 'Rəylər', icon: <Star className="h-4 w-4" /> },
-  { key: 'settings', label: 'Parametrlər', icon: <Settings className="h-4 w-4" /> },
-];
-
-
-
-
-
-
-// Main modal
+interface ProductEditModalProps {
+  open: boolean;
+  onClose: () => void;
+  initial?: Product | null;
+}
 
 export default function ProductEditModal({
   open,
@@ -230,7 +197,7 @@ export default function ProductEditModal({
     products,
   } = useApp();
 
-   const [tab, setTab] = useState<TabKey>('basic');
+  const [tab, setTab] = useState<TabKey>('basic');
   const [saving, setSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [product, setProduct] = useState<Product>(() =>
@@ -243,7 +210,6 @@ export default function ProductEditModal({
     setTab('basic');
     setSubmitted(false);
   }, [initial, open]);
-
 
   const isNew = !products.some((p) => p.id === product.id);
 
@@ -302,83 +268,70 @@ export default function ProductEditModal({
     onClose();
   };
 
+  // PREMIUM universal update
+  const updateVariant = (
+    index: number,
+    key: keyof Variant,
+    rawValue: string
+  ) => {
+    setProduct(prev => {
+      const variants = [...prev.variants];
+      let finalValue: unknown = rawValue;
 
-
-// PREMIUM universal update
-const updateVariant = (
-  index: number,
-  key: keyof Variant,
-  rawValue: string
-) => {
-  setProduct(prev => {
-    const variants = [...prev.variants];
-
-    let finalValue: unknown = rawValue;
-
-    // Number sahələri üçün universal parse
-    if (["price", "stock", "costPrice", "arrivalCost", "minStock"].includes(key)) {
-      if (rawValue === "" || rawValue === null) {
-        finalValue = "";
-      } else {
-        const num = Number(rawValue.replace(",", "."));
-        finalValue = isNaN(num) ? 0 : num;
+      // Number sahələri üçün universal parse
+      if (["price", "stock", "costPrice", "arrivalCost", "minStock"].includes(key)) {
+        if (rawValue === "" || rawValue === null) {
+          finalValue = "";
+        } else {
+          const num = Number(rawValue.replace(",", "."));
+          finalValue = isNaN(num) ? 0 : num;
+        }
       }
-    }
 
-    variants[index] = {
-      ...variants[index],
-      [key]: finalValue
-    };
+      variants[index] = {
+        ...variants[index],
+        [key]: finalValue
+      };
 
-    // Əsas variant dəyişibsə — product.price sync et
-    if (index === 0 && key === "price") {
-      return { ...prev, variants, price: Number(finalValue) };
-    }
+      // Əsas variant dəyişibsə — product.price sync et
+      if (index === 0 && key === "price") {
+        return { ...prev, variants, price: Number(finalValue) };
+      }
 
-    return { ...prev, variants };
-  });
-};
-
-
-// src/app/admin/products/ProductEditModal.tsx içində, funksiyanın olduğu yer.
+      return { ...prev, variants };
+    });
+  };
 
   const addVariant = useCallback(() => {
-    // setProduct((prev) => { ... }) strukturu üçün istifadə edin.
-    
     setProduct((prev) => {
-      if (!prev) return prev; // Qoruyucu yoxlama
-      
+      if (!prev) return prev;
       const primaryVariant = prev.variants[0];
       const now = new Date().toISOString();
-      
-      // Mövcud variantdan və ya məhsulun özündən miras alınan dəyərlər
       const inheritedUnit = primaryVariant?.unit ?? prev.unit ?? 'ədəd';
       const inheritedGrade = primaryVariant?.grade ?? prev.grade ?? 'A';
       const inheritedMinStock = primaryVariant?.minStock ?? prev.minStock ?? 10;
-      
-      // Yeni Variant Obyekti (yeni tələb olunan sahələr əlavə edildi)
+
       const newVariant: Variant = {
         id: cryptoId(),
         name: `Çeşid ${prev.variants.length + 1}`,
+        label: `Çeşid ${prev.variants.length + 1}`,
         price: primaryVariant?.price ?? 0,
         stock: 0,
         costPrice: primaryVariant?.costPrice ?? 0,
         arrivalCost: primaryVariant?.arrivalCost ?? 0,
         createdAt: now,
-        
-        // Tələb olunan yeni sahələr miras alınır
         grade: inheritedGrade,
         unit: inheritedUnit,
         minStock: inheritedMinStock,
-        batchDate: now.split('T')[0], // Cari tarix
+        batchDate: now.split('T')[0],
       };
-      
+
       return {
         ...prev,
         variants: [...prev.variants, newVariant],
       };
     });
-  }, []); // useProduct hook-dan istifadə etdiyinizi fərz edərək asılılıqları minimal saxlayıram.
+  }, []);
 
   const removeVariant = (id: ID) => {
     setProduct((prev) => {
@@ -565,6 +518,103 @@ const updateVariant = (
           {tab === 'benefits' && (
             <BenefitsTab product={product} setProduct={setProduct} />
           )}
+          {tab === 'tips' && (
+            <div className="space-y-6">
+              {/* Usage Tips */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <Lightbulb className="h-5 w-5 text-amber-500" />
+                    İstifadə Məsləhətləri
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() =>
+                      setProduct(prev => ({
+                        ...prev,
+                        usageTips: [...(prev.usageTips || []), ''],
+                      }))
+                    }
+                  >
+                    <Plus className="h-4 w-4" /> Əlavə et
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {(product.usageTips || []).map((tip, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        className={INPUT_BASE}
+                        value={tip}
+                        onChange={e => {
+                          const newTips = [...(product.usageTips || [])];
+                          newTips[idx] = e.target.value;
+                          setProduct(prev => ({ ...prev, usageTips: newTips }));
+                        }}
+                        placeholder="Məs: Səhər ac qarına 1 qaşıq..."
+                      />
+                      <button
+                        onClick={() => {
+                          const newTips = (product.usageTips || []).filter((_, i) => i !== idx);
+                          setProduct(prev => ({ ...prev, usageTips: newTips }));
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-xl"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Allergens */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-rose-500" />
+                    Allergenlər
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() =>
+                      setProduct(prev => ({
+                        ...prev,
+                        allergens: [...(prev.allergens || []), ''],
+                      }))
+                    }
+                  >
+                    <Plus className="h-4 w-4" /> Əlavə et
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {(product.allergens || []).map((allergen, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        className={INPUT_BASE}
+                        value={allergen}
+                        onChange={e => {
+                          const newAllergens = [...(product.allergens || [])];
+                          newAllergens[idx] = e.target.value;
+                          setProduct(prev => ({ ...prev, allergens: newAllergens }));
+                        }}
+                        placeholder="Məs: Süd, Fındıq..."
+                      />
+                      <button
+                        onClick={() => {
+                          const newAllergens = (product.allergens || []).filter((_, i) => i !== idx);
+                          setProduct(prev => ({ ...prev, allergens: newAllergens }));
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-xl"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
           {tab === 'reviews' && (
             <ReviewsTab
               product={product}
@@ -617,13 +667,3 @@ const updateVariant = (
     </div>
   );
 }
-
-// Tabs def
-
-
-
-
-
-
-
-

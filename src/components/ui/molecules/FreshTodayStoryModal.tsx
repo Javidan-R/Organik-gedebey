@@ -1,418 +1,335 @@
 // components/ui/molecules/FreshTodayStoryModal.tsx
 "use client";
 
+import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import {
-  useMemo,
-  useState,
-  useCallback,
-  useRef,
-  useEffect,
-} from "react";
-import {
-  motion,
-  AnimatePresence,
-  PanInfo,
-} from "framer-motion";
-import {
-  Play,
-  Pause,
-  X,
-  ShoppingBag,
-  Star,
-  MapPin,
-  Leaf,
-  Heart,
-  MessageCircle,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
+  X, ChevronLeft, ChevronRight, ShoppingBag, Heart, Share2,
+  MapPin, Truck, Leaf, ShieldCheck, CheckCircle2, TrendingUp,
+  Info, Plus, Package, Star, Users, Flame, Sparkles, Clock
 } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useApp } from "@/lib/store";
+import { getFirstImageUrl, getProductBasePrice, formatCurrency } from "@/utils/storefront_home";
 import { finalPrice } from "@/lib/calc";
-import {
-  getFirstImageUrl,
-  getProductBasePrice,
-  formatCurrency,
-} from "@/utils/storefront_home";
 import type { Product } from "@/types/products";
 
-/* ================================================================
-   Köməkçilər
-   ================================================================ */
-function getImage(product: Product, idx = 0): string {
-  const images = product.images || [];
-  if (images.length > idx && images[idx]?.url) return images[idx].url;
-  return "/hero-basket.png";
+/* ══════════════════════════════════════════════════════════════════
+   TYPES
+══════════════════════════════════════════════════════════════════ */
+interface FreshTodayStoryModalProps {
+  open: boolean;
+  initialIndex: number;
+  onClose: () => void;
 }
 
-function getDiscount(product: Product): number {
-  const base = getProductBasePrice(product);
-  const price = finalPrice(base, product.discountType, product.discountValue);
-  if (base <= 0 || price >= base) return 0;
-  return Math.round((1 - price / base) * 100);
-}
-
-function relativeTime(dateStr?: string): string {
-  if (!dateStr) return "";
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffSec = Math.floor((now - then) / 1000);
-  if (diffSec < 60) return "indicə";
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} dəq əvvəl`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} saat əvvəl`;
-  return new Date(dateStr).toLocaleDateString("az-AZ");
-}
-
-/* ================================================================
-   Progress Bar
-   ================================================================ */
-function ProgressBar({
-  total,
-  current,
-  isPaused,
-  onComplete,
-}: {
-  total: number;
-  current: number;
-  isPaused: boolean;
-  onComplete: () => void;
+/* ══════════════════════════════════════════════════════════════════
+   STORY PROGRESS BAR
+══════════════════════════════════════════════════════════════════ */
+function StoryProgress({ total, current, progress, paused }: {
+  total: number; current: number; progress: number; paused: boolean;
 }) {
-  const [progress, setProgress] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    setProgress(0);
-  }, [current]);
-
-  useEffect(() => {
-    if (isPaused) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      return;
-    }
-    const duration = 5000;
-    const step = 100 / (duration / 50);
-
-    intervalRef.current = setInterval(() => {
-      setProgress((prev) => {
-        const next = prev + step;
-        if (next >= 100) {
-          clearInterval(intervalRef.current!);
-          onComplete();
-          return 100;
-        }
-        return next;
-      });
-    }, 50);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [current, isPaused, onComplete]);
-
   return (
-    <div className="absolute top-3 left-3 right-3 z-30 flex gap-1.5">
+    <div className="flex items-center gap-1 w-full">
       {Array.from({ length: total }).map((_, i) => (
-        <div
-          key={i}
-          className="flex-1 h-[3px] rounded-full bg-white/25 overflow-hidden"
-        >
-          <motion.div
-            className="h-full rounded-full bg-white"
-            initial={{ width: "0%" }}
-            animate={{
-              width:
-                i < current ? "100%" : i === current ? `${progress}%` : "0%",
-            }}
-            transition={{ duration: 0.1 }}
-          />
+        <div key={i} className="flex-1 h-0.5 rounded-full bg-white/30 overflow-hidden">
+          {i < current ? (
+            <div className="h-full bg-white w-full" />
+          ) : i === current ? (
+            <motion.div className="h-full bg-white" style={{ width: `${progress}%` }} />
+          ) : null}
         </div>
       ))}
     </div>
   );
 }
 
-/* ================================================================
-   Story Modal
-   ================================================================ */
-interface Props {
-  open: boolean;
-  initialIndex: number;
-  onClose: () => void;
-}
+/* ══════════════════════════════════════════════════════════════════
+   MAIN MODAL
+══════════════════════════════════════════════════════════════════ */
+const STORY_DURATION = 8_000;
 
-export function FreshTodayStoryModal({ open, initialIndex, onClose }: Props) {
-  const products = useApp((s) => s.products);
+export function FreshTodayStoryModal({
+  open,
+  initialIndex,
+  onClose,
+}: FreshTodayStoryModalProps) {
+  const products = useApp((s) => s.products) || [];
   const addToCart = useApp((s) => s.addToCart);
-  const toggleFavorite = useApp((s) => s.toggleFavorite);
-  const favorites = useApp((s) => s.favorites);
 
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const [isPaused, setIsPaused] = useState(false);
-  const [direction, setDirection] = useState(0);
-  const [currentImgIdx, setCurrentImgIdx] = useState(0);
+  // Bütün aktiv məhsulları filtrələ (FreshTodayStoryBar ilə eyni məntiq)
+  const allStoryProducts = useCallback(() => {
+    const fresh: Product[] = [];
+    const upcoming: Product[] = [];
 
-  // Eyni filter: son 48 saat / yeni işarələnmiş
-  const freshProducts = useMemo(() => {
-    if (!products) return [];
-    const now = Date.now();
-    const twoDaysAgo = now - 48 * 60 * 60 * 1000;
-    return products
-      .filter((p) => {
-        if (p.archived) return false;
-        const isNew = p.isNewArrival || p.statusTags?.includes("new");
-        const createdAt = p.createdAt ? new Date(p.createdAt).getTime() : 0;
-        return isNew || createdAt > twoDaysAgo;
-      })
-      .sort(
-        (a, b) =>
-          (b.createdAt ? new Date(b.createdAt).getTime() : 0) -
-          (a.createdAt ? new Date(a.createdAt).getTime() : 0)
-      )
-      .slice(0, 10);
+    (products || []).forEach((p) => {
+      if (p.archived) return;
+      if (p.isNewArrival || p.statusTags?.includes("newArrival")) {
+        fresh.push(p);
+      } else if (p.statusTags?.includes("upcoming")) {
+        upcoming.push(p);
+      }
+    });
+
+    return [...fresh.slice(0, 10), ...upcoming.slice(0, 5)];
   }, [products]);
 
-  const currentProduct = freshProducts[currentIndex];
-  const total = freshProducts.length;
+  const [items, setItems] = useState<Product[]>([]);
+  const [idx, setIdx] = useState(initialIndex);
+  const [progress, setProgress] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [liked, setLiked] = useState<Set<string>>(new Set());
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startRef = useRef(Date.now());
 
-  const images = currentProduct?.images || [];
-  const totalImgs = images.length || 1;
-
-  // Şəkil indeksini məhsul dəyişəndə sıfırla
+  // Modal açılanda items-i yenilə
   useEffect(() => {
-    setCurrentImgIdx(0);
-  }, [currentIndex]);
-
-  const handleNext = useCallback(() => {
-    if (currentIndex < total - 1) {
-      setDirection(1);
-      setCurrentIndex((p) => p + 1);
+    if (open) {
+      setItems(allStoryProducts());
+      setIdx(initialIndex);
+      setProgress(0);
     }
-  }, [currentIndex, total]);
+  }, [open, initialIndex, allStoryProducts]);
 
-  const handlePrev = useCallback(() => {
-    if (currentIndex > 0) {
-      setDirection(-1);
-      setCurrentIndex((p) => p - 1);
+  // Avtomatik irəliləmə
+  const clearTimer = () => { if (timerRef.current) clearInterval(timerRef.current); };
+
+  useEffect(() => {
+    if (!open || items.length === 0) return;
+    clearTimer();
+    startRef.current = Date.now();
+    if (paused) return;
+
+    timerRef.current = setInterval(() => {
+      const elapsed = Date.now() - startRef.current;
+      const p = Math.min((elapsed / STORY_DURATION) * 100, 100);
+      setProgress(p);
+      if (p >= 100) {
+        clearTimer();
+        if (idx < items.length - 1) {
+          setIdx(c => c + 1);
+        } else {
+          onClose();
+        }
+      }
+    }, 50);
+
+    return clearTimer;
+  }, [open, idx, paused, items.length, onClose]);
+
+  const goTo = (i: number) => {
+    if (i < 0 || i >= items.length) {
+      onClose();
+      return;
     }
-  }, [currentIndex]);
-
-  const handleTap = (e: React.MouseEvent | React.TouchEvent) => {
-    const x = "touches" in e ? e.touches?.[0]?.clientX ?? 0 : e.clientX;
-    if (x < window.innerWidth * 0.3) handlePrev();
-    else if (x > window.innerWidth * 0.7) handleNext();
+    setIdx(i);
+    setProgress(0);
   };
 
-  const handleDragEnd = (_: any, info: PanInfo) => {
-    if (info.offset.x < -80) handleNext();
-    else if (info.offset.x > 80) handlePrev();
+  const handleDragEnd = (_: unknown, info: PanInfo) => {
+    if (info.offset.x < -50) goTo(idx + 1);
+    else if (info.offset.x > 50) goTo(idx - 1);
   };
 
-  const slideVariants = {
-    enter: (dir: number) => ({ x: dir > 0 ? 300 : -300, opacity: 0 }),
-    center: { x: 0, opacity: 1, transition: { duration: 0.3 } },
-    exit: (dir: number) => ({ x: dir > 0 ? -300 : 300, opacity: 0, transition: { duration: 0.2 } }),
+  // Klaviatura dəstəyi
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") goTo(idx - 1);
+      if (e.key === "ArrowRight") goTo(idx + 1);
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, idx]);
+
+  if (!open || items.length === 0) return null;
+
+  const product = items[idx];
+  if (!product) {
+    onClose();
+    return null;
+  }
+
+  const img = getFirstImageUrl(product);
+  const base = getProductBasePrice(product);
+  const price = finalPrice(base, product.discountType, product.discountValue);
+  const discount = base > 0 ? Math.round((1 - price / base) * 100) : 0;
+  const stock = product.variants?.[0]?.stock ?? 0;
+  const isNew = product.isNewArrival || product.statusTags?.includes("newArrival");
+  const isUpcoming = product.statusTags?.includes("upcoming");
+  const [qty, setQty] = useState(1);
+  const [added, setAdded] = useState(false);
+
+  const handleAddToCart = () => {
+    addToCart(product.id, product.variants?.[0]?.id, qty);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
   };
 
-  const nextImg = () => setCurrentImgIdx((p) => (p < totalImgs - 1 ? p + 1 : 0));
-  const prevImg = () => setCurrentImgIdx((p) => (p > 0 ? p - 1 : totalImgs - 1));
-
-  if (!currentProduct) return null;
-
-  const base = getProductBasePrice(currentProduct);
-  const price = finalPrice(base, currentProduct.discountType, currentProduct.discountValue);
-  const discount = getDiscount(currentProduct);
-  const isFav = favorites.includes(currentProduct.id);
-  const stock = currentProduct.variants?.[0]?.stock ?? 0;
+  const handleShare = () => {
+    const url = `${window.location.origin}/product/${product.slug || product.id}`;
+    if (navigator.share) {
+      navigator.share({ title: product.name, text: `${product.name} — ${formatCurrency(price)}`, url });
+    } else {
+      navigator.clipboard?.writeText(url);
+    }
+  };
 
   return (
     <AnimatePresence>
-      {open && (
+      <motion.div
+        key="fresh-story-modal"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
+        onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      >
         <motion.div
-          className="fixed inset-0 z-50 bg-black"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.15}
+          onDragEnd={handleDragEnd}
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          className="relative w-full max-w-sm h-[90vh] rounded-3xl overflow-hidden shadow-2xl bg-slate-900"
+          onMouseDown={() => setPaused(true)}
+          onMouseUp={() => setPaused(false)}
+          onTouchStart={() => setPaused(true)}
+          onTouchEnd={() => setPaused(false)}
         >
-          <ProgressBar
-            total={total}
-            current={currentIndex}
-            isPaused={isPaused}
-            onComplete={handleNext}
-          />
+          {/* Şəkil arxa plan */}
+          <div className="absolute inset-0">
+            <Image
+              src={img}
+              alt={product.name}
+              fill
+              className="object-cover opacity-60"
+              sizes="(max-width: 768px) 100vw, 400px"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+          </div>
 
-          {/* Bağla */}
-          <button
-            onClick={onClose}
-            className="absolute top-6 right-4 z-30 p-2 rounded-full bg-black/30 text-white backdrop-blur-sm"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
-          {/* Dayandır / Oynat */}
-          <button
-            onClick={() => setIsPaused(!isPaused)}
-            className="absolute top-6 left-4 z-30 p-2 rounded-full bg-black/30 text-white backdrop-blur-sm"
-          >
-            {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-          </button>
-
-          <AnimatePresence initial={false} custom={direction} mode="popLayout">
-            <motion.div
-              key={currentIndex}
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.05}
-              onDragEnd={handleDragEnd}
-              onClick={handleTap}
-              className="absolute inset-0"
-            >
-              {/* Şəkil */}
-              <Image
-                src={getImage(currentProduct, currentImgIdx)}
-                alt={currentProduct.name}
-                fill
-                className="object-cover"
-                priority
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
-
-              {/* Şəkil arası keçid oxları */}
-              {totalImgs > 1 && (
-                <>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); prevImg(); }}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-black/30 text-white"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); nextImg(); }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-black/30 text-white"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                </>
-              )}
-
-              {/* Sadə alt kart */}
-              <div className="absolute bottom-0 inset-x-0 p-4 pb-8">
-                <div className="flex items-end justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                        <Leaf className="w-3 h-3 inline mr-0.5" /> TƏZƏ
-                      </span>
-                      {discount > 0 && (
-                        <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                          -{discount}%
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="text-xl font-black text-white leading-tight">
-                      {currentProduct.name}
-                    </h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-2xl font-black text-emerald-400">
-                        {formatCurrency(price)}
-                      </span>
-                      {discount > 0 && (
-                        <span className="text-sm text-white/50 line-through">
-                          {formatCurrency(base)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1.5 text-white/60 text-xs">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3" /> {currentProduct.originRegion || "Gədəbəy"}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> {relativeTime(currentProduct.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Sağ əməliyyatlar */}
-                  <div className="flex flex-col gap-2 ml-3">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleFavorite(currentProduct.id); }}
-                      className={`p-2.5 rounded-full backdrop-blur-md ${
-                        isFav ? "bg-red-500 text-white" : "bg-white/20 text-white"
-                      }`}
-                    >
-                      <Heart className={`w-5 h-5 ${isFav ? "fill-white" : ""}`} />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const phone = "+994773676021";
-                        const msg = `🌿 ${currentProduct.name}\n💰 ${formatCurrency(price)}\n🛒 Organik Gədəbəy`;
-                        window.open(`https://wa.me/${phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(msg)}`, "_blank");
-                      }}
-                      className="p-2.5 rounded-full bg-green-500 text-white shadow-lg"
-                    >
-                      <MessageCircle className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); addToCart(currentProduct.id, currentProduct.variants?.[0]?.id, 1); }}
-                      disabled={stock <= 0}
-                      className={`p-2.5 rounded-full backdrop-blur-md ${
-                        stock <= 0 ? "bg-white/10 text-white/40" : "bg-white text-emerald-700 shadow-lg"
-                      }`}
-                    >
-                      <ShoppingBag className="w-5 h-5" />
-                    </button>
-                  </div>
+          {/* Progress bar */}
+          <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-4">
+            <StoryProgress total={items.length} current={idx} progress={progress} paused={paused} />
+            <div className="flex items-center justify-between mt-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-black text-xs">
+                  {product.name.charAt(0)}
                 </div>
+                <span className="text-white font-bold text-xs">
+                  {isUpcoming ? 'Sabah Gəlir' : 'Bu Gün Gəldi'}
+                </span>
+              </div>
+              <button onClick={onClose} className="w-8 h-8 rounded-full bg-black/25 backdrop-blur flex items-center justify-center text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
 
-                {stock > 0 && stock <= 5 && (
-                  <p className="mt-2 text-xs text-amber-400 font-bold">
-                    ⚡ Son {stock} ədəd!
-                  </p>
+          {/* Yan keçid oxları (desktop) */}
+          {idx > 0 && (
+            <button onClick={() => goTo(idx - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 backdrop-blur text-white hidden md:flex items-center justify-center">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
+          {idx < items.length - 1 && (
+            <button onClick={() => goTo(idx + 1)} className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 backdrop-blur text-white hidden md:flex items-center justify-center">
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          )}
+
+          {/* Məzmun */}
+          <div className="absolute bottom-0 left-0 right-0 p-4">
+            <div className="backdrop-blur-xl bg-black/40 rounded-3xl p-5 border border-white/10 space-y-3">
+              {/* Məhsul adı */}
+              <h2 className="text-xl font-black text-white leading-tight">{product.name}</h2>
+
+              {/* Qiymət & Endirim */}
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black text-emerald-400">{formatCurrency(price)}</span>
+                {discount > 0 && (
+                  <>
+                    <span className="text-sm text-white/50 line-through">{formatCurrency(base)}</span>
+                    <span className="text-xs font-black text-red-400 bg-red-500/20 px-2 py-0.5 rounded-full">-{discount}%</span>
+                  </>
                 )}
               </div>
 
-              {/* Şəkil nöqtələri */}
-              {totalImgs > 1 && (
-                <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 flex gap-1.5">
-                  {images.map((_, i) => (
-                    <button
-                      key={i}
-                      onClick={(e) => { e.stopPropagation(); setCurrentImgIdx(i); }}
-                      className={`w-1.5 h-1.5 rounded-full transition-all ${
-                        i === currentImgIdx ? "w-3 bg-white" : "bg-white/50"
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
+              {/* Status & Stok */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {isNew && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full">
+                    <Sparkles className="w-3 h-3" /> Təzə
+                  </span>
+                )}
+                {stock > 0 && stock <= 5 && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full">
+                    <Flame className="w-3 h-3" /> Son {stock} ədəd!
+                  </span>
+                )}
+                {isUpcoming && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded-full">
+                    <Clock className="w-3 h-3" /> Sabah gəlir
+                  </span>
+                )}
+              </div>
 
-          {/* Məhsul nöqtələri (aşağıda) */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex gap-2">
-            {freshProducts.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  setDirection(idx > currentIndex ? 1 : -1);
-                  setCurrentIndex(idx);
-                }}
-                className={`h-1.5 rounded-full transition-all ${
-                  idx === currentIndex ? "w-5 bg-white" : "w-1.5 bg-white/40"
-                }`}
-              />
-            ))}
+              {/* CTA */}
+              {!isUpcoming ? (
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="flex items-center bg-white/10 rounded-xl overflow-hidden">
+                    <button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-9 h-10 flex items-center justify-center text-white/80">
+                      <span className="text-lg font-black">−</span>
+                    </button>
+                    <span className="min-w-[28px] text-center text-sm font-black text-white">{qty}</span>
+                    <button onClick={() => setQty(q => Math.min(stock || 99, q + 1))} className="w-9 h-10 flex items-center justify-center text-white/80">
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.94 }}
+                    onClick={handleAddToCart}
+                    className={`flex-1 flex items-center justify-center gap-2 font-black text-sm rounded-2xl py-3 transition-all shadow-lg ${
+                      added ? "bg-emerald-600 text-white" : "bg-yellow-400 text-emerald-900"
+                    }`}
+                  >
+                    <AnimatePresence mode="wait">
+                      {added ? (
+                        <motion.span key="added" initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                          <CheckCircle2 className="w-4 h-4" /> Əlavə edildi!
+                        </motion.span>
+                      ) : (
+                        <motion.span key="add" initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                          <ShoppingBag className="w-4 h-4" /> Səbətə at
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
+                </div>
+              ) : (
+                <button className="w-full bg-blue-600 text-white font-black text-sm rounded-2xl py-3">
+                  Sabah üçün sifariş ver
+                </button>
+              )}
+
+              {/* Paylaş & Like */}
+              <div className="flex items-center justify-between">
+                <button onClick={handleShare} className="text-white/70 text-xs font-bold flex items-center gap-1">
+                  <Share2 className="w-3.5 h-3.5" /> Paylaş
+                </button>
+                <button onClick={() => setLiked(s => { const n = new Set(s); n.has(product.id) ? n.delete(product.id) : n.add(product.id); return n; })} className={`text-xs font-bold flex items-center gap-1 ${liked.has(product.id) ? 'text-red-400' : 'text-white/70'}`}>
+                  <Heart className={`w-3.5 h-3.5 ${liked.has(product.id) ? 'fill-red-400' : ''}`} /> Bəyən
+                </button>
+              </div>
+            </div>
           </div>
         </motion.div>
-      )}
+      </motion.div>
     </AnimatePresence>
   );
 }

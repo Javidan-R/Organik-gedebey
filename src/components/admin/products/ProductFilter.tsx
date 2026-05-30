@@ -1,11 +1,11 @@
 import { ID, Product, useApp } from "@/lib/store";
-import { FilterState, useProductFilters } from "@/lib/utils/useProductFilter";
 import { AnimatePresence, motion } from "framer-motion";
 import { Search, Filter, Archive, LayoutGrid, Rows3, SlidersHorizontal, X, BadgeDollarSign, Layers, Percent, Star } from "lucide-react";
 import { useState, useCallback, useMemo } from "react";
 import { Input } from "../../atoms/input";
 import { Select } from "../../atoms/select";
 import { ProductCardViewMode } from "@/types/products";
+import { FilterState, useProductFilters } from "@/utils/useProductFilter";
 
  export function ProductFilter() {
   const [viewMode, setViewMode] = useState<ProductCardViewMode>('grid');

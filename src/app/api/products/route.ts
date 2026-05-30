@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { products, categories, productImages, productTags, productVariants } from '@/lib/db/schema'
 import { eq, and, or, like, desc } from 'drizzle-orm'
-
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
   const categorySlug = searchParams.get('categorySlug') || ''
   const showArchived = searchParams.get('showArchived') === 'true'
-
   try {
     const whereClause = []
     

@@ -6,8 +6,9 @@ import React, {
   useTransition,
   ReactNode,
   useCallback,
+  useEffect,
 } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -34,7 +35,10 @@ import {
   Bell,
   Search,
   HelpCircle,
+  Zap,
+  CalendarDaysIcon,
 } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 // =========================================================
 // 1. NAV DATA & TYPES
@@ -70,7 +74,22 @@ const navItems: NavItem[] = [
     type: 'link',
   },
 
-  // Satış & Sifarişlər qrupu
+  {
+    id: 'products',
+    href: '/admin/products',
+    label: 'Məhsullar',
+    icon: <PackageSearch className="w-[1rem] h-[1rem]" />,
+    type: 'group-link',
+    groupId: 'inventory',
+  },
+   {
+    id: 'categories',
+    href: '/admin/fresh-today',
+    label: 'Bugün Gələnlər',
+    icon: <CalendarDaysIcon className="w-[1rem] h-[1rem]" />,
+    type: 'group-link',
+    groupId: 'fresh-today',
+  },
   {
     id: 'sales-group-title',
     href: '#sales-group',
@@ -95,6 +114,14 @@ const navItems: NavItem[] = [
     icon: <ClipboardList className="w-[1rem] h-[1rem]" />,
     type: 'group-link',
     groupId: 'sales',
+  },
+   {
+    id: 'categories',
+    href: '/admin/categories',
+    label: 'Kateqoriyalar',
+    icon: <Grid2X2 className="w-[1rem] h-[1rem]" />,
+    type: 'group-link',
+    groupId: 'inventory',
   },
   {
     id: 'whatsapp',
@@ -130,22 +157,8 @@ const navItems: NavItem[] = [
     type: 'group-link',
     groupId: 'inventory',
   },
-  {
-    id: 'products',
-    href: '/admin/products',
-    label: 'Məhsullar',
-    icon: <PackageSearch className="w-[1rem] h-[1rem]" />,
-    type: 'group-link',
-    groupId: 'inventory',
-  },
-  {
-    id: 'categories',
-    href: '/admin/categories',
-    label: 'Kateqoriyalar',
-    icon: <Grid2X2 className="w-[1rem] h-[1rem]" />,
-    type: 'group-link',
-    groupId: 'inventory',
-  },
+  
+ 
 
   // Maliyyə & Analitika qrupu
   {
@@ -474,6 +487,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({ theme, toggleTheme }) => (
 // =========================================================
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const pathname = usePathname() || '';
   const [pending, startTransition] = useTransition();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -483,8 +498,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark')),
     [],
   );
+   // Giriş yoxlaması
+  useEffect(() => {
+    if (status === 'loading') return
+    if (status === 'unauthenticated' || (session?.user as any)?.role !== 'ADMIN') {
+      // Admin login səhifəsində sonsuz dövrə düşməmək üçün
+      if (pathname !== '/admin/login') {
+        router.replace('/admin/login')
+      }
+    }
+  }, [session, status, router, pathname])
 
-  const [activeGroups, setActiveGroups] = useState<Record<string, boolean>>({
+  // Yüklənmə və ya icazəsiz istifadəçi üçün gözləmə ekranı
+const [activeGroups, setActiveGroups] = useState<Record<string, boolean>>({
     sales: true,
     inventory: true,
     finance: true,
@@ -506,7 +532,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     theme === 'light' ? 'bg-slate-50' : 'bg-slate-900/90';
   const mainContentText =
     theme === 'light' ? 'text-slate-900' : 'text-slate-100';
+  if (status === 'loading' || (session?.user as any)?.role !== 'ADMIN') {
+    if (pathname === '/admin/login') return children // login səhifəsini göstər
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }}>
+          <Zap className="w-10 h-10 text-emerald-400" />
+        </motion.div>
+      </div>
+    )
+  }
+ 
 
+
+  
   return (
     <div className={`min-h-screen ${mainContentBg} ${mainContentText}`}>
       <div className="grid min-h-screen md:grid-cols-[17.5rem_1fr]">

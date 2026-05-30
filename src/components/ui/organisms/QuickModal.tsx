@@ -25,25 +25,6 @@ type QuickViewProps = {
   handleAddToCart: () => void;
 };
 
-
-const StarRating: React.FC<{ rating: number; count?: number }> = ({ rating, count }) => {
-  if (!rating) return null;
-  return (
-    <div className="flex items-center gap-1">
-      <div className="flex">
-        {[1, 2, 3, 4, 5].map(i => (
-          <Star
-            key={i}
-            className={`w-3 h-3 ${i <= Math.round(rating) ? "fill-amber-400 text-amber-400" : "fill-slate-200 text-slate-200"}`}
-          />
-        ))}
-      </div>
-      <span className="text-[10px] text-slate-500 font-medium">
-        {rating.toFixed(1)}{count ? ` (${count})` : ""}
-      </span>
-    </div>
-  );
-};
 export const QuickViewModal: React.FC<QuickViewProps> = ({
   open,
   onClose,
@@ -153,15 +134,6 @@ export const QuickViewModal: React.FC<QuickViewProps> = ({
                   </p>
                 )}
               </div>
-
-              {/* Rating */}
-              {avgRating > 0 && (
-                <StarRating
-                  rating={avgRating}
-                  count={product.reviews?.length}
-                />
-              )}
-
               {/* Description */}
               {product.description && (
                 <p className="text-xs text-slate-600 leading-relaxed">

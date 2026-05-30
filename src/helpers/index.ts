@@ -1,6 +1,6 @@
 // src/lib/utils/shared.ts (PREMIUM UTILITY FUNCTIONS - ENHANCED)
 
-import { ID } from "@/lib/types";
+import { ID, DiscountType } from "@/lib/types";
 import { ProductImage } from "@/types/products";
 
 
