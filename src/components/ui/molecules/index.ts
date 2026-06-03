@@ -5,7 +5,6 @@ export  {RecentViewedStrip} from './RecentViewedStrip';
 export  {ReferralStrip} from './ReferralStrip';
 export  {SectionBlock} from './SectionBlock';
 export  {StoryStrip} from './StoryStrip';
-export  {TestimonialStrip} from './TestimonialStrip';
 export  {TopBarnBanner} from './TopBarnBanner';
 export  {TrustAndUSPStrip} from './TrustAndUSPStrip';
 export  {HowItWorksStrip} from './HowItWorksStrip';

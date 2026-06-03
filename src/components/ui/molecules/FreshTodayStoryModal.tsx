@@ -1,11 +1,9 @@
-// components/ui/molecules/FreshTodayStoryModal.tsx
 "use client";
 
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import {
   X, ChevronLeft, ChevronRight, ShoppingBag, Heart, Share2,
-  MapPin, Truck, Leaf, ShieldCheck, CheckCircle2, TrendingUp,
-  Info, Plus, Package, Star, Users, Flame, Sparkles, Clock
+  CheckCircle2, Plus, Sparkles, Flame, Clock
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
@@ -14,18 +12,9 @@ import { getFirstImageUrl, getProductBasePrice, formatCurrency } from "@/utils/s
 import { finalPrice } from "@/lib/calc";
 import type { Product } from "@/types/products";
 
-/* ══════════════════════════════════════════════════════════════════
-   TYPES
-══════════════════════════════════════════════════════════════════ */
-interface FreshTodayStoryModalProps {
-  open: boolean;
-  initialIndex: number;
-  onClose: () => void;
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   STORY PROGRESS BAR
-══════════════════════════════════════════════════════════════════ */
+/* ────────────────────────────────────────────────────────────────── */
+/* PROGRESS BAR (unchanged)                                          */
+/* ────────────────────────────────────────────────────────────────── */
 function StoryProgress({ total, current, progress, paused }: {
   total: number; current: number; progress: number; paused: boolean;
 }) {
@@ -44,55 +33,49 @@ function StoryProgress({ total, current, progress, paused }: {
   );
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   MAIN MODAL
-══════════════════════════════════════════════════════════════════ */
-const STORY_DURATION = 8_000;
+/* ────────────────────────────────────────────────────────────────── */
+/* MAIN MODAL (HOOKS FIXED + REAL DATA)                              */
+/* ────────────────────────────────────────────────────────────────── */
+const STORY_DURATION = 8000;
+
+interface FreshTodayStoryModalProps {
+  open: boolean;
+  initialIndex: number;
+  onClose: () => void;
+  items: Product[];           // <── real products from store
+}
 
 export function FreshTodayStoryModal({
   open,
   initialIndex,
   onClose,
+  items,                      // now received as prop
 }: FreshTodayStoryModalProps) {
-  const products = useApp((s) => s.products) || [];
-  const addToCart = useApp((s) => s.addToCart);
-
-  // Bütün aktiv məhsulları filtrələ (FreshTodayStoryBar ilə eyni məntiq)
-  const allStoryProducts = useCallback(() => {
-    const fresh: Product[] = [];
-    const upcoming: Product[] = [];
-
-    (products || []).forEach((p) => {
-      if (p.archived) return;
-      if (p.isNewArrival || p.statusTags?.includes("newArrival")) {
-        fresh.push(p);
-      } else if (p.statusTags?.includes("upcoming")) {
-        upcoming.push(p);
-      }
-    });
-
-    return [...fresh.slice(0, 10), ...upcoming.slice(0, 5)];
-  }, [products]);
-
-  const [items, setItems] = useState<Product[]>([]);
+  // ---------- ALL HOOKS (unconditional, top level) ----------
   const [idx, setIdx] = useState(initialIndex);
   const [progress, setProgress] = useState(0);
   const [paused, setPaused] = useState(false);
   const [liked, setLiked] = useState<Set<string>>(new Set());
+  const [qty, setQty] = useState(1);
+  const [added, setAdded] = useState(false);
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startRef = useRef(Date.now());
 
-  // Modal açılanda items-i yenilə
+  // Reset when modal opens or index changes
   useEffect(() => {
     if (open) {
-      setItems(allStoryProducts());
       setIdx(initialIndex);
       setProgress(0);
+      setQty(1);
+      setAdded(false);
     }
-  }, [open, initialIndex, allStoryProducts]);
+  }, [open, initialIndex]);
 
-  // Avtomatik irəliləmə
-  const clearTimer = () => { if (timerRef.current) clearInterval(timerRef.current); };
+  // Auto-advance timer
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+  }, []);
 
   useEffect(() => {
     if (!open || items.length === 0) return;
@@ -107,7 +90,7 @@ export function FreshTodayStoryModal({
       if (p >= 100) {
         clearTimer();
         if (idx < items.length - 1) {
-          setIdx(c => c + 1);
+          setIdx(i => i + 1);
         } else {
           onClose();
         }
@@ -115,8 +98,21 @@ export function FreshTodayStoryModal({
     }, 50);
 
     return clearTimer;
-  }, [open, idx, paused, items.length, onClose]);
+  }, [open, idx, paused, items.length, onClose, clearTimer]);
 
+  // Keyboard navigation
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") goTo(idx - 1);
+      if (e.key === "ArrowRight") goTo(idx + 1);
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, idx, onClose]);
+
+  // ---------- Helper functions ----------
   const goTo = (i: number) => {
     if (i < 0 || i >= items.length) {
       onClose();
@@ -131,25 +127,31 @@ export function FreshTodayStoryModal({
     else if (info.offset.x > 50) goTo(idx - 1);
   };
 
-  // Klaviatura dəstəyi
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") goTo(idx - 1);
-      if (e.key === "ArrowRight") goTo(idx + 1);
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [open, idx]);
+  const handleAddToCart = () => {
+    const product = items[idx];
+    if (!product) return;
+    const addToCart = useApp.getState().addToCart;
+    addToCart(product.id, product.variants?.[0]?.id, qty);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
 
+  const handleShare = () => {
+    const product = items[idx];
+    if (!product) return;
+    const url = `${window.location.origin}/product/${product.slug || product.id}`;
+    if (navigator.share) {
+      navigator.share({ title: product.name, text: `${product.name} — ${formatCurrency(finalPrice(getProductBasePrice(product), product.discountType, product.discountValue))}`, url });
+    } else {
+      navigator.clipboard?.writeText(url);
+    }
+  };
+
+  // Early return AFTER all hooks
   if (!open || items.length === 0) return null;
 
   const product = items[idx];
-  if (!product) {
-    onClose();
-    return null;
-  }
+  if (!product) return null;
 
   const img = getFirstImageUrl(product);
   const base = getProductBasePrice(product);
@@ -158,23 +160,6 @@ export function FreshTodayStoryModal({
   const stock = product.variants?.[0]?.stock ?? 0;
   const isNew = product.isNewArrival || product.statusTags?.includes("newArrival");
   const isUpcoming = product.statusTags?.includes("upcoming");
-  const [qty, setQty] = useState(1);
-  const [added, setAdded] = useState(false);
-
-  const handleAddToCart = () => {
-    addToCart(product.id, product.variants?.[0]?.id, qty);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
-  };
-
-  const handleShare = () => {
-    const url = `${window.location.origin}/product/${product.slug || product.id}`;
-    if (navigator.share) {
-      navigator.share({ title: product.name, text: `${product.name} — ${formatCurrency(price)}`, url });
-    } else {
-      navigator.clipboard?.writeText(url);
-    }
-  };
 
   return (
     <AnimatePresence>
@@ -201,7 +186,7 @@ export function FreshTodayStoryModal({
           onTouchStart={() => setPaused(true)}
           onTouchEnd={() => setPaused(false)}
         >
-          {/* Şəkil arxa plan */}
+          {/* Background image */}
           <div className="absolute inset-0">
             <Image
               src={img}
@@ -213,7 +198,7 @@ export function FreshTodayStoryModal({
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
           </div>
 
-          {/* Progress bar */}
+          {/* Top bar */}
           <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-4">
             <StoryProgress total={items.length} current={idx} progress={progress} paused={paused} />
             <div className="flex items-center justify-between mt-3">
@@ -231,7 +216,7 @@ export function FreshTodayStoryModal({
             </div>
           </div>
 
-          {/* Yan keçid oxları (desktop) */}
+          {/* Navigation arrows (desktop) */}
           {idx > 0 && (
             <button onClick={() => goTo(idx - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 backdrop-blur text-white hidden md:flex items-center justify-center">
               <ChevronLeft className="w-5 h-5" />
@@ -243,13 +228,10 @@ export function FreshTodayStoryModal({
             </button>
           )}
 
-          {/* Məzmun */}
+          {/* Bottom content */}
           <div className="absolute bottom-0 left-0 right-0 p-4">
             <div className="backdrop-blur-xl bg-black/40 rounded-3xl p-5 border border-white/10 space-y-3">
-              {/* Məhsul adı */}
               <h2 className="text-xl font-black text-white leading-tight">{product.name}</h2>
-
-              {/* Qiymət & Endirim */}
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-black text-emerald-400">{formatCurrency(price)}</span>
                 {discount > 0 && (
@@ -259,8 +241,6 @@ export function FreshTodayStoryModal({
                   </>
                 )}
               </div>
-
-              {/* Status & Stok */}
               <div className="flex items-center gap-2 flex-wrap">
                 {isNew && (
                   <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full">
@@ -278,8 +258,6 @@ export function FreshTodayStoryModal({
                   </span>
                 )}
               </div>
-
-              {/* CTA */}
               {!isUpcoming ? (
                 <div className="flex items-center gap-2 pt-1">
                   <div className="flex items-center bg-white/10 rounded-xl overflow-hidden">
@@ -316,8 +294,6 @@ export function FreshTodayStoryModal({
                   Sabah üçün sifariş ver
                 </button>
               )}
-
-              {/* Paylaş & Like */}
               <div className="flex items-center justify-between">
                 <button onClick={handleShare} className="text-white/70 text-xs font-bold flex items-center gap-1">
                   <Share2 className="w-3.5 h-3.5" /> Paylaş

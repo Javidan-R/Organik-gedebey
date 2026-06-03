@@ -43,7 +43,8 @@ export const OrdersListMobile: React.FC<Props> = ({
               <div className="flex items-start justify-between gap-[0.5rem]">
                 <div className="flex-1">
                   <p className="font-mono text-[0.7rem] text-slate-500">
-                    #{o.id.slice(0, 8).toUpperCase()}
+                    # {o.id ? o.id.slice(0, 8).toUpperCase() : '—'}
+
                   </p>
                   <p className="mt-[0.25rem] font-semibold text-slate-900 text-[0.95rem]">
                     {o.customerName || "Anonim Müştəri"}

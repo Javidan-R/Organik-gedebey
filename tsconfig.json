@@ -48,7 +48,7 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "src/components/admin/finance/FinancialHealthScore.tsx"  ],
   "exclude": [
     "node_modules"
   ]

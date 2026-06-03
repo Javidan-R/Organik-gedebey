@@ -6,33 +6,20 @@ import {
   ShoppingCart, Heart, Star, Leaf, Clock, AlertTriangle, 
   Truck, Tag, Minus, Plus, Package 
 } from 'lucide-react'
+import type { Product, Variant as BaseVariant, UnitType } from '@/types/products'
 
 // Mock store and types
 type Unit = 'kq' | 'ədəd' | 'balon' | 'litr' | 'qram' | 'qutu'
 
-interface Variant {
-  id: string
-  name: string
-  stock: number
-  price: number
-  costPrice?: number
-  unit: Unit
+interface Variant extends BaseVariant {
   step?: number // Artım addımı: kq üçün 0.5, ədəd üçün 1
   minQty?: number // Minimum alış miqdarı
   maxQty?: number // Maksimum alış miqdarı
 }
 
-interface Product {
-  id: string
-  name: string
-  slug: string
-  categoryId: string
-  description?: string
-  images?: Array<{ url: string }>
+interface StorefrontProduct extends Omit<Product, 'variants'> {
   variants: Variant[]
   rating?: number
-  discountType?: 'percent' | 'amount'
-  discountValue?: number
 }
 
 // Mock functions
@@ -52,37 +39,43 @@ const toast = {
 // Helper functions
 const currency = (amount: number) => `${amount.toFixed(2)} ₼`
 
-const getUnitDisplay = (unit: Unit): string => {
-  const unitMap: Record<Unit, string> = {
+const getUnitDisplay = (unit: Unit | UnitType): string => {
+  const unitMap: Record<Unit | UnitType, string> = {
     'kq': 'kq',
     'ədəd': 'ədəd',
     'balon': 'balon',
     'litr': 'L',
     'qram': 'qr',
-    'qutu': 'qutu'
+    'qutu': 'qutu',
+    'ml': 'ml',
+    'meşov': 'meşov',
+    'paket': 'paket'
   }
   return unitMap[unit] || unit
 }
 
-const getUnitStep = (unit: Unit): number => {
+const getUnitStep = (unit: Unit | UnitType): number => {
   // Hər vahid üçün artım addımı
-  const stepMap: Record<Unit, number> = {
+  const stepMap: Record<Unit | UnitType, number> = {
     'kq': 0.5,        // Çəki: 0.5 kq addımla
     'litr': 0.5,      // Həcm: 0.5 L addımla
     'qram': 100,      // Qram: 100qr addımla
     'ədəd': 1,        // Ədəd: tam ədədlə
     'balon': 1,       // Balon: tam ədədlə
-    'qutu': 1         // Qutu: tam ədədlə
+    'qutu': 1,        // Qutu: tam ədədlə
+    'ml': 50,         // ml: 50ml addımla
+    'meşov': 1,       // meşov: tam ədədlə
+    'paket': 1        // paket: tam ədədlə
   }
   return stepMap[unit] || 1
 }
 
-const formatQuantity = (qty: number, unit: Unit): string => {
+const formatQuantity = (qty: number, unit: Unit | UnitType): string => {
   // Kəmiyyəti düzgün formatla göstər
   if (unit === 'kq' || unit === 'litr') {
     return qty.toFixed(1) // 1.5 kq
   }
-  if (unit === 'qram') {
+  if (unit === 'qram' || unit === 'ml') {
     return Math.round(qty).toString() // 500 qr
   }
   return Math.round(qty).toString() // 3 ədəd
@@ -96,7 +89,7 @@ const PremiumBadges = memo(({
   isOutOfStock, 
   stock 
 }: { 
-  product: Product
+  product: StorefrontProduct
   hasDiscount: boolean
   offPerc: number
   isOutOfStock: boolean
@@ -153,7 +146,7 @@ const QuantitySelector = memo(({
   onChange 
 }: {
   qty: number
-  unit: Unit
+  unit: Unit | UnitType
   step: number
   minQty: number
   maxQty: number
@@ -199,9 +192,9 @@ const QuantitySelector = memo(({
 QuantitySelector.displayName = 'QuantitySelector'
 
 // Main Product Card Component
-export const StorefrontProductCard = memo(({ product }: { product: Product }) => {
+export const StorefrontProductCard = memo(({ product }: { product: StorefrontProduct }) => {
   const { addToCart } = useApp()
-  
+
   // Default variant (ilk variant)
   const variant = product.variants?.[0]
   if (!variant) return null
@@ -210,15 +203,15 @@ export const StorefrontProductCard = memo(({ product }: { product: Product }) =>
   const step = variant.step || getUnitStep(unit)
   const minQty = variant.minQty || step
   const maxQty = variant.maxQty || 100
-  
+
   // Kəmiyyət state-i - minimum dəyərlə başlayır
   const [qty, setQty] = useState(minQty)
-  
+
   // Qiymət hesablamaları
   const regularPrice = variant.price || 0
   const hasDiscount = !!(product.discountValue && product.discountValue > 0)
-  const discountedPrice = hasDiscount 
-    ? product.discountType === 'percent'
+  const discountedPrice = hasDiscount
+    ? product.discountType === 'percentage'
       ? regularPrice * (1 - (product.discountValue || 0) / 100)
       : regularPrice - (product.discountValue || 0)
     : regularPrice
@@ -232,14 +225,14 @@ export const StorefrontProductCard = memo(({ product }: { product: Product }) =>
 
   // Kəmiyyət artırma/azaltma
   const incrementQty = useCallback(() => {
-    setQty(prev => {
+    setQty((prev: number) => {
       const next = prev + step
       return Math.min(next, Math.min(maxQty, stock))
     })
   }, [step, maxQty, stock])
 
   const decrementQty = useCallback(() => {
-    setQty(prev => {
+    setQty((prev: number) => {
       const next = prev - step
       return Math.max(next, minQty)
     })
@@ -413,7 +406,7 @@ StorefrontProductCard.displayName = 'StorefrontProductCard'
 
 // Demo Component
 export default function ProductCardDemo() {
-  const demoProducts: Product[] = [
+  const demoProducts: StorefrontProduct[] = [
     {
       id: '1',
       name: 'Təbii Çiçək Balı',
@@ -422,56 +415,100 @@ export default function ProductCardDemo() {
       description: 'Gədəbəy dağlarından təbii bal',
       images: [{ url: 'https://images.unsplash.com/photo-1587049352846-4a222e784f4c?w=400' }],
       rating: 4.8,
-      discountType: 'percent',
+      discountType: 'percentage',
       discountValue: 15,
       variants: [{
         id: 'v1',
+        label: '500qr',
         name: '500qr Balon',
         stock: 25,
+        minStock: 5,
         price: 12,
+        costPrice: 8,
+        grade: 'A',
+        createdAt: new Date().toISOString(),
+        batchDate: new Date().toISOString(),
         unit: 'balon',
         step: 1,
         minQty: 1,
         maxQty: 10
-      }]
+      }],
+      tags: [],
+      quantityStep: 1,
+      shortDescription: '',
+      stock: 25,
+      isNewArrival: true,
+      isFeatured: false,
+      basePrice: undefined,
+      createdAt: new Date().toISOString()
     },
     {
       id: '2',
       name: 'Təzə Mandarin',
       slug: 'mandarin',
       categoryId: 'meyveler',
+      description: 'Təzə və şirin mandarin',
       images: [{ url: 'https://images.unsplash.com/photo-1611080626919-7cf5a9dbab5b?w=400' }],
       rating: 4.5,
       variants: [{
         id: 'v2',
+        label: 'Premium',
         name: 'Premium',
         stock: 45.5,
+        minStock: 10,
         price: 3.5,
+        costPrice: 2,
+        grade: 'A',
+        createdAt: new Date().toISOString(),
+        batchDate: new Date().toISOString(),
         unit: 'kq',
         step: 0.5,
         minQty: 1,
         maxQty: 20
-      }]
+      }],
+      tags: [],
+      quantityStep: 0.5,
+      shortDescription: '',
+      stock: 45.5,
+      isNewArrival: false,
+      isFeatured: true,
+      basePrice: undefined,
+      createdAt: new Date().toISOString()
     },
     {
       id: '3',
       name: 'Kənd Qatığı',
       slug: 'qatiq',
       categoryId: 'sut',
+      description: 'Təbii kənd qatığı',
       images: [{ url: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=400' }],
       rating: 5.0,
-      discountType: 'amount',
+      discountType: 'fixed',
       discountValue: 1,
       variants: [{
         id: 'v3',
+        label: '1L',
         name: '1L Balon',
         stock: 3,
+        minStock: 2,
         price: 5,
+        costPrice: 3,
+        grade: 'A',
+        createdAt: new Date().toISOString(),
+        batchDate: new Date().toISOString(),
         unit: 'balon',
         step: 1,
         minQty: 1,
         maxQty: 5
-      }]
+      }],
+      tags: [],
+      quantityStep: 1,
+      shortDescription: '',
+      stock: 3,
+      isNewArrival: false,
+      isFeatured: false,
+      basePrice: undefined,
+      createdAt: new Date().toISOString()
     }
   ]
 

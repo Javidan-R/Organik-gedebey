@@ -101,7 +101,7 @@ export const OrderDetailsFlyout: React.FC<Props> = ({
           <div>
             <p className="text-[0.7rem] text-slate-500">Sifariş ID</p>
             <p className="font-mono text-sm font-bold text-slate-900">
-              #{id.slice(0, 10).toUpperCase()}
+              # {id? id.slice(0, 10).toUpperCase(): '-'}
             </p>
           </div>
           <div className="flex items-center gap-3">

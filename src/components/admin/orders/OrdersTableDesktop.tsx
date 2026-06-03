@@ -168,7 +168,7 @@ export const OrdersTableDesktop: React.FC<OrdersTableDesktopProps> = ({
                     <td className="px-[0.75rem] py-[0.5rem] align-middle">
                       <div className="flex items-center gap-[0.3rem]">
                         <span className="font-mono text-[0.7rem] md:text-[0.75rem] text-slate-700">
-                          {o.id.slice(0, 8).toUpperCase()}
+                          {o.id ? o.id.slice(0, 8).toUpperCase() : "—"}
                         </span>
                         <Tooltip content="ID-ni kopyala">
                           <Button

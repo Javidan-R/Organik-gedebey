@@ -15,7 +15,31 @@ import {
   MapPin, ChevronUp, ExternalLink, X
 } from "lucide-react";
 import { getProductBasePrice, getFirstImageUrl, formatCurrency } from "@/utils/storefront_home";
-import { QuickViewModal } from "./QuickModal";
+
+// Əgər QuickViewModal artıq mövcuddursa, import edin. Yoxdursa, aşağıdakı sadə modalı istifadə edin.
+// import { QuickViewModal } from "./QuickModal";
+// Müvəqqəti olaraq sadə modal komponenti buraya yazırıq (sonradan ayrı fayla çıxara bilərsiniz).
+const QuickViewModal = ({ open, onClose, product, imgUrl, discount, displayPrice, basePrice, currency, avgRating, qty, isOut, addingToCart, addedToCart, selectedVariantIdx, setSelectedVariantIdx, handleQtyChange, handleAddToCart }: any) => {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-3xl max-w-2xl w-full mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        {/* Modal məzmunu – sadə versiya */}
+        <div className="p-6">
+          <div className="flex justify-between items-start">
+            <h3 className="text-xl font-black">{product?.name}</h3>
+            <button onClick={onClose}><X className="w-5 h-5" /></button>
+          </div>
+          <div className="relative h-64 my-4">
+            <Image src={imgUrl} alt={product?.name} fill className="object-contain" />
+          </div>
+          <p className="text-2xl font-black">{formatCurrency(displayPrice, currency)}</p>
+          <button onClick={handleAddToCart} className="mt-4 w-full bg-emerald-600 text-white py-3 rounded-xl">Səbətə əlavə et</button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /* ================================================================ */
 /*                         TYPES                                    */
@@ -40,7 +64,6 @@ const cardVariants = {
     transition: { type: "spring" as const, stiffness: 90, damping: 16 }
   },
 };
-
 
 const StockBadge: React.FC<{ stock: number; unit: string }> = ({ stock, unit }) => {
   if (stock <= 0) {
@@ -99,8 +122,6 @@ export function RusticProductCard({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
 
-  /* ---- sync prop ---- */
-
   /* ---- 3D tilt ---- */
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -110,7 +131,7 @@ export function RusticProductCard({
   const glareY = useTransform(mouseY, [-120, 120], [0, 100]);
   const glareOpacity = useSpring(0, { stiffness: 200, damping: 30 });
 
-  /* ---- derived values ---- */
+  /* ---- derived values (təhlükəsiz) ---- */
   const selectedVariant = product.variants?.[selectedVariantIdx];
   const basePrice = useMemo(() => selectedVariant?.price ?? getProductBasePrice(product), [selectedVariant, product]);
   const displayPrice = useMemo(() => finalPrice(basePrice, product.discountType, product.discountValue), [basePrice, product]);
@@ -175,34 +196,29 @@ export function RusticProductCard({
   }, [totalStock]);
 
   /* ================================================================ */
-  /*                    QUICK VIEW MODAL                             */
-  /* ================================================================ */
- 
-
-  /* ================================================================ */
   /*                       RENDER                                    */
   /* ================================================================ */
   return (
     <>
       <QuickViewModal
-  open={quickViewOpen}
-  onClose={() => setQuickViewOpen(false)}
-  product={product}
-  imgUrl={imgUrl}
-  discount={discount}
-  displayPrice={displayPrice}
-  basePrice={basePrice}
-  currency={currency}
-  avgRating={avgRating}
-  qty={qty}
-  isOut={isOut}
-  addingToCart={addingToCart}
-  addedToCart={addedToCart}
-  selectedVariantIdx={selectedVariantIdx}
-  setSelectedVariantIdx={setSelectedVariantIdx}
-  handleQtyChange={handleQtyChange}
-  handleAddToCart={handleAddToCart}
-/>
+        open={quickViewOpen}
+        onClose={() => setQuickViewOpen(false)}
+        product={product}
+        imgUrl={imgUrl}
+        discount={discount}
+        displayPrice={displayPrice}
+        basePrice={basePrice}
+        currency={currency}
+        avgRating={avgRating}
+        qty={qty}
+        isOut={isOut}
+        addingToCart={addingToCart}
+        addedToCart={addedToCart}
+        selectedVariantIdx={selectedVariantIdx}
+        setSelectedVariantIdx={setSelectedVariantIdx}
+        handleQtyChange={handleQtyChange}
+        handleAddToCart={handleAddToCart}
+      />
 
       <motion.article
         variants={cardVariants}
@@ -288,9 +304,9 @@ export function RusticProductCard({
                   ✨ Yeni
                 </span>
               )}
-                       {product.statusTags?.includes('bestValue') && (
-            <span className="px-2 py-1 rounded-full bg-purple-600/90 backdrop-blur-sm text-white text-[10px] font-bold shadow-lg">
-              🔥 Trending
+              {product.statusTags?.includes('bestValue') && (
+                <span className="px-2 py-1 rounded-full bg-purple-600/90 backdrop-blur-sm text-white text-[10px] font-bold shadow-lg">
+                  🔥 Trending
                 </span>
               )}
             </div>
@@ -317,25 +333,22 @@ export function RusticProductCard({
                   className="absolute inset-0 z-20 bg-gradient-to-t from-black/50 via-transparent to-transparent flex items-end p-3"
                 >
                   <div className="flex gap-2 w-full">
-                    {/* Quick View */}
                     <motion.button
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: 0 }}
                       whileHover={{ scale: 1.08 }}
-                             whileTap={{ scale: 0.94 }}
-onClick={(e) => {
-  e.preventDefault();
-  e.stopPropagation(); // 🔥 mütləq
-  setQuickViewOpen(true);
-}}
+                      whileTap={{ scale: 0.94 }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setQuickViewOpen(true);
+                      }}
                       className="flex-1 flex items-center justify-center gap-1.5 bg-white/95 text-slate-800 text-[11px] font-bold py-2.5 rounded-2xl shadow-lg hover:bg-white transition-colors"
                     >
                       <Eye className="w-4 h-4" /> Sürətli bax
                     </motion.button>
 
-                   
-                    {/* Share */}
                     <motion.button
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
@@ -348,7 +361,6 @@ onClick={(e) => {
                       <Share2 className="w-4 h-4" />
                     </motion.button>
 
-                    {/* Compare */}
                     {onCompareToggle && (
                       <motion.button
                         initial={{ y: 20, opacity: 0 }}
@@ -382,7 +394,6 @@ onClick={(e) => {
 
         {/* ── CONTENT AREA ── */}
         <div className="p-4 flex flex-col gap-2.5" style={{ transform: "translateZ(16px)" }}>
-          
           {/* Name */}
           <Link href={`/products/${slug}`}>
             <h3 className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug hover:text-emerald-700 transition-colors duration-200">
@@ -395,68 +406,60 @@ onClick={(e) => {
             <p className="text-[11px] text-slate-500 line-clamp-1">{product.benefits[0]}</p>
           )}
 
-        {/* ── Variantlar (Premium Kompakt UI) ── */}
-{(product.variants?.length ?? 0) > 1 && (
-  <div className="space-y-2">
-  
-    {/* Üfüqi sürüşən variant çipləri */}
-    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-      {product.variants!.map((v, i) => {
-        const varBase = v.price ?? getProductBasePrice(product);
-        const varPrice = finalPrice(varBase, product.discountType, product.discountValue);
-        const varDiscount = varBase > varPrice ? Math.round(((varBase - varPrice) / varBase) * 100) : 0;
-        const varStock = v.stock ?? 0;
-        const isSelected = i === selectedVariantIdx;
+          {/* Variantlar – yalnız >1 variant olduqda göstər */}
+          {(product.variants?.length ?? 0) > 1 && (
+            <div className="space-y-2">
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                {product.variants!.map((v, i) => {
+                  const varBase = v.price ?? getProductBasePrice(product);
+                  const varPrice = finalPrice(varBase, product.discountType, product.discountValue);
+                  const varDiscount = varBase > varPrice ? Math.round(((varBase - varPrice) / varBase) * 100) : 0;
+                  const varStock = v.stock ?? 0;
+                  const isSelected = i === selectedVariantIdx;
 
-        return (
-          <motion.button
-            key={v.id}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectedVariantIdx(i)}
-            className={`shrink-0 relative flex items-center gap-2 px-2.5 py-2 rounded-2xl border-2 transition-all ${
-              isSelected
-                ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-100'
-                : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm'
-            }`}
-          >
-            {/* Sol – variant məlumatı */}
-            <div className="text-left">
-              <p className={`text-[11px] font-bold leading-tight ${isSelected ? 'text-emerald-700' : 'text-slate-800'}`}>
-                {v.name || v.unit || `Variant`}
-              </p>
-              <p className="text-[10px] text-slate-500">
-                {formatCurrency(varPrice, currency)}
-                {varDiscount > 0 && (
-                  <span className="ml-1 text-red-500 font-bold">-{varDiscount}%</span>
-                )}
-              </p>
+                  return (
+                    <motion.button
+                      key={v.id}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setSelectedVariantIdx(i)}
+                      className={`shrink-0 relative flex items-center gap-2 px-2.5 py-2 rounded-2xl border-2 transition-all ${
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-100'
+                          : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm'
+                      }`}
+                    >
+                      <div className="text-left">
+                        <p className={`text-[11px] font-bold leading-tight ${isSelected ? 'text-emerald-700' : 'text-slate-800'}`}>
+                          {v.name || v.unit || `Variant`}
+                        </p>
+                        <p className="text-[10px] text-slate-500">
+                          {formatCurrency(varPrice, currency)}
+                          {varDiscount > 0 && <span className="ml-1 text-red-500 font-bold">-{varDiscount}%</span>}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        {varStock > 0 && varStock <= 5 ? (
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                          </span>
+                        ) : varStock === 0 ? (
+                          <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+                        ) : (
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                        )}
+                        {isSelected && (
+                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          </motion.div>
+                        )}
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
             </div>
-
-            {/* Stok nöqtəsi + check (seçili olduqda) */}
-            <div className="flex flex-col items-center gap-0.5">
-              {varStock > 0 && varStock <= 5 ? (
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
-                </span>
-              ) : varStock === 0 ? (
-                <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-              ) : (
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-              )}
-              
-              {isSelected && (
-                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                </motion.div>
-              )}
-            </div>           
-          </motion.button>
-        );
-      })}
-    </div>
-  </div>
-)}
+          )}
 
           {/* Stock */}
           <StockBadge stock={totalStock} unit={unit} />

@@ -1,30 +1,33 @@
-import type { NextConfig } from 'next'
-
-const nextConfig: NextConfig = {
-images: {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'res.cloudinary.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
-      },
-
-      { protocol: 'https', hostname: 'qadin.net' },
-
-      {
-        protocol: 'https',
-        hostname: 'encrypted-tbn0.gstatic.com',
-        port: '',
-        pathname: '/**',
-      },
-  ],
+      { protocol: 'https', hostname: 'res.cloudinary.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'images.unsplash.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'qadin.net', pathname: '/**' },
+      { protocol: 'https', hostname: 'encrypted-tbn0.gstatic.com', pathname: '/**' },
+    ],
   },
-}
-export default nextConfig
+  // ✅ Next.js 16: serverComponentsExternalPackages -> serverExternalPackages
+  serverExternalPackages: ['postgres', 'pg'],
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['localhost:3000', 'organikgedebey.com'],
+    },
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-XSS-Protection', value: '1; mode=block' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+    ];
+  },
+};
+
+module.exports = nextConfig;

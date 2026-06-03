@@ -1,14 +1,27 @@
-import { MOBILE_BREAKPOINT } from "@/const"
-import { useState, useEffect } from "react"
+'use client';
 
+import { MOBILE_BREAKPOINT } from '@/const';
+import { useState, useEffect } from 'react';
 
-export function useIsMobile(): boolean {
-  const [isMobile, setIsMobile] = useState(false)
+export function useIsMobile(debounceMs = 150): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
-  return isMobile
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const check = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    };
+    const handleResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(check, debounceMs);
+    };
+    check();
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
+  }, [debounceMs]);
+
+  return isMobile;
 }

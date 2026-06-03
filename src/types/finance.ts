@@ -110,3 +110,36 @@ export type LedgerEntry = {
 
 export type AP = { supplierId: string; amount: Money }; // Accounts Payable
 export type AR = { customerName?: string; orderId?: string; amount: Money }; // Accounts R
+
+
+// 1. types/finance.ts (yeni tip təyinatları)
+export type Budget = {
+  month: string; // YYYY-MM
+  incomeTarget: number;
+  expenseTarget: number;
+  profitTarget: number;
+};
+
+export type CashFlowProjection = {
+  date: string;
+  projectedIncome: number;
+  projectedExpenses: number;
+  netCashFlow: number;
+  cumulativeCash: number;
+};
+
+export type CampaignROI = {
+  discountPercent: number;
+  expectedSalesIncreasePercent: number;
+  projectedRevenue: number;
+  projectedProfit: number;
+  roi: number;
+};
+
+export type InventoryFinancialStats = {
+  totalCost: number;
+  potentialRevenue: number;
+  avgMargin: number;
+  turnoverRatio: number;
+  daysInventoryOutstanding: number;
+};

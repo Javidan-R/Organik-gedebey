@@ -22,7 +22,7 @@ export type UnitType =
   | 'paket'
   ;
 /** Məhsulun xüsusi statusları – Front-end tərəfdə göstəriləcək. */
-export type ProductStatus = 'featured' | 'newArrival' | 'seasonal' | 'organic' | 'bestValue' | 'limitedEdition' | 'mustTry' | 'ecoFriendly' | 'locallySourced' | 'upcoming' ;
+export type ProductStatus = 'featured' | 'newArrival' | 'seasonal' | 'organic' | 'bestValue' | 'limitedEdition' | 'mustTry' | 'ecoFriendly' | 'locallySourced' | 'upcoming' | 'bestSeller';
 /** Məhsulun Keyfiyyət Çeşidi (Grade) */
 export type ProductGrade = 'A' | 'B' | 'C' | 'Unsorted';
 // --- Məhsulun Qidalanma Məlumatı üçün Struktur ---
@@ -81,6 +81,7 @@ export type RecipeItem = {
 };
 // --- Product ---
 export type Product = {
+  soldCount: number;
     recipes?: RecipeItem[];
 
   shortDescription: any;
@@ -94,6 +95,7 @@ export type Product = {
     description: string;
     metaDescription?: string;
     categoryId: ID;
+    category?: string;
     tags: string[];
     metaTitle?: string;
     image?:string;

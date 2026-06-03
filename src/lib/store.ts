@@ -39,7 +39,7 @@ import { Product } from '@/types/products';
 import { Order, OrderStatus } from '@/types/orders';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// API BRIDGE — Server store ilə sinxronizasiya (fire-and-forget)
+// API BRIDGE — Server ilə sinxronizasiya (fire-and-forget)
 // ═══════════════════════════════════════════════════════════════════════════
 function apiBridge(method: string, url: string, body?: unknown) {
   if (typeof window === 'undefined') return;
@@ -48,15 +48,11 @@ function apiBridge(method: string, url: string, body?: unknown) {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
-  })
-    .then(res => {
-      if (!res.ok) {
-        console.warn(`[API Bridge] ${method} ${url} failed:`, res.status);
-      }
-    })
-    .catch(err => {
-      console.warn(`[API Bridge] ${method} ${url} error:`, err.message);
-    });
+  }).catch(err => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[API Bridge] ${method} ${url} failed:`, err.message);
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -146,6 +142,15 @@ export type AppState = {
   _hasHydrated: boolean;
   markHydrated: () => void;
 
+  // ═══ SERVER DATA SYNC ═══
+  setProducts: (products: Product[]) => void;
+  setCategories: (categories: Category[]) => void;
+  setOrders: (orders: Order[]) => void;
+
+  // ═══ REAL-TIME SYNC (YENİ) ═══
+  startRealtimeSync: () => void;
+  stopRealtimeSync: () => void;
+
   // ═══ SELECTORS ═══
   cartTotal: () => number;
   productPriceNow: (p: Product, v?: Variant) => number;
@@ -169,7 +174,6 @@ export type AppState = {
   recentOrders: (limit?: number) => Order[];
   topSellingProducts: (limit?: number) => Product[];
   dailySalesTotal: (isoDate: string) => number;
-  resetDailySales: () => void;
   dashboardSummary: () => {
     totalRevenue: number;
     ordersToday: number;
@@ -203,7 +207,7 @@ export type AppState = {
   unapproveReview: (pid: ID, rid: ID) => void;
 
   // ═══ ACTIONS: Inventory & Finance ═══
-  adjustStock: (productId: ID, delta: number, variantId: ID) => void;
+  adjustStock: (productId: ID, delta: number, variantId?: ID) => void;
   adjustMinStock: (productId: ID, minStock: number) => void;
   addExpense: (expense: Omit<Expense, 'id'>) => void;
   removeExpense: (id: ID) => void;
@@ -255,6 +259,20 @@ export type AppState = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
+// WebSocket / SSE Dəyişənləri (store xaricində)
+// ═══════════════════════════════════════════════════════════════════════════
+let eventSource: EventSource | null = null;
+let ws: WebSocket | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearReconnectTimer() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Initial Config
 // ═══════════════════════════════════════════════════════════════════════════
 const initialStorefrontConfig: AppState['storefrontConfig'] = {
@@ -273,7 +291,7 @@ const initialAdminUIState: AdminUIState = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// STORE — MAIN STORE IMPLEMENTATION
+// STORE — MAIN STORE IMPLEMENTATION (Realtime Sync əlavə edildi)
 // ═══════════════════════════════════════════════════════════════════════════
 export const useApp = create<AppState>()(
   persist(
@@ -281,7 +299,7 @@ export const useApp = create<AppState>()(
       // ═══ INITIAL STATE ═══
       storefrontConfig: initialStorefrontConfig,
       categories: initialCategories,
-      products: initialProducts,
+      products: initialProducts.map(p => ({ ...p, archived: p.archived ?? false })),
       orders: initialOrders,
       cart: [],
       favorites: [],
@@ -295,15 +313,196 @@ export const useApp = create<AppState>()(
       _hasHydrated: false,
       markHydrated: () => set({ _hasHydrated: true }),
 
-      // ═══ SELECTORS ═══
+      // ═══ SERVER DATA SYNC ═══
+      setProducts: (products) => {
+        const normalized = products.map(p => ({ ...p, archived: p.archived ?? false }));
+        set({ products: normalized });
+      },
+      setCategories: (categories) => set({ categories }),
+      setOrders: (orders) => set({ orders }),
+
+      // ═══ REAL-TIME SYNC (SSE / WebSocket) ═══
+      startRealtimeSync: () => {
+        if (typeof window === 'undefined') return;
+        // Əvvəlki bağlantını təmizlə
+        get().stopRealtimeSync();
+
+        // Seçim: env dəyişəninə görə SSE və ya WebSocket istifadə et
+        const useWebSocket = process.env.NEXT_PUBLIC_REALTIME_USE_WS === 'true';
+        const sseUrl = process.env.NEXT_PUBLIC_SSE_URL || '/api/sse';
+        const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001';
+
+        if (useWebSocket) {
+          // WebSocket versiyası
+          ws = new WebSocket(wsUrl);
+
+          ws.onopen = () => {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[WS] Realtime bağlantı quruldu');
+            }
+            // Tam sync tələb et
+            ws?.send(JSON.stringify({ type: 'request-full-sync' }));
+          };
+
+          ws.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              switch (data.type) {
+                case 'full-sync':
+                  if (data.products) get().setProducts(data.products);
+                  if (data.categories) get().setCategories(data.categories);
+                  if (data.orders) get().setOrders(data.orders);
+                  break;
+                case 'product-updated':
+                  get().updateProduct(data.product);
+                  break;
+                case 'product-created':
+                  get().addProduct(data.product);
+                  break;
+                case 'product-deleted':
+                  get().deleteProduct(data.id);
+                  break;
+                case 'stock-changed':
+                  get().adjustStock(data.productId, data.delta, data.variantId);
+                  break;
+                case 'order-status-changed':
+                  get().updateOrderStatus(data.id, data.status);
+                  break;
+                case 'category-updated':
+                  get().updateCategory(data.category);
+                  break;
+                default:
+                  if (process.env.NODE_ENV === 'development') {
+                    console.warn('[WS] Unknown message type:', data.type);
+                  }
+              }
+            } catch (err) {
+              console.error('[WS] Mesaj parse xətası:', err);
+            }
+          };
+
+          ws.onerror = (err) => {
+            console.error('[WS] Xəta:', err);
+            ws?.close();
+            ws = null;
+            clearReconnectTimer();
+            reconnectTimer = setTimeout(() => get().startRealtimeSync(), 5000);
+          };
+
+          ws.onclose = () => {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[WS] Bağlantı bağlandı, yenidən cəhd ediləcək...');
+            }
+            ws = null;
+            clearReconnectTimer();
+            reconnectTimer = setTimeout(() => get().startRealtimeSync(), 5000);
+          };
+        } else {
+          // SSE (Server-Sent Events) versiyası
+          eventSource = new EventSource(sseUrl);
+
+          eventSource.onopen = () => {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[SSE] Realtime bağlantı quruldu');
+            }
+          };
+
+          eventSource.onerror = (err) => {
+            console.error('[SSE] Xəta:', err);
+            eventSource?.close();
+            eventSource = null;
+            clearReconnectTimer();
+            reconnectTimer = setTimeout(() => get().startRealtimeSync(), 5000);
+          };
+
+          // Server-dən gələn hadisələr
+          eventSource.addEventListener('full-sync', (e: MessageEvent) => {
+            try {
+              const { products, categories, orders } = JSON.parse(e.data);
+              if (products) get().setProducts(products);
+              if (categories) get().setCategories(categories);
+              if (orders) get().setOrders(orders);
+            } catch (err) {
+              console.error('[SSE] full-sync parse xətası:', err);
+            }
+          });
+
+          eventSource.addEventListener('product-updated', (e: MessageEvent) => {
+            try {
+              get().updateProduct(JSON.parse(e.data));
+            } catch (err) {
+              console.error('[SSE] product-updated xətası:', err);
+            }
+          });
+
+          eventSource.addEventListener('product-created', (e: MessageEvent) => {
+            try {
+              get().addProduct(JSON.parse(e.data));
+            } catch (err) {
+              console.error('[SSE] product-created xətası:', err);
+            }
+          });
+
+          eventSource.addEventListener('product-deleted', (e: MessageEvent) => {
+            try {
+              const { id } = JSON.parse(e.data);
+              get().deleteProduct(id);
+            } catch (err) {
+              console.error('[SSE] product-deleted xətası:', err);
+            }
+          });
+
+          eventSource.addEventListener('stock-changed', (e: MessageEvent) => {
+            try {
+              const { productId, delta, variantId } = JSON.parse(e.data);
+              get().adjustStock(productId, delta, variantId);
+            } catch (err) {
+              console.error('[SSE] stock-changed xətası:', err);
+            }
+          });
+
+          eventSource.addEventListener('order-status-changed', (e: MessageEvent) => {
+            try {
+              const { id, status } = JSON.parse(e.data);
+              get().updateOrderStatus(id, status);
+            } catch (err) {
+              console.error('[SSE] order-status-changed xətası:', err);
+            }
+          });
+
+          eventSource.addEventListener('category-updated', (e: MessageEvent) => {
+            try {
+              get().updateCategory(JSON.parse(e.data));
+            } catch (err) {
+              console.error('[SSE] category-updated xətası:', err);
+            }
+          });
+        }
+      },
+
+      stopRealtimeSync: () => {
+        clearReconnectTimer();
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
+      },
+
+      // ═══ SELECTORS ═══ (əvvəlki kimi, dəyişməyib)
       cartTotal: () =>
         get().cart.reduce((sum, item) => {
           const p = get().products.find((x) => x.id === item.productId);
-          const v =
-            p?.variants?.find((vv) => vv.id === item.variantId) ??
-            p?.variants?.[0];
-          if (!p || !v) return sum;
-          return sum + calcVariantFinalPrice(p, v as Variant) * (item.qty || 1);
+          const v = item.variantId
+            ? p?.variants?.find((vv) => vv.id === item.variantId)
+            : p?.variants?.[0];
+          if (!p || (!v && p.variants?.length)) return sum;
+          const basePrice = v?.price ?? p.price ?? 0;
+          const final = calcFinalPrice(basePrice, p.discountType, p.discountValue);
+          return sum + final * (item.qty || 1);
         }, 0),
 
       productPriceNow: (p, v) => {
@@ -434,25 +633,21 @@ export const useApp = create<AppState>()(
           .reduce((sum, o) => sum + (o.total ?? 0), 0);
       },
 
-      resetDailySales: () => set(() => ({ cart: [], orders: [] })),
-
       dashboardSummary: () => {
         const orders = get().orders || [];
         const todayStr = new Date().toDateString();
         let totalRevenue = 0;
         let ordersToday = 0;
-        let revenueToday = 0;
         orders.forEach((o) => {
           const total = o.total ?? 0;
           totalRevenue += total;
           if (new Date(o.createdAt).toDateString() === todayStr) {
             ordersToday += 1;
-            revenueToday += total;
           }
         });
         const avgOrderValue = orders.length ? totalRevenue / orders.length : 0;
-        const lowStockCount = get().lowStockAlerts(9999).length || 0;
-        const productsOnSaleCount = get().productsOnSale().length || 0;
+        const lowStockCount = get().lowStockAlerts().length;
+        const productsOnSaleCount = get().productsOnSale().length;
 
         return {
           totalRevenue,
@@ -515,12 +710,10 @@ export const useApp = create<AppState>()(
             reviews: p.reviews ?? [],
             minStock: p.minStock ?? 5,
             createdAt: p.createdAt ?? new Date().toISOString(),
+            archived: p.archived ?? false,
           };
 
-          // ✅ API Bridge
           apiBridge('POST', '/api/products', normalized);
-
-          console.log('[Store] addProduct:', normalized.name, normalized.id);
           return { products: [normalized, ...existing] };
         }),
 
@@ -546,22 +739,19 @@ export const useApp = create<AppState>()(
             }
             merged.createdAt = merged.createdAt ?? x.createdAt;
             merged.reviews = merged.reviews ?? x.reviews ?? [];
+            merged.archived = merged.archived ?? x.archived ?? false;
             return merged;
           });
 
-          // ✅ API Bridge
           const mergedProduct = updated.find((x) => x.id === p.id);
           if (mergedProduct) {
             apiBridge('PATCH', `/api/products/${p.id}`, mergedProduct);
-            console.log('[Store] updateProduct:', mergedProduct.name, mergedProduct.id);
           }
-
           return { products: updated };
         }),
 
       deleteProduct: (id) => {
         apiBridge('DELETE', `/api/products/${id}`);
-        console.log('[Store] deleteProduct:', id);
         set((s) => ({
           products: (s.products || []).filter((x) => x.id !== id),
         }));
@@ -569,7 +759,6 @@ export const useApp = create<AppState>()(
 
       archiveProduct: (id) => {
         apiBridge('PATCH', `/api/products/${id}/archive`);
-        console.log('[Store] archiveProduct:', id);
         set((s) => ({
           products: (s.products || []).map((p) =>
             p.id === id ? { ...p, archived: true } : p,
@@ -579,7 +768,6 @@ export const useApp = create<AppState>()(
 
       unarchiveProduct: (id) => {
         apiBridge('PATCH', `/api/products/${id}/unarchive`);
-        console.log('[Store] unarchiveProduct:', id);
         set((s) => ({
           products: (s.products || []).map((p) =>
             p.id === id ? { ...p, archived: false } : p,
@@ -688,19 +876,21 @@ export const useApp = create<AppState>()(
 
       // ═══ INVENTORY & FINANCE ═══
       adjustStock: (productId, delta, variantId) => {
-        if (!variantId) return;
         set((s) => ({
           products: (s.products || []).map((p) => {
             if (p.id !== productId) return p;
-            const variants = (p.variants || []).map((v) =>
-              v.id === variantId
-                ? {
-                    ...v,
-                    stock: Math.max(0, Number(v.stock || 0) + delta),
-                  }
-                : v,
-            );
-            return { ...p, variants };
+            if (!variantId && p.variants?.length) {
+              return p;
+            }
+            if (variantId) {
+              const variants = (p.variants || []).map((v) =>
+                v.id === variantId
+                  ? { ...v, stock: Math.max(0, Number(v.stock || 0) + delta) }
+                  : v,
+              );
+              return { ...p, variants };
+            }
+            return { ...p, stock: Math.max(0, Number(p.stock || 0) + delta) };
           }),
         }));
       },
@@ -742,16 +932,16 @@ export const useApp = create<AppState>()(
       addToCart: (pid, vid, qty) =>
         set((s) => {
           const product = s.products.find((p) => p.id === pid);
-          const defaultStep = product?.quantityStep ?? 1;
+          if (!product) return s;
+          const defaultStep = product.quantityStep ?? 1;
           const quantityToAdd = qty ?? defaultStep;
-          const variantId = vid ?? product?.variants?.[0]?.id;
-
-          if (!product || !variantId || quantityToAdd <= 0) return s;
-
+          let variantId = vid;
+          if (!variantId && product.variants && product.variants.length > 0) {
+            variantId = product.variants[0].id;
+          }
           const exist = s.cart.find(
             (c) => c.productId === pid && c.variantId === variantId,
           );
-
           if (exist) {
             return {
               cart: s.cart.map((c) =>
@@ -761,7 +951,6 @@ export const useApp = create<AppState>()(
               ),
             };
           }
-
           return {
             cart: [
               { productId: pid, variantId, qty: quantityToAdd },
@@ -775,15 +964,12 @@ export const useApp = create<AppState>()(
           const existingItem = s.cart.find(
             (c) => c.productId === pid && c.variantId === vid,
           );
-
           if (!existingItem) return s;
-
           if (qty <= 0) {
             return {
               cart: s.cart.filter((c) => c !== existingItem),
             };
           }
-
           return {
             cart: s.cart.map((c) =>
               c === existingItem ? { ...c, qty } : c,
@@ -796,7 +982,7 @@ export const useApp = create<AppState>()(
       removeCartItem: (pid, vid) =>
         set((s) => ({
           cart: s.cart.filter(
-            (c) => !(c.productId === pid && (!vid || c.variantId === vid)),
+            (c) => !(c.productId === pid && c.variantId === vid),
           ),
         })),
 
@@ -808,7 +994,6 @@ export const useApp = create<AppState>()(
             ...it,
             costAtOrder: it.costAtOrder ?? it.priceAtOrder * 0.6,
           }));
-
           const products = (s.products || []).map((p) => {
             const lineItems = items.filter((i) => i.productId === p.id);
             if (!lineItems.length) return p;
@@ -824,13 +1009,8 @@ export const useApp = create<AppState>()(
               }),
             };
           });
-
           const orderSaved: Order = { ...o, items };
-
-          // ✅ API Bridge
           apiBridge('POST', '/api/orders', orderSaved);
-          console.log('[Store] placeOrder:', orderSaved.id);
-
           return {
             products,
             orders: [orderSaved, ...s.orders],
@@ -1009,7 +1189,9 @@ export const useApp = create<AppState>()(
       onRehydrateStorage: () => (state, error) => {
         if (!error && state && typeof state.markHydrated === 'function') {
           state.markHydrated();
-          console.log('[Store] Hydrated with', state.products.length, 'products');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[Store] Hydrated with', state.products?.length, 'products');
+          }
         }
       },
       partialize: (s) => ({

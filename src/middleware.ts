@@ -1,39 +1,37 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { getToken } from 'next-auth/jwt'
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl
+  const { pathname } = req.nextUrl;
 
-  // Admin login səhifəsini yoxlama
-  if (pathname === '/admin/login') {
-    return NextResponse.next()
-  }
+  // Admin login səhifəsinə icazə
+  if (pathname === '/admin/login') return NextResponse.next();
 
-  // Digər admin səhifələri
+  // Admin səhifələri – yalnız og_admin cookie varsa
   if (pathname.startsWith('/admin')) {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
-    if (!token || token.role !== 'ADMIN') {
-      const url = new URL('/admin/login', req.url)
-      return NextResponse.redirect(url)
+    const adminCookie = req.cookies.get('og_admin')?.value === 'ok';
+    if (!adminCookie) {
+      const url = new URL('/admin/login', req.url);
+      url.searchParams.set('next', pathname);
+      return NextResponse.redirect(url);
     }
-    return NextResponse.next()
+    return NextResponse.next();
   }
 
-  // Hesab / Sifarişlər
+  // Hesab / Sifarişlər (əgər varsa) – öz auth cookie-nizə uyğunlaşdırın
   if (pathname.startsWith('/account') || pathname.startsWith('/orders')) {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
-    if (!token) {
-      const url = new URL('/login', req.url)
-      url.searchParams.set('callbackUrl', pathname)
-      return NextResponse.redirect(url)
+    const authCookie = req.cookies.get('og_auth')?.value;
+    if (!authCookie) {
+      const url = new URL('/login', req.url);
+      url.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(url);
     }
-    return NextResponse.next()
+    return NextResponse.next();
   }
 
-  return NextResponse.next()
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: ['/admin/:path*', '/account/:path*', '/orders/:path*'],
-}
+};

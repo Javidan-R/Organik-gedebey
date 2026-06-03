@@ -33,24 +33,13 @@ import {
   useState, useRef, useEffect, useCallback,
   useMemo, useReducer, memo
 } from "react"
-import { RusticProductCard } from "./RusticProductCard"
 import { formatCurrency, getProductBasePrice, getFirstImageUrl } from "@/app/(storefront)/page"
 
 /* ================================================================ */
 /*                     SHARED UTILITIES                            */
 /* ================================================================ */
 
-function useLocalStorageState<T>(key: string, init: T) {
-  const [val, setVal] = useState<T>(() => {
-    if (typeof window === "undefined") return init
-    try { return JSON.parse(localStorage.getItem(key) ?? "") } catch { return init }
-  })
-  const set = useCallback((v: T) => {
-    setVal(v)
-    if (typeof window !== "undefined") localStorage.setItem(key, JSON.stringify(v))
-  }, [key])
-  return [val, set] as const
-}
+
 
 function useCountdown(endsAt: number) {
   const [secs, setSecs] = useState(Math.max(0, Math.floor((endsAt - Date.now()) / 1000)))

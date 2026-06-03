@@ -158,15 +158,27 @@ const handlePlaceOrder = useCallback(async (customerInfo: {
         productId: i.productId,
         variantId: i.variantId,
         qty: i.qty,
+        priceAtOrder: i.priceAtOrder,
+        costAtOrder: i.costAtOrder,
+        productName: i.productName,
+        variantName: i.variantName,
       })),
       customerName: customerFullName || 'Anonim Müştəri',
-      customerEmail: null as string | null,
-      customerPhone: customerInfo.phone || '+994000000000', // minimum 9 simvol
-      deliveryAddressText: customerInfo.deliveryMethod === 'delivery'
+      customerPhone: customerInfo.phone || '+994000000000',
+      address: customerInfo.deliveryMethod === 'delivery'
         ? customerInfo.address || 'Ünvan qeyd edilməyib'
         : 'Özü götürmə',
-      paymentMethod: 'CASH_ON_DELIVERY' as const, // Zod enum-u
-      note: customerInfo.note || null,
+      paymentMethod: 'cash' as const,
+      note: customerInfo.note || '',
+      cashAmount: finalTotal,
+      cardAmount: 0,
+      total: finalTotal,
+      totalAmount: finalTotal,
+      vatAmount: 0,
+      id: orderNumber,
+      createdAt,
+      channel: 'whatsapp' as const,
+      status: 'pending' as const,
     }
     
     await placeOrder(orderPayload)
