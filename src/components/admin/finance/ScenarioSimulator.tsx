@@ -134,7 +134,7 @@ export default function ScenarioSimulator(props: {
             label="1. Orta Sifariş Dəyəri (OSD) (₼)"
             type="number"
             value={avgOrderValue.toFixed(2)}
-            onChange={(e) => setAvgOrderValue(Number(e.target.value) || 0)}
+            onChange={(v) => setAvgOrderValue(Number(v) || 0)}
             icon={<Wallet className="w-3 h-3 text-sky-600" />}
           />
           {/* Sifariş Hədəfi */}
@@ -142,7 +142,7 @@ export default function ScenarioSimulator(props: {
             label="2. Aylıq Sifariş Sayı Fərziyyəsi (əsas fəaliyyət)"
             type="number"
             value={targetMonthlyOrders}
-            onChange={(e) => setTargetMonthlyOrders(Number(e.target.value) || 0)}
+            onChange={(v) => setTargetMonthlyOrders(Number(v) || 0)}
             icon={<ShoppingCart className="w-3 h-3 text-orange-600" />}
           />
           {/* Marja */}
@@ -150,7 +150,7 @@ export default function ScenarioSimulator(props: {
             label="3. Orta Mənfəət Marjası (%)"
             type="number"
             value={averageMargin}
-            onChange={(e) => setAverageMargin(Number(e.target.value) || 0)}
+            onChange={(v) => setAverageMargin(Number(v) || 0)}
             icon={<Percent className="w-3 h-3 text-purple-600" />}
           />
         </div>
@@ -193,7 +193,7 @@ export default function ScenarioSimulator(props: {
             label="Hədəf aylıq xalis mənfəət (₼)"
             type="number"
             value={targetProfit}
-            onChange={(e) => setTargetProfit(Number(e.target.value) || 0)}
+            onChange={(v) => setTargetProfit(Number(v) || 0)}
             icon={<Wallet className="w-3 h-3 text-sky-600" />}
           />
            <Input
@@ -244,7 +244,7 @@ export default function ScenarioSimulator(props: {
             label="Orta Sifariş Dəyərini neçə % artırmaq hədəflənir?"
             type="number"
             value={osdIncreasePct}
-            onChange={(e) => setOsdIncreasePct(Number(e.target.value) || 0)}
+            onChange={(v) => setOsdIncreasePct(Number(v) || 0)}
             icon={<Percent className="w-3 h-3 text-orange-600" />}
           />
           <Input
@@ -288,7 +288,7 @@ export default function ScenarioSimulator(props: {
             type="number"
             // Ssenari 3-də yeni Input yoxdur, birbaşa İlkin Girişdəki Dəyər əsas alınır
             value={targetMonthlyOrders}
-            onChange={(e) => setTargetMonthlyOrders(Number(e.target.value) || 0)}
+            onChange={(v) => setTargetMonthlyOrders(Number(v) || 0)}
             icon={<Hash className="w-3 h-3 text-emerald-600" />}
           />
           <Input

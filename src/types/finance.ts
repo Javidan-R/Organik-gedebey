@@ -26,6 +26,56 @@ export type ScenarioResult = {
   profitIncrease? :number;
 };
 
+// --------------------------------------------
+// BUDGET (Aylıq büdcə hədəfləri)
+// --------------------------------------------
+export type Budget = {
+  month: string; // YYYY-MM
+  incomeTarget: number;
+  expenseTarget: number;
+  profitTarget: number;
+};
+
+export type BudgetComparison = {
+  incomeDiff: number;
+  incomePct: number;
+  expenseDiff: number;
+  expensePct: number;
+  profitDiff: number;
+  profitPct: number;
+};
+
+// --------------------------------------------
+// CASH FLOW FORECAST (Pul axını proqnozu)
+// --------------------------------------------
+export type CashFlowProjection = {
+  date: string; // YYYY-MM-DD
+  projectedIncome: number;
+  projectedExpenses: number;
+  netCashFlow: number;
+  cumulativeCash: number;
+};
+
+// --------------------------------------------
+// CAMPAIGN ROI (Endirim/kampaniya ROI simulyatoru)
+// --------------------------------------------
+export type CampaignROI = {
+  discountPercent: number;
+  expectedSalesIncreasePercent: number;
+  projectedRevenue: number;
+  projectedProfit: number;
+  roi: number;
+};
+
+// --------------------------------------------
+// FINANCIAL HEALTH (Maliyyə sağlamlığı)
+// --------------------------------------------
+export type FinancialHealthMetrics = {
+  netMargin: number;
+  inventoryTurnover: number;
+  liquidity: number;
+};
+
 
 export type Money = number; // AZN
 export type Batch = {

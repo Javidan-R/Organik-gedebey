@@ -7,7 +7,7 @@ import type {
   Supplier, Account, Expense, Purchase, Payment, ARPayment, LedgerEntry, AP, AR, Money,
   Batch,
   ValuationMode
-} from './types-finance' // Types below are assumed to be exported/defined in a separate file or inline here (as per original structure)
+} from '@/types/finance'
 import { useApp } from '@/lib/store' // sifarişlər və məhsullar üçün
 
 type FinanceState = {
@@ -111,7 +111,7 @@ export const useFinance = create<FinanceState>()(persist((set, get) => ({
     const newBatch: Batch = {
       id, // Alış ID-si ilə eyni olsun ki, silinməsi asan olsun
       productId: p.productId,
-      variantId: p.variantId,
+      variantId: p.variantId ?? '',
       date: p.date,
       qty: p.qty,
       unitCost: p.unitCost,
@@ -132,7 +132,7 @@ export const useFinance = create<FinanceState>()(persist((set, get) => ({
   consumeForSale: (items) => {
     const state = get()
     // Partiyaların kopyasını götürürük, çünki onları dəyişdirəcəyik
-    let currentBatches = [...state.batches]
+    const currentBatches = [...state.batches]
     let totalCost = 0
     const perItemCost: number[] = []
 
