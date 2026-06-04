@@ -41,3 +41,6 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+# Drizzle
+/drizzle/*
+!/drizzle/schema.ts # Əgər schema oradadırsa

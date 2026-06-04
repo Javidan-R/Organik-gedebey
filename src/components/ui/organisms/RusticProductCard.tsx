@@ -290,7 +290,7 @@ export function RusticProductCard({
 
             {/* Status badges row */}
             <div className="absolute top-3 right-3 z-20 flex flex-col gap-1.5 items-end">
-              {product.organic && (
+              {product.isOrganic && (
                 <motion.span
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}

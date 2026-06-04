@@ -123,18 +123,7 @@ export type Brand = {
     logoUrl?: string;
     description?: string;
 };
-export type UnitType = 
-  | 'ədəd'
-  | 'kq'
-  | 'qram'
-  | 'litr'
-  | 'ml'
-  | 'qutu'
-  | 'paket'
-  | 'balon'
-  | 'meşov'
-  | 'paket'
-  ;
+
 /** Məhsul istehsalçısı/təchizatçısı (Brenddən fərqli ola bilər) */
 export type Manufacturer = {
     id: ID;
@@ -175,7 +164,7 @@ export type Variant = {
     length?: number; // cm
     // Təzəlik İdarəetməsi (Batch/Lot)
     /** Bu stok partiyasının (lot) daxil olma/istehsal tarixi (FIFO üçün vacibdir) */
-    batchDate: string; 
+    batchDate: Date; 
     // Əlavə Məlumat
     allergens?: string[]; // Məsələn: ['Fındıq', 'Qlüten']
     weight?: number; // Məsələn: 0.5 (kg)

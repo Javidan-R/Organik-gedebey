@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { products, categories, productImages, productTags, productVariants } from '@/lib/db/schema'
-import { eq, and, or, like, desc } from 'drizzle-orm'
+import { eq, and, or, like, ilike, desc, exists } from 'drizzle-orm';
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const search = searchParams.get('search') || ''
@@ -28,7 +29,17 @@ export async function GET(req: NextRequest) {
       whereClause.push(
         or(
           like(products.name, `%${search}%`),
-          like(products.description, `%${search}%`)
+          like(products.description, `%${search}%`),
+          exists(
+            db.select()
+              .from(productTags)
+              .where(
+                and(
+                  eq(productTags.productId, products.id),
+                  ilike(productTags.tag, `%${search}%`)
+                )
+              )
+          )
         )
       )
     }
@@ -66,6 +77,7 @@ export async function POST(req: NextRequest) {
         unit: body.unit || 'ədəd',
         categoryId: body.categoryId || null,
         // ... digər sahələr
+        basePrice: body.basePrice?.toString() || "0",
       }).returning()
 
       // 2. Şəkilləri əlavə edin
