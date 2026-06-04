@@ -1,4 +1,4 @@
-// src/app/admin/products/ProductEditModal.tsx
+// src/components/admin/products/ProductEditModal.tsx
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
@@ -9,10 +9,10 @@ import {
 } from 'lucide-react';
 
 import { useApp } from '@/lib/store';
-import type { Variant, ID, UnitType } from '@/lib/types';
+import type { Variant, ID } from '@/lib/types';
 import { productTotalStock, variantFinalPrice } from '@/lib/calc';
 import {
-  TabKey, Product, ProductGrade, ProductImage, ProductCardViewMode
+  TabKey, Product, ProductGrade, ProductImage, ProductCardViewMode, UnitType
 } from '@/types/products';
 import BasicTab from '@/components/admin/molecules/BasicTab';
 import SettingsTab from '@/components/admin/molecules/SettingsTab';
@@ -121,7 +121,7 @@ export const buildInitialProduct = (initial?: Product | null): Product => {
     video: undefined,
     origin: 'Azərbaycanda istehsal olunub',
     originRegion: 'Gədəbəy',
-    organic: true,
+    isOrganic: true,
     seasonal: false,
     featured: false,
     discountType: undefined,
@@ -162,7 +162,7 @@ export const buildInitialProduct = (initial?: Product | null): Product => {
     shortDescription: undefined,
     isNewArrival: undefined,
     isFeatured: undefined,
-    basePrice: undefined,
+    basePrice: 0,
     stock: 0,
     metaTitle: '',
     seoTitle: '',
@@ -203,12 +203,14 @@ export default function ProductEditModal({
   const [product, setProduct] = useState<Product>(() =>
     buildInitialProduct(initial),
   );
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setProduct(buildInitialProduct(initial));
     setTab('basic');
     setSubmitted(false);
+    setErrorMsg(null);
   }, [initial, open]);
 
   const isNew = !products.some((p) => p.id === product.id);
@@ -343,16 +345,18 @@ export default function ProductEditModal({
     });
   };
 
+  // ✅ FIX: Server sync – API çağır, cavab gözlə, sonra store-u yenilə
   const handleSave = async () => {
     if (saving) return;
     setSubmitted(true);
+    setErrorMsg(null);
     if (!baseValid || discountError) return;
 
     setSaving(true);
     try {
-      const normalized: Product = {
+      // Məhsul məlumatlarını normallaşdır
+      const payload = {
         ...product,
-        price: primaryVariant?.price ?? product.price ?? 0,
         slug:
           product.slug ||
           product.name
@@ -362,15 +366,49 @@ export default function ProductEditModal({
             .replace(/\s+/g, '-'),
         tags: (product.tags || []).map((t) => t.toLowerCase().trim()),
         reviews: product.reviews ?? [],
+        // Qiymət sahələrini number-ə çevir (string göndərmə)
+        basePrice: product.basePrice ?? product.price ?? 0,
+        price: primaryVariant?.price ?? product.price ?? 0,
+        costPrice: primaryVariant?.costPrice ?? product.costPrice ?? 0,
+        stock: primaryVariant?.stock ?? 0,
+        variants: product.variants.map(v => ({
+          ...v,
+          price: Number(v.price),
+          stock: Number(v.stock),
+          costPrice: Number(v.costPrice),
+          arrivalCost: Number(v.arrivalCost || 0),
+          minStock: Number(v.minStock),
+        })),
       };
 
+      const url = isNew ? '/api/products' : `/api/products/${product.id}`;
+      const method = isNew ? 'POST' : 'PATCH';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const savedProduct = isNew ? data : data.product;
+
+      // Store-u yenilə (serverdən qaytarılan məlumatla)
       if (isNew) {
-        addProduct(normalized);
+        addProduct(savedProduct);
       } else {
-        updateProduct(normalized);
+        updateProduct(savedProduct);
       }
 
       handleClose();
+    } catch (err: any) {
+      console.error('Save error:', err);
+      setErrorMsg(err.message || 'Xəta baş verdi. Yenidən cəhd edin.');
     } finally {
       setSaving(false);
     }
@@ -483,6 +521,12 @@ export default function ProductEditModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 pb-4 pt-1">
+          {errorMsg && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <AlertTriangle className="inline-block h-4 w-4 mr-1" />
+              {errorMsg}
+            </div>
+          )}
           {tab === 'basic' && (
             <BasicTab
               product={product}

@@ -1,11 +1,10 @@
 // app/layout.tsx
-// ⚠️  Root layout 'use client' ola BİLMƏZ — Next.js metadata işləmir.
-//     useEffect + useApp.persist.rehydrate → ayrı client komponentə köçürüldü.
-
 import type { Metadata } from 'next'
 import './globals.css'
 import { AppProviders } from '@/components/AppProviders'
 import { StoreRehydrator } from '@/components/StoreRehydrator'
+import { ErrorBoundary } from 'react-error-boundary'
+import { ErrorFallback } from '@/components/ErrorFallback'
 
 export const metadata: Metadata = {
   title: 'Organik Gədəbəy',
@@ -20,12 +19,12 @@ export default function RootLayout({
   return (
     <html lang="az">
       <body>
-        {/* QueryClientProvider bütün app-ı əhatə edir */}
-        <AppProviders>
-          {/* Zustand store-u rehydrate edir (client component) */}
-          <StoreRehydrator />
-          {children}
-        </AppProviders>
+        <ErrorBoundary FallbackComponent={ErrorFallback}>
+          <AppProviders>
+            <StoreRehydrator />
+            {children}
+          </AppProviders>
+        </ErrorBoundary>
       </body>
     </html>
   )
