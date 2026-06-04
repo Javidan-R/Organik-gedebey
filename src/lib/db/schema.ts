@@ -113,6 +113,7 @@ export const expenseCategoryEnum = pgEnum('expense_category', [
   'OTHER',
 ])
 
+
 // ============================================
 // USERS & AUTH
 // ============================================
@@ -778,19 +779,12 @@ export const adminLogs = pgTable(
   })
 )
 
+
 export const settings = pgTable('settings', {
-  key: varchar('key', { length: 100 }).primaryKey(),
-  value: text('value').notNull(),
-  type: varchar('type', { length: 20 }).notNull(), // string, number, boolean, json
-  
-  description: text('description'),
-  category: varchar('category', { length: 50 }),
-  
-  updatedBy: uuid('updated_by').references(() => users.id),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => ({
-  categoryIdx: index('settings_category_idx').on(table.category),
-}))
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
 
 // ============================================
 // RELATIONS (for TypeScript types)

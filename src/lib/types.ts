@@ -60,15 +60,61 @@ export type AdminUIState = {
 // ————————————————————————————————————————————————————————
 
 export type StorefrontConfig = {
-    primaryColor?: string;
-    currency?: "AZN" | "USD" | "EUR";
-    locale?: string;
-    // store.ts-də istifadə olunan əlavələr:
-    vatRate?: number; // 0.18 kimi
-    contactEmail?: string;
-    shippingFee?: number;
-    contactPhone: string;
+  // Əsas
+  primaryColor: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  currency: 'AZN' | 'USD' | 'EUR';
+  locale: string;
+  // Görünüş
+  logoUrl: string;
+  faviconUrl?: string;
+  siteTitle: string;
+  siteDescription: string;
+  fontFamily?: string;
+  // Ana səhifə
+  heroTitle: string;
+  heroSubtitle: string;
+  heroButtonText: string;
+  heroButtonLink: string;
+  heroImageUrl?: string;
+  topBannerText: string;
+  topBannerLink?: string;
+  topBannerEnabled: boolean;
+  // Statistikalar (saytın alt hissəsində göstərilə bilər)
+  stats: Array<{ value: string; label: string; icon?: string }>;
+  // Footer
+  footerCopyright: string;
+  footerAboutText: string;
+  footerLinks?: Array<{ label: string; href: string }>;
+  // Sosial media
+  socialInstagram?: string;
+  socialFacebook?: string;
+  socialWhatsapp?: string;
+  socialTelegram?: string;
+  socialYoutube?: string;
+  // Kontakt
+  contactEmail: string;
+  contactPhone: string;
+  contactAddress?: string;
+  deliveryInfo?: string;
+  // SEO
+  metaTitle?: string;
+  metaDescription?: string;
+  metaKeywords?: string[];
+  ogImage?: string;
+  // Analitika
+  googleAnalyticsId?: string;
+  facebookPixelId?: string;
+  // Xüsusi
+  customCss?: string;
+  customJs?: string;
+  // Etibar badge-ləri
+  trustBadges: Array<{ icon: string; title: string; description: string; link?: string }>;
 };
+
+
+
 /** Məhsul brendi */
 export type Brand = {
     id: ID;

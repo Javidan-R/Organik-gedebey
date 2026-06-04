@@ -57,7 +57,6 @@ const toDateKey = (date: string | Date): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
   return d?.toISOString().slice(0, 10);
 };
-
 const toMonthKey = (date: string | Date): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
   return `${d?.getFullYear()}-${String(d?.getMonth() + 1).padStart(2, '0')}`;
@@ -556,7 +555,7 @@ export default function FinancePage() {
     y += 6;
     doc.setFontSize(9);
     const summaryLines = doc.splitTextToSize(aiInsight.summary, 180);
-    summaryLines.forEach((line: string | string[]) => {
+    summaryLines.forEach(line => {
       if (y > 270) { doc.addPage(); y = 15; }
       doc.text(line, 12, y);
       y += 4;
@@ -567,7 +566,7 @@ export default function FinancePage() {
     if (aiInsight.risks.length) {
       aiInsight.risks.forEach(r => {
         const lines = doc.splitTextToSize(`- ${r}`, 180);
-        lines.forEach((line: string | string[]) => {
+        lines.forEach(line => {
           if (y > 270) { doc.addPage(); y = 15; }
           doc.text(line, 15, y);
           y += 4;
@@ -583,7 +582,7 @@ export default function FinancePage() {
     if (aiInsight.suggestions.length) {
       aiInsight.suggestions.forEach(s => {
         const lines = doc.splitTextToSize(`- ${s}`, 180);
-        lines.forEach((line: string | string[]) => {
+        lines.forEach(line => {
           if (y > 270) { doc.addPage(); y = 15; }
           doc.text(line, 15, y);
           y += 4;

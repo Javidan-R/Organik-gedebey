@@ -94,7 +94,7 @@ const CategoryDropdown = ({
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
           transition={{ duration: 0.2 }}
           // Responsive: kiçik ekranlarda sağa yapışsın, böyükdə sola yapışsın
-          className="absolute mt-2 w-screen max-w-[90vw] sm:max-w-[560px] rounded-2xl border border-gray-100 bg-white shadow-2xl p-5 z-50 right-0 sm:left-0"
+          className="absolute mt-2 w-screen max-w-[60vw] sm:max-w-[360px] rounded-2xl border border-gray-100 bg-white shadow-2xl p-5 z-50 right-0 sm:left-0"
           style={{ maxHeight: '80vh', overflowY: 'auto' }}
         >
           <div className="flex items-center justify-between mb-4">
@@ -394,7 +394,6 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
   const storeCategories = useApp((state) => state.categories);
   const storefrontConfig = useApp((state) => state.storefrontConfig);
   const cart = useApp((state) => state.cart);
-  const products = useApp((state) => state.products);
 
   const categories = storeCategories.length ? storeCategories : initialCategories;
   const cartCount = useMemo(() => cart.reduce((sum, i) => sum + (i.qty || 0), 0), [cart]);
@@ -501,11 +500,11 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
             <motion.div
               animate={{ height: scrolled ? 68 : 84 }}
               transition={{ type: 'spring', stiffness: 200, damping: 26 }}
-              className="flex items-center"
+              className="flex items-center justify-center "
             >
-              <div className="container-page flex h-full items-center justify-between gap-6">
+              <div className="container-page flex h-full items-center justify-between gap-10">
                 {/* Logo */}
-                <motion.div initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3 shrink-0">
+                <motion.div initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-16 shrink-0">
                   <Link href="/" className="flex items-center gap-3 group">
                     <div className="relative">
                       <div className="relative overflow-hidden rounded-2xl border-2 border-emerald-100 bg-white p-1 transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl shadow-md">

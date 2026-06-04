@@ -273,9 +273,9 @@ const OrganicTable = ({
               <div className="flex-1 text-left">
                 <div className="flex items-center justify-between flex-wrap gap-1">
                   <h4 className="font-black text-slate-800 text-base">{activeItem.name}</h4>
-                  <span className="bg-emerald-100 text-emerald-800 text-[9px] px-2 py-1 rounded-full">
-                    {activeItem.category || "Orqanik"}
-                  </span>
+                  {/* <span className="bg-emerald-100 text-emerald-800 text-[9px] px-2 py-1 rounded-full">
+                    {activeItem?.category || "Orqanik"}
+                  </span> */}
                 </div>
                 <p className="text-xs text-slate-500 mt-1 line-clamp-2">
                   {activeItem.description || "Təbii və təzə məhsul"}

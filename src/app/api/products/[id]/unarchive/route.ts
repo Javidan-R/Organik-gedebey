@@ -1,5 +1,9 @@
 // ============================================================
-// src/app/api/products/[id]/archive/route.ts
+// src/app/api/products/[id]/unarchive/route.ts
+//
+// DÜZƏLİŞ: Faylın adı "unrchive" idi (r çatışmırdı) → "unarchive"
+// Hook /api/products/${id}/unarchive çağırırdı, fayl isə
+// unrchive qovluğunda idi → 404 xətası verirdi.
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
@@ -21,22 +25,22 @@ export async function PATCH(_: NextRequest, { params }: RouteContext) {
       return NextResponse.json({ error: 'Məhsul tapılmadı' }, { status: 404 });
     }
 
-    if (exists.archived) {
+    if (!exists.archived) {
       return NextResponse.json(
-        { error: 'Məhsul artıq arxivdədir' },
+        { error: 'Məhsul artıq arxivdə deyil' },
         { status: 400 },
       );
     }
 
     const [updated] = await db
       .update(products)
-      .set({ archived: true, updatedAt: new Date() })
+      .set({ archived: false, updatedAt: new Date() })
       .where(eq(products.id, id))
       .returning({ id: products.id, archived: products.archived });
 
     return NextResponse.json({ success: true, product: updated });
   } catch (error) {
-    console.error('PATCH /api/products/[id]/archive error:', error);
-    return NextResponse.json({ error: 'Arxivləmə xətası' }, { status: 500 });
+    console.error('PATCH /api/products/[id]/unarchive error:', error);
+    return NextResponse.json({ error: 'Arxivdən çıxarma xətası' }, { status: 500 });
   }
 }
