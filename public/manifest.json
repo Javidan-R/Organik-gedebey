@@ -1,0 +1,71 @@
+{
+  "name": "Organik Gədəbəy - Təbii Kənd Məhsulları",
+  "short_name": "Organik Gədəbəy",
+  "description": "Gədəbəy dağlarından birbaşa süfrənizə: bal, qaymaq, pendir, quru meyvələr. 100% təbii, əl istehsalı.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fefcf5",
+  "theme_color": "#4f9f4f",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "az",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "apple-touch-icon"
+    }
+  ],
+  "categories": ["shopping", "food", "lifestyle"],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Məhsullar",
+      "short_name": "Məhsullar",
+      "description": "Bütün məhsulları gör",
+      "url": "/products",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Səbət",
+      "short_name": "Səbət",
+      "description": "Səbətinə bax",
+      "url": "/cart",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Kateqoriyalar",
+      "short_name": "Kateqoriyalar",
+      "description": "Kateqoriyaları gözdən keçir",
+      "url": "/categories",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

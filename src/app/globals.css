@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@layer base {
+  /* Rəngləri və şriftləri CSS dəyişənləri kimi birbaşa buraya yazırıq,
+     beləcə config faylından asılılıq qalmayacaq */
+  :root {
+    --color-organic-950: #0f2611;
+    --color-cream-50: #fefcf5;
+    --color-earth-900: #4c3d30;
+    --color-organic-500: #4f9f4f;
+    --color-organic-200: #b7e4b7;
+    --heading-font: ui-sans-serif, system-ui, sans-serif;
+    --animation-duration: 0.4s;
+  }
+
+  html {
+    /* Birbaşa CSS dəyişənlərini işlədirik */
+    background-color: var(--color-cream-50);
+    color: var(--color-earth-900);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--color-organic-950);
+    font-weight: 800;
+    font-family: var(--heading-font);
+  }
+
+  ::selection {
+    background-color: var(--color-organic-200);
+    color: var(--color-organic-950);
+  }
+
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-organic-500);
+  }
+
+  /* Hover Effects */
+  [data-hover-effects="false"] a:hover,
+  [data-hover-effects="false"] button:hover {
+    transform: none !important;
+  }
+
+  /* Shadows */
+  [data-shadows="false"] .shadow-lg,
+  [data-shadows="false"] .shadow-md,
+  [data-shadows="false"] .shadow-sm,
+  [data-shadows="false"] .shadow-xl {
+    box-shadow: none !important;
+  }
+
+  /* Rounded Corners */
+  [data-rounded-corners="false"] .rounded-xl,
+  [data-rounded-corners="false"] .rounded-2xl,
+  [data-rounded-corners="false"] .rounded-lg,
+  [data-rounded-corners="false"] .rounded-full {
+    border-radius: 0 !important;
+  }
+
+  /* Gradients */
+  [data-gradients="false"] .bg-gradient-to-r,
+  [data-gradients="false"] .bg-gradient-to-br,
+  [data-gradients="false"] .bg-gradient-to-bl,
+  [data-gradients="false"] .bg-gradient-to-tr,
+  [data-gradients="false"] .bg-gradient-to-tl {
+    background-image: none !important;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}

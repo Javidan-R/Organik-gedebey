@@ -1,0 +1,26 @@
+# robots.txt for Organik Gədəbəy
+# Allow all crawlers to access the site
+
+User-agent: *
+Allow: /
+
+# Disallow admin and private areas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /cart
+Disallow: /account
+
+# Allow important pages
+Allow: /products
+Allow: /category
+Allow: /baskets
+
+# Sitemap location
+Sitemap: https://organikgedebey.az/sitemap.xml
+
+# Crawl-delay (optional, adjust as needed)
+Crawl-delay: 1
