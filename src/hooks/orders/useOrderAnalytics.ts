@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { OrderFull } from "@/types/orders";
-
+ 
 type AnalyticsFn = () =>
   | {
       totalRevenue?: number;

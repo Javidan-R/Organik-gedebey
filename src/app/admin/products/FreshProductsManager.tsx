@@ -40,17 +40,6 @@ export default function FreshProductsManager() {
     updateProduct({ ...product, isNewArrival: isFresh });
   }, [products, updateProduct]);
 
-  const toggleUpcoming = useCallback((id: string, isUpcoming: boolean) => {
-    const product = products.find(p => p.id === id);
-    if (!product) return;
-    
-    const statusTags = isUpcoming
-      ? [...(product.statusTags || []), 'upcoming']
-      : (product.statusTags || []).filter(t => t !== 'upcoming');
-    
-    // ✅ DÜZƏLİŞ: updateProduct 1 arqument gözləyir
-    updateProduct({ ...product, statusTags });
-  }, [products, updateProduct]);
 
   const bulkSetFresh = useCallback(() => {
     selectedIds.forEach(id => {
@@ -61,16 +50,28 @@ export default function FreshProductsManager() {
     setSelectedIds(new Set());
   }, [selectedIds, products, updateProduct]);
 
-  const bulkSetUpcoming = useCallback(() => {
-    selectedIds.forEach(id => {
-      const product = products.find(p => p.id === id);
-      if (!product) return;
-      const statusTags = [...(product.statusTags || []), 'upcoming'];
-      updateProduct({ ...product, statusTags });
-    });
-    setSelectedIds(new Set());
-  }, [selectedIds, products, updateProduct]);
+const toggleUpcoming = useCallback((id: string, isUpcoming: boolean) => {
+  const product = products.find(p => p.id === id);
+  if (!product) return;
 
+  const statusTags = isUpcoming
+    ? [...new Set([...(product.statusTags || []), 'upcoming'])]
+    : (product.statusTags || []).filter(t => t !== 'upcoming');
+
+  // ✅ DÜZƏLİŞ: statusTags faktiki olaraq ötürülür
+  updateProduct({ ...product, statusTags });
+}, [products, updateProduct]);
+
+const bulkSetUpcoming = useCallback(() => {
+  selectedIds.forEach(id => {
+    const product = products.find(p => p.id === id);
+    if (!product) return;
+    const statusTags = [...new Set([...(product.statusTags || []), 'upcoming'])];
+    // ✅ DÜZƏLİŞ: statusTags faktiki olaraq ötürülür
+    updateProduct({ ...product, statusTags });
+  });
+  setSelectedIds(new Set());
+}, [selectedIds, products, updateProduct]);
   return (
     <div className="space-y-6">
       {/* Header */}

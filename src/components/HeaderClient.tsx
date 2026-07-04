@@ -10,47 +10,51 @@ import {
   Grid2X2, Phone, MessageCircle, Sparkles, Leaf, Store, MapPin, Clock, BadgePercent
 } from 'lucide-react';
 
-import { useApp, useHasHydrated } from '@/lib/store';
+import { useApp } from '@/lib/store';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { SearchOverlay } from '@/components/ui/molecules/SearchOverlay';
 import { DockNav } from '@/components/ui/molecules/DockNav';
 import { MAIN_NAV_ITEMS, MOBILE_DOCK_ITEMS } from '@/const/navigation';
 import type { Category } from '@/lib/types';
 
-const PromoBanner = ({ banners, activeIndex }: { banners?: { text: string; color: string; link?: string }[]; activeIndex: number }) => {
-  // banners undefined və ya boşdursa heç nə göstərmə
-  if (!banners || !Array.isArray(banners) || banners.length === 0) return null;
-  
-  const safeBanners = banners.filter(b => b && typeof b.text === 'string' && typeof b.color === 'string');
-  if (safeBanners.length === 0) return null;
-  
-  const current = safeBanners[activeIndex % safeBanners.length];
-  // Təhlükəsizlik: hər ehtimala qarşı fallback rəng
-  const bgColor = current?.color || 'from-emerald-600 to-green-600';
-  const bannerText = current?.text || '30 AZN-dən yuxarı PULSUZ çatdırılma!';
-  
+// ──────────────────────────────────────────────────────────────────
+// Sub-components
+// ──────────────────────────────────────────────────────────────────
+ const PromoBanner = ({ banners, activeIndex }: { banners?: { text?: string; color?: string }[]; activeIndex?: number }) => {
+  if (!banners || activeIndex == null || !banners[activeIndex]) return null;
+
   return (
     <div className="relative overflow-hidden">
       <AnimatePresence mode="wait">
         <motion.div
-          key={`${activeIndex}-${bannerText}`}
+          key={activeIndex}
           initial={{ y: -40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 40, opacity: 0 }}
           transition={{ duration: 0.4 }}
-          className={`bg-gradient-to-r ${bgColor} text-white`}
+          className={`bg-gradient-to-r ${banners[activeIndex].color} text-white`}
         >
           <div className="container-page flex items-center justify-center py-1.5 text-[11px] font-semibold tracking-wide">
             <Sparkles className="w-3.5 h-3.5 mr-2 animate-pulse" />
-            {bannerText}
+            {banners[activeIndex].text}
           </div>
         </motion.div>
       </AnimatePresence>
     </div>
   );
 };
+const MobileStaticBanner = () => (
+  <div className="lg:hidden">
+    <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+      <div className="flex items-center justify-center py-1.5 text-[10px] font-semibold px-4">
+        <Sparkles className="w-3 h-3 mr-1.5 animate-pulse shrink-0" />
+        <span className="truncate">30 AZN-dən yuxarı PULSUZ çatdırılma!</span>
+      </div>
+    </div>
+  </div>
+);
 
-
+/** Təkmilləşdirilmiş kateqoriya dropdown – scroll olmaması üçün responsiv, scrollable daxili sahə */
 const CategoryDropdown = ({
   categories,
   topCategories,
@@ -90,6 +94,7 @@ const CategoryDropdown = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
           transition={{ duration: 0.2 }}
+          // Responsive: kiçik ekranlarda sağa yapışsın, böyükdə sola yapışsın
           className="absolute mt-2 w-screen max-w-[60vw] sm:max-w-[360px] rounded-2xl border border-gray-100 bg-white shadow-2xl p-5 z-50 right-0 sm:left-0"
           style={{ maxHeight: '80vh', overflowY: 'auto' }}
         >
@@ -100,7 +105,7 @@ const CategoryDropdown = ({
               </div>
               <div>
                 <p className="text-sm font-black text-gray-900">Kateqoriyalar</p>
-                <p className="text-[10px] text-gray-400">{(categories ?? []).length} kateqoriya</p>
+                <p className="text-[10px] text-gray-400">{categories.length} kateqoriya</p>
               </div>
             </div>
             <Link href="/categories" onClick={onClose} className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
@@ -108,7 +113,7 @@ const CategoryDropdown = ({
             </Link>
           </div>
           <div className="flex flex-wrap gap-2 mb-4">
-            {(topCategories ?? []).map((c, i) => (
+            {topCategories.map((c, i) => (
               <motion.div key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
                 <Link
                   href={`/category/${c.slug}`}
@@ -117,12 +122,14 @@ const CategoryDropdown = ({
                 >
                   {i === 0 && <Sparkles className="w-3 h-3 text-yellow-500" />}
                   {c.name}
-                  
+                  {c._count?.products && (
+                    <span className="ml-1 bg-white text-emerald-600 rounded-full px-1.5 py-0.5 text-[10px] font-bold">{c._count.products}</span>
+                  )}
                 </Link>
               </motion.div>
             ))}
           </div>
-          {(moreCategories ?? []).length > 0 && (
+          {moreCategories.length > 0 && (
             <div className="border-t border-gray-100 pt-3">
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Digər kateqoriyalar</p>
               <div className="grid grid-cols-2 gap-1 max-h-48 overflow-y-auto custom-scrollbar">
@@ -154,6 +161,7 @@ const CategoryDropdown = ({
   </div>
 );
 
+/** Mobile drawer (əvvəlki kimi, yaxşı işləyir) */
 const MobileDrawer = ({
   isOpen,
   onClose,
@@ -184,8 +192,6 @@ const MobileDrawer = ({
   }, [isOpen]);
 
   if (!isOpen) return null;
-
-  const safeCategories = Array.isArray(categories) ? categories : [];
 
   return (
     <AnimatePresence>
@@ -231,6 +237,7 @@ const MobileDrawer = ({
                   className="flex-1 bg-transparent text-sm outline-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
+                      // handle search logic
                       onClose();
                     }
                   }}
@@ -323,7 +330,7 @@ const MobileDrawer = ({
                       className="overflow-hidden"
                     >
                       <div className="py-2 space-y-0.5">
-                        {safeCategories.filter(c => !c.archived).map((c) => (
+                        {categories.filter(c => !c.archived).map((c) => (
                           <motion.div key={c.id} whileHover={{ x: 2 }} whileTap={{ scale: 0.98 }}>
                             <Link
                               href={`/category/${c.slug}`}
@@ -331,7 +338,7 @@ const MobileDrawer = ({
                               className="flex items-center justify-between px-4 py-2.5 pl-12 text-sm text-gray-700 hover:bg-emerald-50 rounded-lg"
                             >
                               <span>{c.name}</span>
-                              {(c as any)._count?.products && <span className="text-[10px] text-gray-400">{(c as any)._count.products}</span>}
+                              {c._count?.products && <span className="text-[10px] text-gray-400">{c._count.products}</span>}
                             </Link>
                           </motion.div>
                         ))}
@@ -377,28 +384,20 @@ const MobileDrawer = ({
 
 interface HeaderClientProps {
   initialCategories: Category[];
-  initialPromoBanners: { text: string; color: string; link?: string }[];
+  initialPromoBanners: { text: string; color: string }[];
 }
 
 export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderClientProps) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
-  const hasHydrated = useHasHydrated(); // ✅ store hidratasiya olub?
 
+  // Store selectors
   const storeCategories = useApp((state) => state.categories);
   const storefrontConfig = useApp((state) => state.storefrontConfig);
   const cart = useApp((state) => state.cart);
 
-  const categories = Array.isArray(storeCategories) && storeCategories.length
-    ? storeCategories
-    : Array.isArray(initialCategories)
-      ? initialCategories
-      : [];
-
- const cartCount = useMemo(() => {
-    if (!hasHydrated) return null; // hidratasiyadan əvvəl heç nə göstərmə
-    return cart.reduce((sum, item) => sum + (item.qty || 0), 0);
-  }, [cart, hasHydrated]);
+  const categories = storeCategories.length ? storeCategories : initialCategories;
+  const cartCount = useMemo(() => cart.reduce((sum, i) => sum + (i.qty || 0), 0), [cart]);
   const primary = storefrontConfig?.primaryColor || '#16a34a';
   const phone = storefrontConfig?.contactPhone || '+994 50 000 00 00';
   const whatsappUrl = `https://wa.me/${phone.replace(/[^0-9]/g, '')}`;
@@ -418,17 +417,16 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
   const [activePromoIndex, setActivePromoIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Promo rotation – təhlükəsiz sərhəd yoxlaması ilə
+  // Promo rotation
   useEffect(() => {
-    const banners = initialPromoBanners ?? [];
-    if (!banners.length) return;
-    const interval = setInterval(() => {
-      setActivePromoIndex((prev) => (prev + 1) % banners.length);
-    }, 4000);
+    const interval = setInterval(
+      () => setActivePromoIndex((prev) => (prev + 1) % initialPromoBanners.length),
+      4000
+    );
     return () => clearInterval(interval);
-  }, [initialPromoBanners]);
+  }, [initialPromoBanners.length]);
 
-  // Scroll effektləri
+  // Scroll effects
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
     onScroll();
@@ -479,21 +477,15 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
           className="sticky top-0 z-50 transition-all duration-300"
           style={style}
         >
-          <PromoBanner banners={initialPromoBanners ?? []} activeIndex={activePromoIndex} />
+          <PromoBanner banners={initialPromoBanners} activeIndex={activePromoIndex} />
 
           <div className={`border-b backdrop-blur-xl transition-all duration-300 ${scrolled ? 'bg-white/95 shadow-lg shadow-emerald-500/5' : 'bg-white/80'}`}>
             {/* Top bar */}
             <div className="hidden lg:flex items-center justify-between text-[11px] px-6 py-1.5 border-b border-emerald-50 bg-gradient-to-r from-emerald-50/50 via-white to-emerald-50/50">
               <div className="flex items-center gap-4 text-gray-600">
-                {storefrontConfig?.headerTopBar?.tagline && (
-                  <div className="flex items-center gap-1.5"><Store className="w-3 h-3 text-emerald-600" /><span>{storefrontConfig.headerTopBar.tagline}</span></div>
-                )}
-                {storefrontConfig?.headerTopBar?.location && (
-                  <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-emerald-600" /><span>{storefrontConfig.headerTopBar.location}</span></div>
-                )}
-                {storefrontConfig?.headerTopBar?.hours && (
-                  <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-emerald-600" /><span>{storefrontConfig.headerTopBar.hours}</span></div>
-                )}
+                <div className="flex items-center gap-1.5"><Store className="w-3 h-3 text-emerald-600" /><span>Gədəbəy & Gəncə ailə təsərrüfatları</span></div>
+                <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3 text-emerald-600" /><span>Özü götürmə & Çatdırılma</span></div>
+                <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 text-emerald-600" /><span>Hər gün 09:00 - 21:00</span></div>
               </div>
               <div className="flex items-center gap-4 text-gray-600">
                 <div className="flex items-center gap-1.5"><Phone className="w-3 h-3 text-emerald-600" /><a href={`tel:${phone}`} className="font-semibold hover:text-emerald-700">{phone}</a></div>
@@ -534,7 +526,7 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
                   </Link>
                 </motion.div>
 
-                {/* Navigation */}
+                {/* Navigation – təkmilləşdirilmiş animasiyalar */}
                 <nav className="hidden lg:flex items-center gap-1">
                   {MAIN_NAV_ITEMS.map((item) => {
                     const isActive = pathname === item.href;
@@ -562,6 +554,7 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
                             {item.label}
                           </motion.span>
                         </span>
+                        {/* Active indicator – alt xətt + gradient fon */}
                         {isActive && (
                           <motion.div
                             layoutId="desktop-nav-indicator"
@@ -608,7 +601,7 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
                       className="relative p-2.5 rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 hover:shadow-md transition-all"
                     >
                       <ShoppingCart className="w-5 h-5 text-emerald-700" />
-                      {cartCount && cartCount > 0 && (
+                      {cartCount > 0 && (
                         <motion.span
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
@@ -638,9 +631,11 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
     );
   }
 
-  // ─── Mobile Layout ──────────────────────────────────────────
+  // ─── Mobile Layout (qısa variant, yuxarıdakı ilə eyni, dəyişiklik yoxdur) ───
   return (
     <>
+      <MobileStaticBanner />
+
       <motion.header
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -696,7 +691,7 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
             <Link href="/cart" className="relative">
               <div className="relative p-2 rounded-full bg-gradient-to-br from-emerald-50 to-green-50 shadow-sm">
                 <ShoppingCart className="w-4 h-4 text-emerald-700" />
-                {cartCount && cartCount > 0 && (
+                {cartCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black min-w-[16px] h-4 px-0.5 rounded-full flex items-center justify-center border border-white">
                     {cartCount > 99 ? '99+' : cartCount}
                   </span>
@@ -706,7 +701,7 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
           </div>
         </motion.div>
 
-        {/* Kateqoriya sürüşən lent (mobil) */}
+        {/* Kateqoriya sürüşən lent (mobil) – dəyişməyib */}
         {topCategories.length > 0 && (
           <div className="pb-2 px-1 relative">
             <div className="absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-white/95 to-transparent z-10 pointer-events-none" />
@@ -738,7 +733,13 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
                       }`}
                     >
                       {cat.name}
-                      
+                      {cat._count?.products != null && (
+                        <span className={`text-[9px] ml-0.5 px-1 py-0.5 rounded-full ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {cat._count.products}
+                        </span>
+                      )}
                     </Link>
                   </motion.div>
                 );
@@ -752,7 +753,7 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
         isOpen={mobileOpen}
         onClose={closeMobile}
         categories={categories}
-        cartCount={cartCount || 0}
+        cartCount={cartCount}
         phone={phone}
         whatsappUrl={whatsappUrl}
       />
@@ -765,7 +766,7 @@ export function HeaderClient({ initialCategories, initialPromoBanners }: HeaderC
         transition={{ type: 'spring', stiffness: 260, damping: 24 }}
         className="lg:hidden fixed bottom-0 inset-x-0 z-[55]"
       >
-        <DockNav items={MOBILE_DOCK_ITEMS} variant="mobile" badgeMap={{ cart: cartCount ?? 0 }} onAction={handleDockAction} />
+        <DockNav items={MOBILE_DOCK_ITEMS} variant="mobile" badgeMap={{ cart: cartCount }} onAction={handleDockAction} />
       </motion.nav>
     </>
   );

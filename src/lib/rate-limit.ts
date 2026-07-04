@@ -9,7 +9,7 @@ export type RateLimitResult = {
   remaining: number
   retryAfterSec: number
 }
-
+ 
 export function getClientIp(req: { headers: { get(name: string): string | null } }): string {
   return (
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??

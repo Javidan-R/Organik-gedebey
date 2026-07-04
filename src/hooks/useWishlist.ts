@@ -8,4 +8,6 @@ export function useWishlist(): [string[], (id: string) => void, (id: string) => 
   const removeFromWishlist = useCallback((id: string) => setWishlist(prev => prev.filter(pid => pid !== id)), [setWishlist])
   const isInWishlist = useCallback((id: string) => wishlist.includes(id), [wishlist])
   return [wishlist, addToWishlist, removeFromWishlist, isInWishlist]
-}
+} 
+
+

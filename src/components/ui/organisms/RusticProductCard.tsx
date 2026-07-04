@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 
-import { finalPrice } from "@/lib/store";
+import { finalPrice } from "@/lib/calc";
 import { Product } from "@/types/products";
 import {
   motion, AnimatePresence, useMotionValue, useTransform, useSpring
@@ -9,12 +9,12 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useCallback, useMemo } from "react";
-import {
-  Heart, Share2, Eye, ShoppingCart, Leaf, Zap,
-  Scale, BookmarkPlus, CheckCircle2, AlertTriangle, Info,
-  MapPin, ChevronUp, ExternalLink, X
+import { Share2, Eye, ShoppingCart, Leaf, Zap,
+  Scale, BookmarkPlus, CheckCircle2, AlertTriangle,
+  MapPin, X
 } from "lucide-react";
-import { getProductBasePrice, getFirstImageUrl, formatCurrency } from "@/utils/storefront_home";
+import { StockBadge } from '@/components/ui/molecules/StockBadge'
+import { getProductBasePrice, getFirstImageUrl, formatCurrency } from "@/utils/product";
 import { QuickViewModal } from "./QuickModal";
 
 /* ================================================================ */
@@ -30,6 +30,19 @@ interface ProductCardProps {
 }
 
 /* ================================================================ */
+/*                    SAFE IMAGE URL HELPER                         */
+/* ================================================================ */
+ const safeImageUrl = (url: string | undefined | null): string => {
+  if (!url) return '/placeholder.jpg';
+  try {
+    new URL(url);
+    return url;
+  } catch {
+    return url.startsWith('/') ? url : '/placeholder.jpg';
+  }
+};
+
+/* ================================================================ */
 /*                    ANIMATION VARIANTS                            */
 /* ================================================================ */
 
@@ -41,38 +54,7 @@ const cardVariants = {
   },
 };
 
-const StockBadge: React.FC<{ stock: number; unit: string }> = ({ stock, unit }) => {
-  if (stock <= 0) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold">
-        <X className="w-3 h-3" /> Stok yoxdur
-      </span>
-    );
-  }
-  if (stock < 5) {
-    return (
-      <motion.span
-        animate={{ scale: [1, 1.06, 1] }}
-        transition={{ repeat: Infinity, duration: 1.4 }}
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-bold"
-      >
-        <AlertTriangle className="w-3 h-3" /> Son {stock} {unit}!
-      </motion.span>
-    );
-  }
-  if (stock < 15) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold">
-        <Zap className="w-3 h-3" /> Tez bitir
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-semibold">
-      <CheckCircle2 className="w-3 h-3" /> Stokda
-    </span>
-  );
-};
+// Use shared StockBadge molecule
 
 /* ================================================================ */
 /*                    MAIN CARD COMPONENT                          */
@@ -116,7 +98,10 @@ export function RusticProductCard({
     return Math.round(((basePrice - displayPrice) / basePrice) * 100);
   }, [basePrice, displayPrice]);
 
-  const imgUrl = useMemo(() => getFirstImageUrl(product), [product]);
+  // İlk şəkli təhlükəsiz URL ilə əldə et
+  const rawImg = useMemo(() => getFirstImageUrl(product), [product]);
+  const imgUrl = useMemo(() => safeImageUrl(rawImg), [rawImg]);
+
   const slug = product.slug || product.id;
   const totalStock = useMemo(() =>
     product.variants?.reduce((s, v) => s + (v.stock ?? 0), 0) ?? product.stock ?? 0,
@@ -124,10 +109,6 @@ export function RusticProductCard({
   );
   const isOut = totalStock <= 0;
   const unit = selectedVariant?.unit ?? product.unit ?? "ədəd";
-  const avgRating = useMemo(() => {
-    if (!product.reviews?.length) return 0;
-    return product.reviews.reduce((s, r) => s + (r.rating ?? 0), 0) / product.reviews.length;
-  }, [product.reviews]);
 
   /* ---- handlers ---- */
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLElement>) => {
@@ -154,7 +135,8 @@ export function RusticProductCard({
 
   const handleShare = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
-    const url = `${typeof window !== "undefined" ? window.location.origin : ""}/products/${slug}`;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const url = `${origin}/products/${slug}`;
     if (navigator.share) {
       await navigator.share({ title: product.name, url }).catch(() => {});
     } else {
@@ -185,7 +167,6 @@ export function RusticProductCard({
         displayPrice={displayPrice}
         basePrice={basePrice}
         currency={currency}
-        avgRating={avgRating}
         qty={qty}
         isOut={isOut}
         addingToCart={addingToCart}

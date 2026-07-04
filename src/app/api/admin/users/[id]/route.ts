@@ -1,166 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { users, addresses, orders, notifications, adminLogs } from '@/lib/db/schema'
-import { eq, and, desc, count, sql } from 'drizzle-orm'
-import bcrypt from 'bcryptjs'
+import { categories } from '@/lib/db/schema'
+import { eq, and, desc } from 'drizzle-orm'
+import { generateUniqueSlug } from '@/lib/slug'
+import { logger } from '@/lib/logger'
 
-// GET /api/admin/users/[id] - Get single user with full details
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET() {
   try {
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, params.id),
+    const cats = await db.query.categories.findMany({
+      // Arxivlənməmiş və aktiv olan kateqoriyaları gətiririk
+      where: and(eq(categories.archived, false), eq(categories.isActive, true)),
       with: {
-        addresses: {
-          orderBy: [desc(addresses.isDefault)]
-        },
-        orders: {
-          orderBy: [desc(orders.createdAt)],
-          limit: 10
-        },
-        notifications: {
-          orderBy: [desc(notifications.createdAt)],
-          limit: 10
+        products: {
+          columns: {
+            id: true // Sayı hesablamaq üçün bütün məhsul obyektini yox, sadəcə id-ləri çəkirik
+          }
         }
-      }
+      },
+      orderBy: [desc(categories.isFeatured), desc(categories.name)],
     })
+ 
+    // Məhsul sayını manual olaraq obyektə əlavə edirik
+    const formattedCats = cats.map(cat => ({
+      ...cat,
+      productsCount: cat.products?.length || 0
+    }))
 
-    if (!user) {
-      return NextResponse.json({ error: 'İstifadəçi tapılmadı' }, { status: 404 })
-    }
-
-    // Get order statistics
-    const orderStats = await db
-      .select({
-        total: count(),
-        totalSpent: sql<number>`COALESCE(SUM(${orders.total}), 0)`
-      })
-      .from(orders)
-      .where(eq(orders.userId, params.id))
-
-    return NextResponse.json({
-      ...user,
-      statistics: {
-        totalOrders: orderStats[0].total,
-        totalSpent: orderStats[0].totalSpent
-      }
-    })
+    return NextResponse.json(formattedCats)
   } catch (error) {
-    console.error('GET /api/admin/users/[id] error:', error)
+    logger.error('GET /api/categories error:', { error })
     return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
   }
 }
 
-// PUT /api/admin/users/[id] - Update user
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const existingUser = await db.query.users.findFirst({
-      where: eq(users.id, params.id)
-    })
 
-    if (!existingUser) {
-      return NextResponse.json({ error: 'İstifadəçi tapılmadı' }, { status: 404 })
-    }
+    // Sizin schema.ts-də sütun adı 'imageUrl' olaraq təyin edilib
+    const [newCat] = await db.insert(categories).values({
+      name: body.name,
+      slug: body.slug || generateUniqueSlug(body.name),
+      imageUrl: body.imageUrl || body.image || null, // Sütun adı imageUrl-dir
+      description: body.description || null,
+      isFeatured: body.isFeatured || false,
+      isActive: body.isActive ?? true,
+      displayOrder: body.displayOrder || 0,
+    }).returning()
 
-    // Check email uniqueness if changing email
-    if (body.email && body.email !== existingUser.email) {
-      const emailExists = await db.query.users.findFirst({
-        where: eq(users.email, body.email)
-      })
-      if (emailExists) {
-        return NextResponse.json(
-          { error: 'Bu email artıq mövcuddur' },
-          { status: 409 }
-        )
-      }
-    }
-
-    // Hash password if provided
-    let passwordHash = existingUser.passwordHash
-    if (body.password) {
-      passwordHash = await bcrypt.hash(body.password, 10)
-    }
-
-    // Update user
-    const [updatedUser] = await db.update(users)
-      .set({
-        email: body.email || existingUser.email,
-        phone: body.phone !== undefined ? body.phone : existingUser.phone,
-        passwordHash,
-        firstName: body.firstName || existingUser.firstName,
-        lastName: body.lastName || existingUser.lastName,
-        role: body.role || existingUser.role,
-        avatarUrl: body.avatarUrl !== undefined ? body.avatarUrl : existingUser.avatarUrl,
-        isActive: body.isActive !== undefined ? body.isActive : existingUser.isActive,
-        isBlocked: body.isBlocked !== undefined ? body.isBlocked : existingUser.isBlocked,
-        blockedReason: body.blockedReason !== undefined ? body.blockedReason : existingUser.blockedReason,
-        defaultAddressId: body.defaultAddressId !== undefined ? body.defaultAddressId : existingUser.defaultAddressId,
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, params.id))
-      .returning()
-
-    // Log admin action
-    await db.insert(adminLogs).values({
-      userId: body.adminId || params.id,
-      action: 'UPDATE_USER',
-      entityType: 'USER',
-      entityId: params.id,
-      details: { changes: body }
-    })
-
-    return NextResponse.json(updatedUser)
+    return NextResponse.json(newCat, { status: 201 })
   } catch (error) {
-    console.error('PUT /api/admin/users/[id] error:', error)
-    return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
-  }
-}
-
-// DELETE /api/admin/users/[id] - Delete user (soft delete)
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const existingUser = await db.query.users.findFirst({
-      where: eq(users.id, params.id)
-    })
-
-    if (!existingUser) {
-      return NextResponse.json({ error: 'İstifadəçi tapılmadı' }, { status: 404 })
-    }
-
-    // Soft delete - mark as inactive and blocked
-    await db.update(users)
-      .set({
-        isActive: false,
-        isBlocked: true,
-        blockedReason: 'İstifadəçi silindi',
-        updatedAt: new Date()
-      })
-      .where(eq(users.id, params.id))
-
-    // Log admin action
-    const { searchParams } = new URL(req.url)
-    const adminId = searchParams.get('adminId')
-    
-    await db.insert(adminLogs).values({
-      userId: adminId || params.id,
-      action: 'DELETE_USER',
-      entityType: 'USER',
-      entityId: params.id,
-      details: { deletedUserEmail: existingUser.email }
-    })
-
-    return NextResponse.json({ success: true, message: 'İstifadəçi uğurla silindi' })
-  } catch (error) {
-    console.error('DELETE /api/admin/users/[id] error:', error)
-    return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
+    logger.error('POST /api/categories error:', { error })
+    return NextResponse.json({ error: 'Kateqoriya yaradıla bilmədi' }, { status: 500 })
   }
 }

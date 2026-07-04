@@ -4,10 +4,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, AuthError } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { orders, orderItems } from '@/lib/db/schema'
+import { orders } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
-
+ 
 const updatePaymentSchema = z.object({
   paymentStatus: z.enum(['UNPAID', 'PAID', 'PARTIALLY_REFUNDED', 'REFUNDED']).optional(),
   paymentMethod: z.enum(['CASH_ON_DELIVERY', 'CARD', 'BANK_TRANSFER']).optional(),
@@ -100,7 +100,7 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: error.status })
     }
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validasiya xətası', details: error.errors }, { status: 400 })
+      return NextResponse.json({ error: 'Validasiya xətası', details: error.issues }, { status: 400 })
     }
     console.error('Finance payment PATCH error:', error)
     return NextResponse.json({ error: 'Server xətası' }, { status: 500 })

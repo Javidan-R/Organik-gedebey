@@ -21,7 +21,7 @@ const SalesHeader = () => {
           <p className="text-xs md:text-sm text-slate-500 mt-1">
             Tələsik müştəri zamanı belə – tez məhsul tap, kq / ədəd / məbləğ
             üzrə satış et, gün sonu hesabatı dəqiq çıxsın.
-          </p>
+           </p>
         </div>
         <div className="flex items-center gap-3 text-xs md:text-sm text-slate-500">
           <span className="px-3 py-1 rounded-full bg-white border border-emerald-100 shadow-sm flex items-center gap-2">

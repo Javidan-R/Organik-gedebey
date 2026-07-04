@@ -6,7 +6,7 @@ import { Product, Variant as ProductVariant, Review as ProductReview, Category a
 
 export type ID = string;
 
-export type DiscountType = 'percentage' | 'fixed';
+export type DiscountType = 'percentage' | 'fixed' | 'PERCENTAGE' | 'FIXED' | null; 
 
 // Re-export types from products.ts to avoid type conflicts
 export type Variant = ProductVariant;
@@ -66,6 +66,7 @@ export type AdminUIState = {
 
 export type StorefrontConfig = {
   // Əsas
+  storeName: string;            // Mağaza adı — həm UI, həm metadata
   primaryColor: string;
   secondaryColor?: string;
   accentColor?: string;
@@ -77,12 +78,18 @@ export type StorefrontConfig = {
   siteTitle: string;
   siteDescription: string;
   fontFamily?: string;
-  // Ana səhifə
+  // Ana səhifə Hero
   heroTitle: string;
   heroSubtitle: string;
   heroButtonText: string;
   heroButtonLink: string;
   heroImageUrl?: string;
+  heroHighlightText?: string;  
+  heroSliderTitle?:string;
+  heroSubtitleHighlight?:string;
+   heroSecondaryText: string,
+  heroSecondaryLink: string,
+   // İtalik / rəngli hissə
   topBannerText: string;
   topBannerLink?: string;
   topBannerEnabled: boolean;
@@ -242,4 +249,3 @@ export type ChatMessage = {
 };
 
 export type { Product };
-

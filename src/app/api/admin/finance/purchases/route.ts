@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
 
     const conditions = []
-    if (type) conditions.push(eq(inventoryLogs.type, type))
+    if (type) conditions.push(eq(inventoryLogs.type, type as 'PURCHASE' | 'SALE' | 'RETURN' | 'ADJUSTMENT' | 'SPOILAGE' | 'TRANSFER'))
     if (dateFrom) conditions.push(gte(inventoryLogs.createdAt, new Date(dateFrom)))
     if (dateTo) {
       const endDate = new Date(dateTo)

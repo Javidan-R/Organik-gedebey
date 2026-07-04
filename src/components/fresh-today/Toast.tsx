@@ -12,7 +12,7 @@ interface ToastProps {
   message: string;
   icon?: React.ReactNode;
   visible: boolean;
-}
+} 
 
 const Toast = memo(({ message, icon, visible }: ToastProps) => {
   return (

@@ -15,7 +15,7 @@ export function usePerformanceMonitor() {
     });
 
     return unsubscribe;
-  }, []);
+  }, []); 
 
   return {
     metrics,

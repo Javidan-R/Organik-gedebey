@@ -1,4 +1,5 @@
-"use client";
+// src/components/atoms/input.tsx
+'use client';
 
 import {
   ChangeEvent,
@@ -6,22 +7,27 @@ import {
   TextareaHTMLAttributes,
   ReactNode,
   memo,
-} from "react";
+  forwardRef,
+} from 'react';
 
 type InputType =
-  | "text"
-  | "number"
-  | "email"
-  | "password"
-  | "url"
-  | "date"
-  | "search";
+  | 'text'
+  | 'number'
+  | 'email'
+  | 'password'
+  | 'url'
+  | 'date'
+  | 'search'
+  | 'tel';
 
 interface BaseProps {
   label?: string;
   name?: string;
   placeholder?: string;
   icon?: ReactNode;
+  iconPosition?: 'left' | 'right';
+  prefix?: string;
+  suffix?: ReactNode;
   required?: boolean;
   helper?: string;
   className?: string;
@@ -29,141 +35,161 @@ interface BaseProps {
   readOnly?: boolean;
   error?: string;
   title?: string;
+  containerClassName?: string;
 }
 
-/*────────────────────────────────────
-  UNIVERSAL CHANGE HANDLER (1 format)
-────────────────────────────────────*/
-export type InputChangeHandler = (
-  value: string,
-  event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-) => void;
-
-/*────────────────────────────────────
-  TEXT vs INPUT (Xəta burada düzəldildi)
-────────────────────────────────────*/
-// 1. Nativ atributlardan müdaxilə edən tipləri silirik.
 type InputNativeAttrs = Omit<
   InputHTMLAttributes<HTMLInputElement>,
-  "onChange" | "value" | "type"
+  'onChange' | 'value' | 'type' | 'size'
 >;
 type TextareaNativeAttrs = Omit<
   TextareaHTMLAttributes<HTMLTextAreaElement>,
-  "onChange" | "value"
+  'onChange' | 'value'
 >;
 
-// 2. Yeni, təmizlənmiş tipləri istifadə edirik.
-type InputOnlyProps = InputNativeAttrs & { rows?: undefined };
-type TextareaOnlyProps = TextareaNativeAttrs & { rows: number };
-
 export type InputProps = BaseProps &
-  (InputOnlyProps | TextareaOnlyProps) & {
-    // Bu xüsusiyyətlər artıq nativ tiplərdən gəlmir, yalnız buradan gəlir.
+  (InputNativeAttrs | TextareaNativeAttrs) & {
     value?: string | number;
     type?: InputType;
-    onChange?: InputChangeHandler;
+    rows?: number;
+    onChange?: (value: string, event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   };
 
-/*────────────────────────────────────
-  TAILWIND DESIGN SYSTEM (Dəyişməyib)
-────────────────────────────────────*/
 const TW = {
-  base: "w-full rounded-xl border bg-white shadow-inner outline-none transition text-sm",
-  padding: "px-3 py-2",
-  normal: "border-gray-300 focus:border-emerald-500 focus:ring-emerald-300",
-  error: "border-red-400 focus:border-red-400 focus:ring-red-300",
-  disabled: "bg-gray-100 text-gray-500 cursor-not-allowed",
-  readOnly: "bg-gray-50 text-gray-700 cursor-default",
-  icon: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none",
-  label: "text-xs font-semibold text-slate-700",
+  base: 'w-full rounded-2xl border-2 bg-white text-slate-900 shadow-sm outline-none transition-all duration-200 text-base font-medium placeholder:text-slate-500',
+  padding: 'px-4 py-3',
+  paddingLeftIcon: 'pl-11',
+  paddingRightIcon: 'pr-11',
+  paddingLeftPrefix: 'pl-16',
+  normal: 'border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-200/70 hover:border-emerald-300',
+  error: 'border-rose-400 focus:border-rose-500 focus:ring-rose-200/70 hover:border-rose-400',
+  disabled: 'bg-slate-100 text-slate-500 cursor-not-allowed opacity-70',
+  readOnly: 'bg-slate-50 text-slate-700 cursor-default',
+  icon: 'absolute top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none',
+  prefix:
+    'absolute left-0 top-0 h-full flex items-center px-3 bg-slate-100 border-r border-slate-200 rounded-l-2xl text-sm font-medium text-slate-600',
+  suffixButton: 'absolute right-1 top-1/2 -translate-y-1/2',
+  label: 'text-sm font-semibold text-slate-700 mb-1.5 block',
 };
 
-/*────────────────────────────────────
-  COMPONENT (Dəyişməyib)
-────────────────────────────────────*/
-export const Input = memo(function InputComponent({
-  label,
-  name,
-  value,
-  onChange,
-  placeholder,
-  icon,
-  required,
-  helper,
-  className = "",
-  disabled,
-  readOnly,
-  error,
-  title,
-  rows,
-  type = "text",
-  ...rest
-}: InputProps) {
-  /* Proper typed handler */
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    if (onChange) onChange(e.target.value, e);
-  };
+export const Input = memo(
+  forwardRef<HTMLInputElement | HTMLTextAreaElement, InputProps>(
+    (
+      {
+        label,
+        name,
+        value,
+        onChange,
+        placeholder,
+        icon,
+        iconPosition = 'left',
+        prefix,
+        suffix,
+        required,
+        helper,
+        className = '',
+        containerClassName = '',
+        disabled,
+        readOnly,
+        error,
+        title,
+        rows,
+        type = 'text',
+        ...rest
+      },
+      ref
+    ) => {
+      const handleChange = (
+        e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+      ) => {
+        onChange?.(e.target.value, e);
+      };
 
-  const mergedClass =
-    [
-      TW.base,
-      TW.padding,
-      icon ? "pl-10" : "",
-      disabled ? TW.disabled : "",
-      readOnly ? TW.readOnly : "",
-      error ? TW.error : TW.normal,
-      className,
-    ].join(" ");
+      const hasIcon = !!icon;
+      const hasPrefix = !!prefix;
+      const paddingClass = hasIcon
+        ? iconPosition === 'left'
+          ? TW.paddingLeftIcon
+          : TW.paddingRightIcon
+        : hasPrefix
+        ? TW.paddingLeftPrefix
+        : '';
 
-  return (
-    <div className="flex flex-col space-y-1">
-      {label && (
-        <label htmlFor={name} className={TW.label}>
-          {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </label>
-      )}
+      const mergedClass = [
+        TW.base,
+        TW.padding,
+        paddingClass,
+        disabled ? TW.disabled : '',
+        readOnly ? TW.readOnly : '',
+        error ? TW.error : TW.normal,
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ');
 
-      <div className="relative">
-        {icon && <span className={TW.icon}>{icon}</span>}
+      const inputElement = rows ? (
+        <textarea
+          {...(rest as TextareaNativeAttrs)}
+          ref={ref as any}
+          id={name}
+          name={name}
+          rows={rows}
+          value={value?.toString() ?? ''}
+          disabled={disabled}
+          readOnly={readOnly}
+          placeholder={placeholder}
+          onChange={handleChange}
+          title={title}
+          className={`${mergedClass} resize-y`}
+        />
+      ) : (
+        <input
+          {...(rest as InputNativeAttrs)}
+          ref={ref as any}
+          id={name}
+          name={name}
+          type={type}
+          value={value?.toString() ?? ''}
+          disabled={disabled}
+          readOnly={readOnly}
+          placeholder={placeholder}
+          onChange={handleChange}
+          title={title}
+          className={mergedClass}
+        />
+      );
 
-        {rows ? (
-          <textarea
-            {...(rest as TextareaOnlyProps)}
-            id={name}
-            name={name}
-            rows={rows}
-            // value tipini string | number olaraq qəbul edir, lakin textarea yalnız string gözləyir.
-            // Bu səbəbdən tip çevrilməsi (as string) əlavə edirik.
-            value={value as string} 
-            disabled={disabled}
-            readOnly={readOnly}
-            placeholder={placeholder}
-            onChange={handleChange}
-            title={title}
-            className={`${mergedClass} resize-y`}
-          />
-        ) : (
-          <input
-            {...(rest as InputOnlyProps)}
-            id={name}
-            name={name}
-            type={type}
-            value={value}
-            disabled={disabled}
-            readOnly={readOnly}
-            placeholder={placeholder}
-            onChange={handleChange}
-            title={title}
-            className={mergedClass}
-          />
-        )}
-      </div>
+      return (
+        <div className={`flex flex-col space-y-1.5 ${containerClassName}`}>
+          {label && (
+            <label htmlFor={name} className={TW.label}>
+              {label}
+              {required && <span className="text-rose-500 ml-1">*</span>}
+            </label>
+          )}
 
-      {helper && <p className="text-[11px] text-gray-500">{helper}</p>}
-      {error && <p className="text-[11px] text-red-600">{error}</p>}
-    </div>
-  );
-});
+          <div className="relative">
+            {prefix && <div className={TW.prefix}>{prefix}</div>}
+
+            {hasIcon && iconPosition === 'left' && (
+              <span className={`${TW.icon} left-3`}>{icon}</span>
+            )}
+
+            {inputElement}
+
+            {hasIcon && iconPosition === 'right' && (
+              <span className={`${TW.icon} right-3`}>{icon}</span>
+            )}
+
+            {suffix && <div className={TW.suffixButton}>{suffix}</div>}
+          </div>
+
+          {helper && <p className="text-xs text-slate-500">{helper}</p>}
+          {error && <p className="text-xs text-rose-600">{error}</p>}
+        </div>
+      );
+    }
+  )
+);
+
+Input.displayName = 'Input';

@@ -9,7 +9,7 @@ type SearchOverlayProps = {
   open: boolean;
   onClose: () => void;
 };
-
+ 
 export function SearchOverlay({ open, onClose }: SearchOverlayProps) {
   return (
     <AnimatePresence>

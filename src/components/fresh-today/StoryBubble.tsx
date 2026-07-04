@@ -23,7 +23,7 @@ const StoryBubble = memo(({ product, seen, onClick }: StoryBubbleProps) => {
     : isAll
     ? 'bg-gradient-to-tr from-[#B5E935] via-emerald-400 to-teal-500'
     : 'bg-gradient-to-tr from-[#B5E935] via-lime-400 to-emerald-500';
-
+ 
   return (
     <motion.button
       whileTap={{ scale: 0.92 }}

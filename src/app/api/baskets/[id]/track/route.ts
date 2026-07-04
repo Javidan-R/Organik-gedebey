@@ -17,7 +17,7 @@ export async function POST(
   try {
     const body = await request.json()
     const { eventType, userId, sessionId, metadata } = body
-
+ 
     // Validate event type
     if (!trackSchema.eventType.includes(eventType)) {
       return NextResponse.json({ error: 'Invalid event type' }, { status: 400 })

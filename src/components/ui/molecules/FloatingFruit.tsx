@@ -17,3 +17,4 @@ export  function FloatingFruit({ emoji, delay = 0 }: { emoji: string; delay?: nu
     </motion.span>
   )
 }
+ 

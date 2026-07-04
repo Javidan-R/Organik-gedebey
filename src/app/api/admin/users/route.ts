@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, AuthError } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { users, addresses, orders, notifications } from '@/lib/db/schema'
+import { users,notifications, userRoleEnum } from '@/lib/db/schema'
 import { eq, like, or, desc, asc, and, sql } from 'drizzle-orm'
 import { z } from 'zod'
 
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (role) {
-      conditions.push(eq(users.role, role))
+conditions.push(eq(users.role, role as typeof userRoleEnum.enumValues[number]))
     }
     
     if (status === 'active') {
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     const validatedData = createUserSchema.parse(body)
 
     // Hash password
-    const bcrypt = await import('bcrypt')
+const bcrypt = await import('bcryptjs')
     const passwordHash = await bcrypt.hash(validatedData.password, 10)
 
     const [newUser] = await db

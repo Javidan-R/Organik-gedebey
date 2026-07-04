@@ -1,12 +1,12 @@
 // app/(storefront)/forgot-password/page.tsx
 'use client'
-
+ 
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import {
-  Mail, Loader2, Sparkles, ArrowLeft, CheckCircle2, Shield, 
+  Mail, Loader2,  ArrowLeft, CheckCircle2, Shield, 
   Clock, Leaf, AlertCircle
 } from 'lucide-react'
 

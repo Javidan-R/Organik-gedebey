@@ -10,7 +10,7 @@ export const FloatingQuickActions: FC<{
 }> = ({ onSearch, onNotifications, notificationCount }) => {
   const isMobile = useIsMobile()
   if (!isMobile) return null
-
+ 
   return (
     <motion.div
       initial={{ opacity: 0, x: 40 }}

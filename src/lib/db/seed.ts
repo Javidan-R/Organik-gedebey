@@ -15,7 +15,7 @@ async function seed() {
     process.env.ADMIN_EMAIL ??
     process.env.DEV_ADMIN_EMAIL ??
     'admin@organikgedebey.az'
-
+ 
   const adminPassword =
     process.env.SEED_ADMIN_PASSWORD ??
     process.env.DEV_ADMIN_PASSWORD ??

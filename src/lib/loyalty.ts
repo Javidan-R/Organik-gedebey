@@ -5,7 +5,7 @@ export type LoyaltyTier = {
   minPoints: number
   maxPoints: number
   nextTierName: string | null
-}
+} 
 
 export const LOYALTY_TIERS: LoyaltyTier[] = [
   { id: 'green', name: 'Yaşıl Üzv', emoji: '🌿', minPoints: 0, maxPoints: 499, nextTierName: 'Gümüş' },
@@ -14,10 +14,8 @@ export const LOYALTY_TIERS: LoyaltyTier[] = [
 ]
 
 export function getLoyaltyTier(points: number): LoyaltyTier {
-  return (
-    LOYALTY_TIERS.find((t) => points >= t.minPoints && points <= t.maxPoints) ??
-    LOYALTY_TIERS[0]
-  )
+  const tier = LOYALTY_TIERS.find((t) => points >= t.minPoints && points <= t.maxPoints);
+  return tier ?? LOYALTY_TIERS[0];
 }
 
 export function getTierProgress(points: number): {

@@ -1,5 +1,25 @@
-'use client'
+// src/components/performance/ServiceWorkerRegister.tsx
+'use client';
+
+import { useEffect } from 'react';
 
 export function ServiceWorkerRegister() {
-  return null
+  useEffect(() => {
+    if (
+      typeof window !== 'undefined' &&
+      'serviceWorker' in navigator &&
+      process.env.NODE_ENV === 'production'
+    ) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((registration) => {
+          console.log('[SW] Registered:', registration.scope);
+        })
+        .catch((error) => {
+          console.error('[SW] Registration failed:', error);
+        });
+    }
+  }, []);
+
+  return null;
 }

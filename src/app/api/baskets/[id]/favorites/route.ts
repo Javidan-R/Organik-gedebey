@@ -18,7 +18,7 @@ export async function POST(
     const basket = await db.query.baskets.findFirst({
       where: eq(baskets.id, params.id),
     })
-
+ 
     if (!basket) {
       return NextResponse.json({ error: 'Səbət tapılmadı' }, { status: 404 })
     }

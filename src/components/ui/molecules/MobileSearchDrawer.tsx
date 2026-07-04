@@ -1,6 +1,6 @@
 import { useLocalStorage } from "@/hooks/useLocalStorage"
 import { Product } from "@/types/products"
-import { getFirstImageUrl, formatCurrency, getProductBasePrice } from "@/utils/storefront_home"
+import { getFirstImageUrl, formatCurrency, getProductBasePrice } from "@/utils/product"
 import { AnimatePresence, motion } from "framer-motion"
 import { Search, X, ChevronRight } from "lucide-react"
 import { FC, useState, useMemo } from "react"
@@ -16,7 +16,7 @@ export const MobileSearchDrawer: FC<{
 }> = ({ isOpen, onClose, products }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [recentSearches, setRecentSearches] = useLocalStorage<string[]>('og-recent-searches', [])
-
+ 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return []
     return products

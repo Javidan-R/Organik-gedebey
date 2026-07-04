@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useMemo, useState, useEffect, useCallback } from 'react';
-import { useApp } from '@/lib/store';
+import { useMemo, useState, useCallback, useEffect, useDeferredValue } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
   BadgePercent,
@@ -12,169 +12,244 @@ import {
   Mountain,
   Package,
   AlertTriangle,
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { RusticProductCard } from '@/components/ui/organisms/RusticProductCard';
-import { debounce } from 'lodash';
+  TrendingUp,
+} from "lucide-react";
+import { useApp } from "@/lib/store";
+import { ProductFilter } from "@/components/admin/products/ProductFilter";
+import { ProductGrid } from "@/components/ui/organisms/ProductGrid";
+import { Button } from "@/components/atoms/button";
+import { Input } from "@/components/atoms/input";
+import { Select } from "@/components/atoms/select";
+import { FilterState } from "@/utils/useProductFilter";
 
-// ──────────────────────────────────────────────────────────────────
-// Helper funksiyalar
-// ──────────────────────────────────────────────────────────────────
-
-// Animasiya variantları
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.04, delayChildren: 0.1 },
-  },
+// ─── Sub-components ────────────────────────────────────────────────
+const StatBox = ({
+  label,
+  value,
+  icon,
+  color,
+}: {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  color: "emerald" | "lime" | "rose" | "amber" | "blue" | "slate";
+}) => {
+  const colorMap = {
+    emerald: "bg-emerald-50/80 text-emerald-800 border-emerald-200",
+    lime: "bg-lime-50/80 text-lime-800 border-lime-200",
+    rose: "bg-rose-50/80 text-rose-800 border-rose-200",
+    amber: "bg-amber-50/80 text-amber-800 border-amber-200",
+    blue: "bg-blue-50/80 text-blue-800 border-blue-200",
+    slate: "bg-slate-50/80 text-slate-800 border-slate-200",
+  };
+  return (
+    <div className={`rounded-2xl px-4 py-3 text-center backdrop-blur-sm border ${colorMap[color]}`}>
+      <div className="flex items-center justify-center gap-1 text-2xl font-black">
+        {icon}
+        {value}
+      </div>
+      <p className="text-[10px] font-semibold uppercase tracking-wider">{label}</p>
+    </div>
+  );
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
-};
+// ─── Helper: ümumi stok hesabla ──────────────────────────────────
+function getTotalStock(product: any): number {
+  if (product.stock !== undefined && product.stock !== null) {
+    return product.stock;
+  }
+  if (product.variants && Array.isArray(product.variants)) {
+    return product.variants.reduce((sum: number, v: any) => sum + (v.stock ?? 0), 0);
+  }
+  return 0;
+}
 
-// ──────────────────────────────────────────────────────────────────
-// Əsas səhifə komponenti
-// ──────────────────────────────────────────────────────────────────
-export function ProductsPageClient({ initialData }: { initialData?: { products: any[]; categories: any[] } }) {
+// ─── Helper: məhsulu stock ilə zənginləşdir ──────────────────────
+function enrichProductWithStock(product: any) {
+  return {
+    ...product,
+    stock: getTotalStock(product),
+  };
+}
+
+// ─── Main Component ──────────────────────────────────────────────────
+export function ProductsPageClient({
+  initialData,
+}: {
+  initialData?: { products: any[]; categories: any[] };
+}) {
+  // ── Store ─────────────────────────────────────────────────────────
   const {
-    products,
-    categories,
+    products: storeProducts,
+    categories: storeCategories,
     productPriceNow,
     isDiscountActive,
     addToCart,
     storefrontConfig,
     _hasHydrated,
+    setProducts,
+    setCategories,
   } = useApp();
 
-  const currency = storefrontConfig?.currency || 'AZN';
+  const currency = storefrontConfig?.currency || "AZN";
 
-  // ── Filter state-ləri (reytinq yoxdur) ─────────────────────────
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(500);
-  const [inStockOnly, setInStockOnly] = useState(false);
-  const [discountOnly, setDiscountOnly] = useState(false);
-  const [organicOnly, setOrganicOnly] = useState(false);
-  const [sortBy, setSortBy] = useState<
-    'recent' | 'popular' | 'price_asc' | 'price_desc'
-  >('recent');
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  // ── Filter State ──────────────────────────────────────────────────
+  const [filters, setFilters] = useState<FilterState>({
+    searchTerm: "",
+    categoryId: "",
+    showArchived: false,
+    stockFilter: "all",
+    discountOnly: false,
+    minPrice: "",
+    maxPrice: "",
+    minRating: "",
+    sortKey: "newest",
+  });
 
-  const debouncedSetSearch = useCallback(
-    debounce((value: string) => setDebouncedSearch(value), 300),
-    []
-  );
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
-  // ── Hydrate store with initial data from server ─────────────────
+  // ── Deferred search ──────────────────────────────────────────────
+  const deferredSearch = useDeferredValue(filters.searchTerm);
+
+  // ── Hydrate store with server data ──────────────────────────────
   useEffect(() => {
     if (initialData) {
-      const { setProducts, setCategories } = useApp.getState();
-      setProducts(initialData.products);
+      // ✅ Məhsulları stok məlumatı ilə zənginləşdir
+      const enrichedProducts = initialData.products.map(enrichProductWithStock);
+      setProducts(enrichedProducts);
       setCategories(initialData.categories);
     }
-  }, [initialData]);
+  }, [initialData, setProducts, setCategories]);
 
-  useEffect(() => {
-    debouncedSetSearch(searchTerm);
-    return () => debouncedSetSearch.cancel();
-  }, [searchTerm, debouncedSetSearch]);
-
-  // ── URL sync (opsional) ────────────────────────────────────────
+  // ── URL sync ──────────────────────────────────────────────────────
   useEffect(() => {
     const params = new URLSearchParams();
-    if (debouncedSearch) params.set('q', debouncedSearch);
-    if (selectedCategory !== 'all') params.set('cat', selectedCategory);
-    if (inStockOnly) params.set('stock', '1');
-    if (discountOnly) params.set('sale', '1');
-    if (organicOnly) params.set('org', '1');
-    if (minPrice > 0) params.set('min', String(minPrice));
-    if (maxPrice < 500) params.set('max', String(maxPrice));
-    if (sortBy !== 'recent') params.set('sort', sortBy);
+    if (deferredSearch) params.set("q", deferredSearch);
+    if (filters.categoryId) params.set("cat", filters.categoryId);
+    if (filters.stockFilter !== "all") params.set("stock", filters.stockFilter);
+    if (filters.discountOnly) params.set("sale", "1");
+    if (filters.minPrice) params.set("min", filters.minPrice);
+    if (filters.maxPrice) params.set("max", filters.maxPrice);
+    if (filters.minRating) params.set("rating", filters.minRating);
+    if (filters.sortKey !== "newest") params.set("sort", filters.sortKey);
     const query = params.toString();
-    window.history.replaceState(null, '', query ? `?${query}` : window.location.pathname);
-  }, [debouncedSearch, selectedCategory, inStockOnly, discountOnly, organicOnly, minPrice, maxPrice, sortBy]);
+    window.history.replaceState(null, "", query ? `?${query}` : window.location.pathname);
+  }, [
+    deferredSearch,
+    filters.categoryId,
+    filters.stockFilter,
+    filters.discountOnly,
+    filters.minPrice,
+    filters.maxPrice,
+    filters.minRating,
+    filters.sortKey,
+  ]);
 
-  // ── Filtrlənmiş və sıralanmış məhsullar (reytinqsiz) ───────────
+  // ── Filtered products ─────────────────────────────────────────────
   const filteredProducts = useMemo(() => {
-    let list = products.filter((p) => !p.archived);
+    // 1. Store-dan gələn məhsulları stock ilə zənginləşdir
+    let list = storeProducts.map(enrichProductWithStock).filter((p) => !p.archived);
 
-    // Axtarış
-    if (debouncedSearch) {
-      const term = debouncedSearch.toLowerCase();
+    // 2. Search
+    if (deferredSearch) {
+      const term = deferredSearch.toLowerCase();
       list = list.filter(
         (p) =>
           p.name.toLowerCase().includes(term) ||
-          p.tags?.some((tag) => tag.toLowerCase().includes(term))
+          (p.tags || []).some((tag: string) => tag.toLowerCase().includes(term))
       );
     }
 
-    // Kateqoriya
-    if (selectedCategory !== 'all') {
-      list = list.filter((p) => p.categoryId === selectedCategory);
+    // 3. Category
+    if (filters.categoryId) {
+      list = list.filter((p) => p.categoryId === filters.categoryId);
     }
 
-    // Qiymət aralığı
-    list = list.filter((p) => {
-      const price = productPriceNow(p);
-      return price >= minPrice && price <= maxPrice;
-    });
+    // 4. Price range
+    const min = parseFloat(filters.minPrice);
+    const max = parseFloat(filters.maxPrice);
+    if (!isNaN(min) && min > 0) {
+      list = list.filter((p) => productPriceNow(p) >= min);
+    }
+    if (!isNaN(max) && max > 0) {
+      list = list.filter((p) => productPriceNow(p) <= max);
+    }
 
-    // Stok
-    if (inStockOnly) {
+    // 5. Stock filter (endirim hissədən sonra, çünki stock artıq var)
+    if (filters.stockFilter === "in_stock") {
+      list = list.filter((p) => (p.stock ?? 0) > 0);
+    } else if (filters.stockFilter === "low_stock") {
+      list = list.filter((p) => (p.stock ?? 0) > 0 && (p.stock ?? 0) <= (p.minStock ?? 5));
+    } else if (filters.stockFilter === "out_of_stock") {
+      list = list.filter((p) => (p.stock ?? 0) === 0);
+    }
+
+    // 6. Discount
+    if (filters.discountOnly) {
+      list = list.filter((p) => isDiscountActive(p));
+    }
+
+    // 7. Min rating
+    const minRating = parseFloat(filters.minRating);
+    if (!isNaN(minRating) && minRating > 0) {
       list = list.filter((p) => {
-        const totalStock = p.variants?.reduce((sum, v) => sum + (v.stock ?? 0), 0) ?? p.stock ?? 0;
-        return totalStock > 0;
+        const avg =
+          p.reviews?.length
+            ? p.reviews.reduce((s: any, r: { rating: any; }) => s + (r.rating ?? 0), 0) / p.reviews.length
+            : 0;
+        return avg >= minRating;
       });
     }
 
-    // Endirim
-    if (discountOnly) list = list.filter((p) => isDiscountActive(p));
-
-    // Organik
-    if (organicOnly) list = list.filter((p) => p.isOrganic);
-
-    // Sıralama (reytinq yoxdur)
-    switch (sortBy) {
-      case 'price_asc':
-        list.sort((a, b) => productPriceNow(a) - productPriceNow(b));
+    // 8. Sort
+    const sorted = [...list];
+    switch (filters.sortKey) {
+      case "price_asc":
+        sorted.sort((a, b) => productPriceNow(a) - productPriceNow(b));
         break;
-      case 'price_desc':
-        list.sort((a, b) => productPriceNow(b) - productPriceNow(a));
+      case "price_desc":
+        sorted.sort((a, b) => productPriceNow(b) - productPriceNow(a));
         break;
-      case 'popular':
-        list.sort((a, b) => {
-          const fa = a.featured ? 1 : 0;
-          const fb = b.featured ? 1 : 0;
-          if (fa !== fb) return fb - fa;
-          // İkinci dərəcəli sıralama – satış sayı (yoxdursa, id)
-          return (b.soldCount || 0) - (a.soldCount || 0);
+      case "rating":
+        sorted.sort((a, b) => {
+          const ra =
+            a.reviews?.length
+              ? a.reviews.reduce((s: any, r: { rating: any; }) => s + (r.rating ?? 0), 0) / a.reviews.length
+              : 0;
+          const rb =
+            b.reviews?.length
+              ? b.reviews.reduce((s: any, r: { rating: any; }) => s + (r.rating ?? 0), 0) / b.reviews.length
+              : 0;
+          return rb - ra;
         });
         break;
-      default: // recent
-        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      case "newest":
+        sorted.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        break;
+      default:
+        break;
     }
 
-    return list;
+    // ✅ Hər məhsulda stock sahəsi artıq var, qaytar
+    return sorted;
   }, [
-    products,
-    debouncedSearch,
-    selectedCategory,
-    minPrice,
-    maxPrice,
-    inStockOnly,
-    discountOnly,
-    organicOnly,
-    sortBy,
+    storeProducts,
+    deferredSearch,
+    filters.categoryId,
+    filters.stockFilter,
+    filters.discountOnly,
+    filters.minPrice,
+    filters.maxPrice,
+    filters.minRating,
+    filters.sortKey,
     productPriceNow,
     isDiscountActive,
   ]);
 
-  // ── Statistik məlumatlar (yuxarı banner üçün) ──────────────────
+  // ── Stats ─────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const total = filteredProducts.length;
     const organicCount = filteredProducts.filter((p) => p.isOrganic).length;
@@ -182,8 +257,7 @@ export function ProductsPageClient({ initialData }: { initialData?: { products: 
     let avgSaving = 0;
     let savingItems = 0;
     filteredProducts.forEach((p) => {
-      const variant = p.variants?.[0];
-      const base = variant?.price ?? 0;
+      const base = getProductBasePrice(p);
       if (base && isDiscountActive(p)) {
         const now = productPriceNow(p);
         if (now < base) {
@@ -196,62 +270,67 @@ export function ProductsPageClient({ initialData }: { initialData?: { products: 
     return { total, organicCount, discountedCount, avgSaving };
   }, [filteredProducts, isDiscountActive, productPriceNow]);
 
-  // ── Aktiv filtrlərin sayı ──────────────────────────────────────
-  const activeFiltersCount = [
-    debouncedSearch !== '',
-    selectedCategory !== 'all',
-    minPrice > 0 || maxPrice < 500,
-    inStockOnly,
-    discountOnly,
-    organicOnly,
-  ].filter(Boolean).length;
+  // ── Filter handlers ──────────────────────────────────────────────
+  const handleFilterChange = useCallback(
+    (newFilters: FilterState) => {
+      setFilters(newFilters);
+    },
+    []
+  );
 
-  // ── Bütün filtrləri sıfırla ────────────────────────────────────
-  const clearAllFilters = () => {
-    setSearchTerm('');
-    setSelectedCategory('all');
-    setMinPrice(0);
-    setMaxPrice(500);
-    setInStockOnly(false);
-    setDiscountOnly(false);
-    setOrganicOnly(false);
-    setSortBy('recent');
-  };
+  const clearAllFilters = useCallback(() => {
+    setFilters({
+      searchTerm: "",
+      categoryId: "",
+      showArchived: false,
+      stockFilter: "all",
+      discountOnly: false,
+      minPrice: "",
+      maxPrice: "",
+      minRating: "",
+      sortKey: "newest",
+    });
+  }, []);
 
-  // ────────────────────────────────────────────────────────────────
-  // Render
-  // ────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────
+  if (!_hasHydrated) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-emerald-600 border-r-transparent align-[-0.125em]"></div>
+          <p className="mt-4 text-slate-600">Yüklənir...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <main className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-emerald-50 via-white to-amber-50/30">
-      {!_hasHydrated && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
-          <div className="text-center">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-emerald-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
-            <p className="mt-4 text-slate-600">Yüklənir...</p>
-          </div>
-        </div>
-      )}
-      {/* Təbii dağ siluetləri (arxa plan) */}
+      {/* ── Background Decorations ────────────────────────────────── */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <svg className="absolute bottom-0 left-0 w-full h-48 opacity-10" preserveAspectRatio="none" viewBox="0 0 1440 320">
-          <path fill="#064e3b" fillOpacity="0.2" d="M0,192L48,176C96,160,192,128,288,138.7C384,149,480,203,576,213.3C672,224,768,192,864,176C960,160,1056,160,1152,170.7C1248,181,1344,203,1392,213.3L1440,224L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z" />
-        </svg>
-        <svg className="absolute top-20 right-0 w-96 h-96 opacity-5" viewBox="0 0 200 200">
-          <path fill="#0f5c3c" d="M100,0 L130,50 L180,50 L140,80 L160,130 L100,100 L40,130 L60,80 L20,50 L70,50 Z" />
+        <svg
+          className="absolute bottom-0 left-0 w-full h-48 opacity-10"
+          preserveAspectRatio="none"
+          viewBox="0 0 1440 320"
+        >
+          <path
+            fill="#064e3b"
+            fillOpacity="0.2"
+            d="M0,192L48,176C96,160,192,128,288,138.7C384,149,480,203,576,213.3C672,224,768,192,864,176C960,160,1056,160,1152,170.7C1248,181,1344,203,1392,213.3L1440,224L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"
+          />
         </svg>
         <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-emerald-300/10 blur-3xl" />
         <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-amber-200/20 blur-3xl" />
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-12">
-        {/* ── Başlıq və statistik banner (təbii motivli) ── */}
+        {/* ── Header Banner ────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           className="relative mb-10 overflow-hidden rounded-3xl bg-white/60 backdrop-blur-sm p-6 shadow-xl shadow-emerald-100/30"
         >
-          {/* Təbii dekorativ elementlər */}
           <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-emerald-200/20 blur-3xl" />
           <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-amber-100/20 blur-3xl" />
           <div className="absolute bottom-4 right-8 text-emerald-100/40">
@@ -271,227 +350,108 @@ export function ProductsPageClient({ initialData }: { initialData?: { products: 
                 Təbii məhsullar kataloqu
               </h1>
               <p className="mt-2 max-w-xl text-sm text-slate-600">
-                Ən təzə, ən keyfiyyətli kənd məhsullarını kəşf edin. Hamısı sertifikatlı,
-                heç bir kimyəvi qatqısız.
+                Ən təzə, ən keyfiyyətli kənd məhsullarını kəşf edin. Hamısı
+                sertifikatlı, heç bir kimyəvi qatqısız.
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-2xl bg-emerald-50/80 px-4 py-2 text-center backdrop-blur-sm">
-                <p className="text-2xl font-black text-emerald-800">{stats.total}</p>
-                <p className="text-[10px] font-semibold uppercase text-emerald-600">Məhsul</p>
-              </div>
-              <div className="rounded-2xl bg-lime-50/80 px-4 py-2 text-center backdrop-blur-sm">
-                <p className="text-2xl font-black text-lime-800">{stats.organicCount}</p>
-                <p className="text-[10px] font-semibold uppercase text-lime-600">Organik</p>
-              </div>
-              <div className="rounded-2xl bg-rose-50/80 px-4 py-2 text-center backdrop-blur-sm">
-                <p className="text-2xl font-black text-rose-800">{stats.discountedCount}</p>
-                <p className="text-[10px] font-semibold uppercase text-rose-600">Endirim</p>
-              </div>
+              <StatBox
+                label="Məhsul"
+                value={stats.total}
+                icon={<Package className="h-4 w-4" />}
+                color="emerald"
+              />
+              <StatBox
+                label="Organik"
+                value={stats.organicCount}
+                icon={<Leaf className="h-4 w-4" />}
+                color="lime"
+              />
+              <StatBox
+                label="Endirim"
+                value={stats.discountedCount}
+                icon={<BadgePercent className="h-4 w-4" />}
+                color="rose"
+              />
+              <StatBox
+                label="Orta qənaət"
+                value={`${stats.avgSaving.toFixed(2)} ₼`}
+                icon={<TrendingUp className="h-4 w-4" />}
+                color="amber"
+              />
             </div>
           </div>
         </motion.div>
 
-        {/* ── Desktop Filter Panel (reytinq yoxdur) ── */}
-        <div className="mb-8 hidden rounded-3xl bg-white/70 backdrop-blur-md p-5 shadow-md shadow-emerald-50/50 lg:block">
-          <div className="flex flex-wrap items-end gap-4">
-            {/* Axtarış */}
-            <div className="flex-1 min-w-[200px]">
-              <label className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">
-                Axtarış
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Bal, alma, pendir..."
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                />
-              </div>
-            </div>
+        {/* ── Filter Component ────────────────────────────────────── */}
+        <ProductFilter
+          filters={filters}
+          onFilterChange={handleFilterChange}
+          onViewModeChange={setViewMode}
+          defaultViewMode={viewMode}
+          className="mb-6"
+        />
 
-            {/* Kateqoriya */}
-            <div className="w-48">
-              <label className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">
-                Kateqoriya
-              </label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-emerald-400"
-              >
-                <option value="all">Hamısı</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Qiymət aralığı */}
-            <div className="w-64">
-              <label className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">
-                Qiymət (₼)
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  value={minPrice}
-                  onChange={(e) => setMinPrice(Number(e.target.value))}
-                  className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-center text-sm"
-                  placeholder="Min"
-                />
-                <span>—</span>
-                <input
-                  type="number"
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(Number(e.target.value))}
-                  className="w-20 rounded-xl border border-slate-200 px-2 py-2 text-center text-sm"
-                  placeholder="Max"
-                />
-              </div>
-            </div>
-
-            {/* Sıralama (reytinqsiz) */}
-            <div className="w-44">
-              <label className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">
-                Sırala
-              </label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-              >
-                <option value="recent">Ən yeni</option>
-                <option value="popular">Populyar</option>
-                <option value="price_asc">Qiymət: artan</option>
-                <option value="price_desc">Qiymət: azalan</option>
-              </select>
-            </div>
-
-            {/* Filter toggles (yalnız stok, endirim, organik, mövsümi) */}
-            <div className="flex flex-wrap gap-2">
-              <FilterChip
-                active={inStockOnly}
-                onClick={() => setInStockOnly(!inStockOnly)}
-                icon={Package}
-                label="Stokda"
-              />
-              <FilterChip
-                active={discountOnly}
-                onClick={() => setDiscountOnly(!discountOnly)}
-                icon={BadgePercent}
-                label="Endirim"
-              />
-              <FilterChip
-                active={organicOnly}
-                onClick={() => setOrganicOnly(!organicOnly)}
-                icon={Leaf}
-                label="Organik"
-              />
-            </div>
-          </div>
-
-          {/* Aktiv filtrlər çipləri */}
-          {activeFiltersCount > 0 && (
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-emerald-100 pt-3">
-              <span className="text-xs text-slate-500">Aktiv filtrlər:</span>
-              {debouncedSearch && (
-                <ActiveChip label={`"${debouncedSearch}"`} onRemove={() => setSearchTerm('')} />
-              )}
-              {selectedCategory !== 'all' && (
-                <ActiveChip
-                  label={categories.find((c) => c.id === selectedCategory)?.name || ''}
-                  onRemove={() => setSelectedCategory('all')}
-                />
-              )}
-              {(minPrice > 0 || maxPrice < 500) && (
-                <ActiveChip
-                  label={`${minPrice}₼ - ${maxPrice}₼`}
-                  onRemove={() => {
-                    setMinPrice(0);
-                    setMaxPrice(500);
-                  }}
-                />
-              )}
-              {inStockOnly && <ActiveChip label="Stokda" onRemove={() => setInStockOnly(false)} />}
-              {discountOnly && <ActiveChip label="Endirim" onRemove={() => setDiscountOnly(false)} />}
-              {organicOnly && <ActiveChip label="Organik" onRemove={() => setOrganicOnly(false)} />}
-              <button
-                onClick={clearAllFilters}
-                className="text-xs font-semibold text-emerald-600 hover:underline"
-              >
-                Hamısını təmizlə
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* ── Mobil Filter Button ── */}
-        <div className="mb-4 flex items-center justify-between gap-3 lg:hidden">
+        {/* ── Mobile Filter Drawer Trigger ────────────────────────── */}
+        <div className="lg:hidden mb-4 flex items-center justify-between gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+            <Input
+              name="mobileSearch"
+              value={filters.searchTerm}
+              onChange={(value) =>
+                handleFilterChange({
+                  ...filters,
+                  searchTerm: value as string,
+                })
+              }
               placeholder="Axtar..."
-              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm"
+              className="pl-9"
             />
           </div>
-          <button
-            onClick={() => setIsFilterOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md"
+          <Button
+            variant="primary"
+            onClick={() => setIsFilterDrawerOpen(true)}
+            className="inline-flex items-center gap-2"
           >
             <Filter className="h-4 w-4" />
             Filtr
-            {activeFiltersCount > 0 && (
+            {Object.values(filters).some(
+              (v) =>
+                v !== "" &&
+                v !== "all" &&
+                v !== false &&
+                v !== "newest" &&
+                v !== 0
+            ) && (
               <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-black text-emerald-600">
-                {activeFiltersCount}
+                {
+                  Object.values(filters).filter(
+                    (v) =>
+                      v !== "" &&
+                      v !== "all" &&
+                      v !== false &&
+                      v !== "newest" &&
+                      v !== 0
+                  ).length
+                }
               </span>
             )}
-          </button>
+          </Button>
         </div>
 
-        {/* ── Nəticə sayı və sort (mobil) ── */}
-        <div className="mb-4 flex items-center justify-between lg:hidden">
-          <p className="text-sm text-slate-500">
-            <span className="font-bold text-emerald-700">{filteredProducts.length}</span> məhsul
-          </p>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm"
-          >
-            <option value="recent">Ən yeni</option>
-            <option value="popular">Populyar</option>
-            <option value="price_asc">Qiymət: artan</option>
-            <option value="price_desc">Qiymət: azalan</option>
-          </select>
-        </div>
-
-        {/* ── Məhsul Grid ── */}
+        {/* ── Product Grid ────────────────────────────────────────── */}
         {filteredProducts.length > 0 ? (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-          >
-            {filteredProducts.map((product) => (
-              <motion.div key={product.id} variants={itemVariants}>
-                <RusticProductCard
-                  product={product}
-                  currency={currency}
-                  addToCart={addToCart}
-                />
-              </motion.div>
-            ))}
-          </motion.div>
+          <ProductGrid
+            products={filteredProducts}
+            currency={currency}
+            addToCart={addToCart}
+            variant="default"
+            showControls={false}
+            initialViewMode={viewMode}
+            itemsPerPage={12}
+          />
         ) : (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -503,38 +463,35 @@ export function ProductsPageClient({ initialData }: { initialData?: { products: 
             <p className="mt-2 text-sm text-slate-500">
               Cari filtrlərə uyğun heç bir məhsul yoxdur. Filtrləri dəyişdirin.
             </p>
-            <button
-              onClick={clearAllFilters}
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white"
-            >
+            <Button variant="primary" onClick={clearAllFilters} className="mt-6">
               <X className="h-4 w-4" /> Filtrləri sıfırla
-            </button>
+            </Button>
           </motion.div>
         )}
       </div>
 
-      {/* ── Mobil Filter Drawer (reytinq yoxdur) ── */}
+      {/* ── Mobile Filter Drawer ──────────────────────────────────── */}
       <AnimatePresence>
-        {isFilterOpen && (
+        {isFilterDrawerOpen && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsFilterOpen(false)}
+              onClick={() => setIsFilterDrawerOpen(false)}
               className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm lg:hidden"
             />
             <motion.div
-              initial={{ x: '100%' }}
+              initial={{ x: "100%" }}
               animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25 }}
               className="fixed bottom-0 right-0 top-0 z-50 flex w-full max-w-sm flex-col bg-white shadow-2xl lg:hidden"
             >
               <div className="flex items-center justify-between border-b p-4">
                 <h2 className="text-lg font-bold text-slate-800">Filtrlər</h2>
                 <button
-                  onClick={() => setIsFilterOpen(false)}
+                  onClick={() => setIsFilterDrawerOpen(false)}
                   className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
                 >
                   <X className="h-5 w-5" />
@@ -547,18 +504,20 @@ export function ProductsPageClient({ initialData }: { initialData?: { products: 
                   <label className="mb-1 block text-xs font-semibold uppercase text-slate-500">
                     Kateqoriya
                   </label>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  >
-                    <option value="all">Hamısı</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    name="mobileCategory"
+                    value={filters.categoryId}
+                    onChange={(value) =>
+                      handleFilterChange({
+                        ...filters,
+                        categoryId: value as unknown as string,
+                      })
+                    }
+                    options={[
+                      { value: "", label: "Hamısı" },
+                      ...storeCategories.map((c) => ({ value: c.id, label: c.name })),
+                    ]}
+                  />
                 </div>
 
                 {/* Qiymət aralığı */}
@@ -567,67 +526,99 @@ export function ProductsPageClient({ initialData }: { initialData?: { products: 
                     Qiymət (₼)
                   </label>
                   <div className="flex items-center gap-2">
-                    <input
+                    <Input
+                      name="mobileMinPrice"
                       type="number"
-                      value={minPrice}
-                      onChange={(e) => setMinPrice(Number(e.target.value))}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                      min={0}
                       placeholder="Min"
+                      value={filters.minPrice}
+                      onChange={(value) =>
+                        handleFilterChange({
+                          ...filters,
+                          minPrice: value as string,
+                        })
+                      }
                     />
                     <span>—</span>
-                    <input
+                    <Input
+                      name="mobileMaxPrice"
                       type="number"
-                      value={maxPrice}
-                      onChange={(e) => setMaxPrice(Number(e.target.value))}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                      min={0}
                       placeholder="Max"
+                      value={filters.maxPrice}
+                      onChange={(value) =>
+                        handleFilterChange({
+                          ...filters,
+                          maxPrice: value as string,
+                        })
+                      }
                     />
                   </div>
                 </div>
 
-                {/* Xüsusiyyətlər (reytinq yoxdur) */}
+                {/* Xüsusiyyətlər */}
                 <div>
                   <label className="mb-2 block text-xs font-semibold uppercase text-slate-500">
                     Xüsusiyyətlər
                   </label>
                   <div className="flex flex-wrap gap-2">
                     <FilterChip
-                      active={inStockOnly}
-                      onClick={() => setInStockOnly(!inStockOnly)}
+                      active={filters.stockFilter === "in_stock"}
+                      onClick={() =>
+                        handleFilterChange({
+                          ...filters,
+                          stockFilter:
+                            filters.stockFilter === "in_stock" ? "all" : "in_stock",
+                        })
+                      }
                       icon={Package}
                       label="Stokda"
                     />
                     <FilterChip
-                      active={discountOnly}
-                      onClick={() => setDiscountOnly(!discountOnly)}
+                      active={filters.discountOnly}
+                      onClick={() =>
+                        handleFilterChange({
+                          ...filters,
+                          discountOnly: !filters.discountOnly,
+                        })
+                      }
                       icon={BadgePercent}
                       label="Endirim"
                     />
                     <FilterChip
-                      active={organicOnly}
-                      onClick={() => setOrganicOnly(!organicOnly)}
-                      icon={Leaf}
-                      label="Organik"
+                      active={filters.stockFilter === "low_stock"}
+                      onClick={() =>
+                        handleFilterChange({
+                          ...filters,
+                          stockFilter:
+                            filters.stockFilter === "low_stock" ? "all" : "low_stock",
+                        })
+                      }
+                      icon={AlertTriangle}
+                      label="Az stok"
                     />
                   </div>
                 </div>
               </div>
 
               <div className="border-t p-4">
-                <button
-                  onClick={() => setIsFilterOpen(false)}
-                  className="w-full rounded-xl bg-emerald-600 py-3 font-semibold text-white shadow-md"
+                <Button
+                  variant="primary"
+                  className="w-full"
+                  onClick={() => setIsFilterDrawerOpen(false)}
                 >
                   Tətbiq et ({filteredProducts.length} məhsul)
-                </button>
-                {activeFiltersCount > 0 && (
-                  <button
-                    onClick={clearAllFilters}
-                    className="mt-2 w-full rounded-xl border border-slate-200 py-2 text-sm font-medium text-slate-600"
-                  >
-                    Bütün filtrləri sıfırla
-                  </button>
-                )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="mt-2 w-full"
+                  onClick={() => {
+                    clearAllFilters();
+                    setIsFilterDrawerOpen(false);
+                  }}
+                >
+                  Bütün filtrləri sıfırla
+                </Button>
               </div>
             </motion.div>
           </>
@@ -637,9 +628,7 @@ export function ProductsPageClient({ initialData }: { initialData?: { products: 
   );
 }
 
-// ──────────────────────────────────────────────────────────────────
-// Sub-komponentlər
-// ──────────────────────────────────────────────────────────────────
+// ─── Reusable Filter Chip ──────────────────────────────────────────
 const FilterChip = ({
   active,
   onClick,
@@ -648,15 +637,15 @@ const FilterChip = ({
 }: {
   active: boolean;
   onClick: () => void;
-  icon: any;
+  icon: React.ElementType;
   label: string;
 }) => (
   <button
     onClick={onClick}
     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
       active
-        ? 'bg-emerald-600 text-white shadow-sm'
-        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+        ? "bg-emerald-600 text-white shadow-sm"
+        : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
     }`}
   >
     <Icon className="h-3.5 w-3.5" />
@@ -664,11 +653,11 @@ const FilterChip = ({
   </button>
 );
 
-const ActiveChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
-  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-    {label}
-    <button onClick={onRemove} className="ml-0.5 rounded-full p-0.5 hover:bg-emerald-100">
-      <X className="h-3 w-3" />
-    </button>
-  </span>
-);
+// ─── Helper: əsas qiyməti al (variant-lardan və ya birbaşa) ──────
+function getProductBasePrice(product: any): number {
+  if (product.variants && product.variants.length > 0) {
+    const defaultVariant = product.variants.find((v: any) => v.isDefault) || product.variants[0];
+    return defaultVariant?.price ?? product.basePrice ?? 0;
+  }
+  return product.basePrice ?? product.price ?? 0;
+}

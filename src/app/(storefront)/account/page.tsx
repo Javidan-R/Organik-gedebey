@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import AccountClient from "./AccountClient";
-
+ 
 export const metadata: Metadata = {
   title: 'Hesabım – Organik Gədəbəy',
   description: 'Organik Gədəbəy hesabım səhifəsi. Sifarişlərinizi izləyin, ünvanlarınızı idarə edin, istək siyahısı yaradın.',

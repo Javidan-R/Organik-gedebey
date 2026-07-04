@@ -1,38 +1,31 @@
-// src/app/layout.tsx
-import type { Metadata } from 'next'
-import './globals.css'
-import { AppProviders } from '@/components/AppProviders'
-import { StoreRehydrator } from '@/components/StoreRehydrator'
-import { ErrorBoundary } from 'react-error-boundary'
-import { ErrorFallback } from '@/components/ErrorFallback'
-import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics'
-import { ServiceWorkerRegister } from '@/components/performance/ServiceWorkerRegister'
-import { WebVitals } from '@/components/performance/WebVitals'
-import { head } from 'lodash'
+import type { Metadata } from 'next';
+import Script from 'next/script';
+import './globals.css';
+
+import { AppProviders } from '@/components/AppProviders';
+import { ServiceWorkerRegister } from '@/components/performance/ServiceWorkerRegister';
+import { WebVitals } from '@/components/performance/WebVitals';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Organik Gədəbəy – 100% Təbii Kənd Məhsulları | Bal, Pendir, Qaymaq, Bəhməz',
+    default: 'Organik Gədəbəy – Təbii Kənd Məhsulları',
     template: '%s | Organik Gədəbəy',
   },
-  description: 'Gədəbəy dağlarından birbaşa süfrənizə: ən təbii bal, qaymaq, pendir, bəhməz, sirkə, quru meyvələr. 100% təbii, əl istehsalı, ekoloji təmiz kənd məhsulları. Azərbaycanın ən yaxşı organik məhsul mağazası.',
-  keywords: ['organik məhsullar', 'kənd məhsulları', 'Gədəbəy bal', 'təbii bal', 'qaymaq', 'pendir', 'bəhməz', 'sirkə', 'quru meyvə', 'dağ məhsulları', 'ekoloji məhsullar', 'əl istehsalı', 'Azərbaycan kənd məhsulları', 'təbii qida', 'organik bazar', 'Gədəbəy rayonu', 'səhər yeməyi', 'süd məhsulları', 'təbii çərəz', 'dağ balı', 'arı məhsulları', 'ev yeməyi', 'sağlam qida'],
+  description: 'Gədəbəy dağlarından birbaşa süfrənizə: ən təbii bal, qaymaq, pendir, bəhməz, sirkə, quru meyvələr. 100% təbii, əl istehsalı.',
+  keywords: [
+    'organik məhsullar',
+    'kənd məhsulları',
+    'Gədəbəy bal',
+    'təbii bal',
+    'qaymaq',
+    'pendir',
+  ],
   authors: [{ name: 'Organik Gədəbəy', url: 'https://organikgedebey.az' }],
-  creator: 'Organik Gədəbəy',
-  publisher: 'Organik Gədəbəy',
-  metadataBase: new URL('https://organikgedebey.az'),
-  alternates: {
-    canonical: '/',
-    languages: {
-      'az-AZ': '/az',
-      'en-US': '/en',
-      'ru-RU': '/ru',
-    },
-  },
+  metadataBase: new URL(process.env.NEXT_PUBLIC_URL || 'https://organikgedebey.az'),
   openGraph: {
-    title: 'Organik Gədəbəy – 100% Təbii Kənd Məhsulları | Bal, Pendir, Qaymaq, Bəhməz',
-    description: 'Gədəbəy dağlarından birbaşa süfrənizə: ən təbii bal, qaymaq, pendir, bəhməz, sirkə, quru meyvələr. 100% təbii, əl istehsalı, ekoloji təmiz kənd məhsulları. Azərbaycanın ən yaxşı organik məhsul mağazası.',
-    url: 'https://organikgedebey.az',
+    title: 'Organik Gədəbəy – Təbii Kənd Məhsulları',
+    description: 'Gədəbəy dağlarından birbaşa süfrənizə...',
+    url: process.env.NEXT_PUBLIC_URL || 'https://organikgedebey.az',
     siteName: 'Organik Gədəbəy',
     locale: 'az_AZ',
     type: 'website',
@@ -41,39 +34,26 @@ export const metadata: Metadata = {
         url: '/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'Organik Gədəbəy - Təbii kənd məhsulları - Bal, Pendir, Qaymaq, Bəhməz',
+        alt: 'Organik Gədəbəy',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Organik Gədəbəy – 100% Təbii Kənd Məhsulları | Bal, Pendir, Qaymaq',
-    description: 'Gədəbəy dağlarından birbaşa süfrənizə: ən təbii bal, qaymaq, pendir, bəhməz, sirkə. 100% təbii, əl istehsalı.',
+    title: 'Organik Gədəbəy',
+    description: 'Təbii kənd məhsulları',
     images: ['/og-image.jpg'],
     creator: '@organikgedebey',
   },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-    },
-  },
-  verification: {
-    google: 'your-google-verification-code',
-    yandex: 'your-yandex-verification-code',
-  },
-}
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
+  const gaId = process.env.NEXT_PUBLIC_GA_ID;
+
   return (
     <html lang="az" suppressHydrationWarning>
       <head>
@@ -86,17 +66,31 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+
+        {gaId && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${gaId}', {
+                  page_path: window.location.pathname,
+                });
+              `}
+            </Script>
+          </>
+        )}
       </head>
       <body suppressHydrationWarning>
-        <ErrorBoundary FallbackComponent={ErrorFallback}>
-          <WebVitals />
-          <ServiceWorkerRegister />
-          <AppProviders>
-            <StoreRehydrator />
-            {children}
-          </AppProviders>
-        </ErrorBoundary>
+        <WebVitals />
+        <ServiceWorkerRegister />
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
-  )
+  );
 }

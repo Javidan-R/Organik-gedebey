@@ -1,4 +1,5 @@
 // lib/auth/permissions.ts
+
 export const PERMISSIONS = {
   CUSTOMER: [
     "order:create",

@@ -6,7 +6,7 @@ export { useAuth, useAuthStore } from '@/lib/auth-store'
 export type { AuthUser, UserRole, SignupData, Address, CustomerPreferences } from '@/lib/auth-store'
 
 // ─── Protected route hook ────────────────────────────────────────────────────
-
+ 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-store'

@@ -13,7 +13,7 @@ const bulkActionSchema = z.object({
   userIds: z.array(z.string().uuid()).min(1, 'Ən azı bir istifadəçi seçilməlidir'),
   reason: z.string().optional(),
 })
-
+ 
 export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth(request, ['ADMIN', 'SUPERADMIN'])

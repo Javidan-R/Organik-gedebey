@@ -12,7 +12,7 @@ export const MAX_BADGES = 3
 export const MINIMUM_REVIEWS_FOR_MUST_TRY = 3
 export const MOBILE_BREAKPOINT = 768
 export const MAX_COMPARE_ITEMS = 3
-
+ 
 export const PRODUCT_SCORING_WEIGHTS = {
   DISCOUNT: 0.5,
   RATING: 4,

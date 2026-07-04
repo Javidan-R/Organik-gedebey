@@ -17,7 +17,7 @@ export const OrdersPagination: React.FC<OrdersPaginationProps> = ({
   page,
   setPage,
   pageSize,
-  setPageSize,
+  setPageSize, 
 }) => {
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const currentStart = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;

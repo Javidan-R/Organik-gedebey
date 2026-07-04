@@ -1,8 +1,8 @@
 import { Metadata } from 'next';
 import dynamic from 'next/dynamic';
 import { db } from '@/lib/db';
-import { products, categories } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { products, categories, productImages } from '@/lib/db/schema';
+import { eq, desc } from 'drizzle-orm';
 import { JsonLd } from '@/components/seo/JsonLd';
 
 const HomePageClient = dynamic(
@@ -11,6 +11,9 @@ const HomePageClient = dynamic(
     loading: () => <div className="min-h-screen flex items-center justify-center">Yüklənir..</div>
   }
 )
+
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: 'Organik Gədəbəy – 100% Təbii Kənd Məhsulları | Bal, Pendir, Qaymaq, Bəhməz, Sirkə',
   description: 'Gədəbəy dağlarından birbaşa süfrənizə: ən təbii bal, qaymaq, pendir, bəhməz, sirkə, quru meyvələr. 100% təbii, əl istehsalı, ekoloji təmiz kənd məhsulları. Azərbaycanın ən yaxşı organik məhsul mağazası. Pulsuz çatdırılma.',
@@ -31,22 +34,29 @@ async function getInitialData(): Promise<{
   products: any[];
   categories: any[];
 }> {
-  // Optimize: Only fetch active products and limit initial load for performance
+  // Optimize: Only fetch active products, reduce relation payloads and keep the homepage fast
   const allProducts = await (db.query as any).products.findMany({
     where: eq(products.archived, false),
     with: {
-      images: true,
+      category: {
+        columns: { id: true, name: true, slug: true, image: true },
+      },
+      images: {
+        columns: { id: true, url: true, altText: true, displayOrder: true },
+        orderBy: [desc(productImages.displayOrder)],
+        limit: 4,
+      },
       tags: true,
       variants: true,
-      category: true,
     },
-    limit: 50,
+    orderBy: [desc(products.createdAt)],
+    limit: 35,
   });
   const allCategories = await db.select().from(categories).where(eq(categories.archived, false));
   // Orders removed - not needed for storefront and causes performance issues
   return {
     products: allProducts,
-    categories: allCategories
+    categories: allCategories,
   };
 }
 export default async function HomePage() {

@@ -8,7 +8,7 @@ import type {
   ValuationMode
 } from './types-finance' // Types below are assumed to be exported/defined in a separate file or inline here (as per original structure)
 import { useApp } from '@/lib/store' // sifarişlər və məhsullar üçün
-
+ 
 type FinanceState = {
   suppliers: Supplier[]
   accounts: Account[]

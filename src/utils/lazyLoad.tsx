@@ -6,7 +6,7 @@ interface LazyLoadOptions {
   errorFallback?: React.ReactNode;
   onError?: (error: Error) => void;
 }
-
+ 
 /**
  * Higher-order component for lazy loading with loading and error states
  */

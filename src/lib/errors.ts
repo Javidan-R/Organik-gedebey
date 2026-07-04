@@ -10,7 +10,7 @@ import { logger } from './logger';
 // ============================================
 // ERROR CODES
 // ============================================
-
+ 
 export enum ErrorCode {
   // General errors (1000-1999)
   INTERNAL_ERROR = 'INTERNAL_ERROR',

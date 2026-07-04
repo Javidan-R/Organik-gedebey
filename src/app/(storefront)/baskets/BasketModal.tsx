@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export default function BasketModal({ item, onClose }: any) {
   if (!item) return null;
-
+ 
   const [selectedVariant, setSelectedVariant] = useState(item.variants?.[0] || null);
   const [quantity, setQuantity] = useState(1);
 

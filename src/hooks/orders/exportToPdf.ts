@@ -1,6 +1,6 @@
 // src/utils/orders/exportToPdf.ts
 "use client";
-
+ 
 import jsPDF from "jspdf";
 import type { OrderWithTotal } from "@/types/orders";
 

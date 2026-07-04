@@ -1,6 +1,4 @@
 // src/app/api/auth/signup/route.ts
-// Müştəri qeydiyyatı.
-
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { signCustomerToken, COOKIE_CUSTOMER } from '@/lib/auth/jwt'
@@ -17,6 +15,7 @@ const cookieOptions = {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit
   const ip = getClientIp(req)
   const limit = checkRateLimit('auth:customer-signup', ip, 5, 15 * 60 * 1000)
   if (!limit.allowed) {
@@ -27,6 +26,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(body, { status, headers })
   }
 
+  // Body yoxla
   const body = await req.json().catch(() => null)
   if (!body?.email || !body?.password || !body?.firstName || !body?.lastName) {
     return NextResponse.json({ error: 'Email, şifrə, ad və soyad tələb olunur' }, { status: 400 })
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const { users } = await import('@/lib/db/schema')
     const { eq } = await import('drizzle-orm')
 
-    // Email-in artıq mövcud olub-olmadığını yoxla
+    // Email artıq mövcuddurmu?
     const [existingUser] = await db
       .select({ id: users.id })
       .from(users)
@@ -76,6 +76,11 @@ export async function POST(req: NextRequest) {
         totalOrders: 0,
       })
       .returning()
+
+    // ✅ Mühüm düzəliş: newUser undefined ola bilər
+    if (!newUser) {
+      return NextResponse.json({ error: 'İstifadəçi yaradıla bilmədi' }, { status: 500 })
+    }
 
     const name = `${newUser.firstName} ${newUser.lastName}`.trim()
 

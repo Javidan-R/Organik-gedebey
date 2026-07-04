@@ -24,4 +24,4 @@ export function useIsMobile(debounceMs = 150): boolean {
   }, [debounceMs]);
 
   return isMobile;
-}
+} 

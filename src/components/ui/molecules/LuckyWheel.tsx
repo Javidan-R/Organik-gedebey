@@ -4,15 +4,14 @@ import {
   useState,
   useEffect,
   useCallback,
-  useMemo,
+  useMemo, 
   useRef,
-  createContext,
-  useContext,
+ 
   type FC,
   type ReactNode,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import { motion, AnimatePresence, useAnimation, useSpring, useMotionValue, useTransform } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   GiPumpkin,
   GiFallDown,
@@ -23,15 +22,13 @@ import {
   GiLightningDome,
   GiTrophy,
   GiAbstract086,
-  GiSparkles,
   GiDiamondHard,
-  GiMagicSwirl,
-  GiPirateFlag,
+ 
   GiCrownedHeart,
   GiBurningDot,
 } from "react-icons/gi";
-import { FaCopy, FaShareAlt, FaGift, FaRegClock, FaVolumeUp, FaVolumeMute, FaChartLine, FaTrophy, FaFire, FaMedal, FaCrown, FaGem, FaRocket } from "react-icons/fa";
-import { MdClose, MdVibration, MdAccessibility, MdSpeed, MdPsychology, MdLeaderboard, MdNotificationsActive, MdSettings } from "react-icons/md";
+import { FaCopy, FaShareAlt, FaGift, FaRegClock, FaTrophy, FaFire, FaCrown, FaGem,} from "react-icons/fa";
+import { MdClose } from "react-icons/md";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 /* ================================================================

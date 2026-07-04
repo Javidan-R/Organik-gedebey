@@ -1,6 +1,6 @@
 // src/app/api/account/analytics/route.ts
 // İstifadəçi analitikası
-
+ 
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyCustomerToken, COOKIE_CUSTOMER } from '@/lib/auth/jwt'
 import { db } from '@/lib/db'

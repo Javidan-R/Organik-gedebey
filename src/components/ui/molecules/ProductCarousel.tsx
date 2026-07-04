@@ -19,7 +19,7 @@ export function ProductCarousel({
   const [activeIdx, setActiveIdx] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const dragStart = useRef(0)
-
+ 
   const CARD_W = 280
 
   const checkScroll = useCallback(() => {

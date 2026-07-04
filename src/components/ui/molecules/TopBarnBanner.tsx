@@ -21,7 +21,7 @@ export interface TopBarnBannerProps {
   onDismiss?: () => void;
   onOfferChange?: (index: number) => void;
 }
-
+ 
 const DEFAULT_OFFERS: Offer[] = [
   { id: 'delivery', emoji: '🐄', prefix: 'Bakı metrosu ətrafı', highlight: '30 AZN üzəri sifarişə pulsuz çatdırılma' },
   { id: 'first-order', emoji: '🎁', prefix: 'İlk sifarişinizə', highlight: '10% endirim – kupon: ORGANIC10', badge: 'YENİ' },

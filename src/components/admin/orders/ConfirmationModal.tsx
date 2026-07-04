@@ -11,7 +11,7 @@ const ConfirmationModal: React.FC<{
   description: string;
 }> = ({ open, onClose, onConfirm, title, description }) => {
   if (!open) return null;
-
+ 
   return (
     <motion.div
       initial={{ opacity: 0 }}

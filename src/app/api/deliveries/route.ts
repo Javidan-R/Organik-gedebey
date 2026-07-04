@@ -1,9 +1,11 @@
 // app/api/deliveries/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
-import { deliveries, orders, users } from "@/lib/db/schema"
-import { eq, desc, and } from "drizzle-orm"
+
+import { eq, desc, and } from 'drizzle-orm'
+import { deliveries, orders, users } from '@/lib/db/schema'
 import { requireAuth } from "@/lib/auth"
+import { logger } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +21,7 @@ export async function GET(request: NextRequest) {
     if (status && status !== "all") {
       conditions.push(eq(deliveries.status, status as "PENDING" | "DELIVERED" | "ASSIGNED" | "PICKED_UP" | "IN_TRANSIT" | "FAILED" | "RETURNED"))
     }
-    
+     
     if (courierId) {
       conditions.push(eq(deliveries.courierId, courierId))
     }

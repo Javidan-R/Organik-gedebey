@@ -5,7 +5,7 @@ import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { XCircle, MoreVertical } from "lucide-react";
 
-import StatusBadge from "@/components/admin/orders/StatusBadge";
+import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/atoms/button";
 import { OrderWithTotal, OrderStatus } from "@/types/orders";
 import { ID } from "@/lib/store";
@@ -18,7 +18,7 @@ type Props = {
   onStatusChange: (id: ID, status: OrderStatus) => void;
   onOpenDetails: (order: OrderWithTotal) => void;
 };
-
+ 
 export const OrdersListMobile: React.FC<Props> = ({
   orders,
   selectedOrderIds,

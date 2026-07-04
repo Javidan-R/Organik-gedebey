@@ -1,9 +1,10 @@
 import { OrderStatusDisplay } from "@/types/orders";
 import { Clock, CheckCircle2, Ban, AlertTriangle, Package, Truck, RotateCcw } from "lucide-react";
 import { ReactNode } from "react";
-
+ 
 // Status badge – daha aydın, ikonalı
-const StatusBadge: React.FC<{ status: OrderStatusDisplay }> = ({ status }) => {
+
+export const StatusBadge: React.FC<{ status: OrderStatusDisplay }> = ({ status }) => {
   let icon: ReactNode;
   let classes =
     'inline-flex items-center gap-[0.25rem] px-[0.6rem] py-[0.25rem] rounded-full text-[0.75rem] font-semibold';
@@ -55,6 +56,7 @@ const StatusBadge: React.FC<{ status: OrderStatusDisplay }> = ({ status }) => {
     delivered: 'Çatdırılıb',
     cancelled: 'Ləğv edilib',
     refunded: 'Qaytarıldı',
+    out_for_delivery: "Çatdırılmaya yola düşüb"
   };
 
   return (
@@ -62,5 +64,6 @@ const StatusBadge: React.FC<{ status: OrderStatusDisplay }> = ({ status }) => {
       {icon}
       {statusLabels[status] || status}
     </span>
-  );
-export default StatusBadge;
+  )
+  
+};

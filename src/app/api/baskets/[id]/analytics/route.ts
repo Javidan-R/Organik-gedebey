@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { baskets, basketAnalytics, basketReviews, basketFavorites } from '@/lib/db/schema'
-import { eq, and, sql, desc, gte } from 'drizzle-orm'
+import { eq, and, gte } from 'drizzle-orm'
 import { requireAuth, AuthError } from '@/lib/auth'
 
 export async function GET(
@@ -16,7 +16,7 @@ export async function GET(
 
     const { searchParams } = new URL(request.url)
     const period = searchParams.get('period') || '30d'
-
+ 
     // Calculate date range
     const now = new Date()
     let startDate: Date

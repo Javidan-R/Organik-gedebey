@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import type { FC } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, ArrowUp, Bell, TrendingUp, Package, Star, Sun, Moon } from 'lucide-react';
+import { ArrowRight, ArrowUp } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useApp, Product, Category, Order } from '@/lib/store';
 import { finalPrice } from '@/lib/calc';
@@ -45,8 +45,8 @@ import {
 } from '@/utils';
 import { FreshTodayStoryBar } from '@/components/ui/molecules/FreshTodayStoryBar';
 import { FreshTodayStoryModal } from '@/components/ui/molecules/FreshTodayStoryModal';
-import { ScrollProgressBar } from '@/components/shared/ScrollProgressBar';
-import { SkeletonLoader } from '@/components/shared/SkeletonLoader';
+import { ScrollProgressBar } from '@/components/common/ScrollProgressBar';
+import { SkeletonLoader } from '@/components/common/SkeletonLoader';
 import { MobileSearchDrawer } from '@/components/ui/molecules/MobileSearchDrawer';
 import { ProductGrid } from '@/components/ui/organisms/ProductGrid';
 import { HeroSection } from '@/components/ui/organisms/HeroSection';
@@ -116,7 +116,7 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
 
   // Hooks
   const [recentViewed, addToRecent] = useRecentViewed(products);
-  const [wishlist, addToWishlist, removeFromWishlist, isInWishlist] = useWishlist();
+  const [wishlist] = useWishlist();
   const timeOfDay = useTimeOfDay();
   const [secondsLeft, formatTimer] = useCountdownTimer();
   const isMobile = useIsMobile();

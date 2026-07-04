@@ -4,7 +4,7 @@
 import { useState, useCallback } from "react";
 import { ID } from "@/lib/store"; // Fərz edilir ki, ID burdan gəlir
 import { OrderStatus } from "@/types/orders"; // Fərz edilir ki, OrderStatus burdan gəlir
-
+ 
 // 1. Yeni, aydın funksiya tipini təyin edirik
 type UpdateOrderStatusFunction = (id: ID, status: OrderStatus) => void;
 

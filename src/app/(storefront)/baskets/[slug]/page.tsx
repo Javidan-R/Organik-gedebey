@@ -1,9 +1,9 @@
 // src/app/(storefront)/baskets/[slug]/page.tsx
 // Tək səbət detail səhifəsi
-
+ 
 import { notFound } from 'next/navigation'
 import { db } from '@/lib/db'
-import { baskets, basketMedia, basketVariants, basketContents, basketExtras } from '@/lib/db/schema'
+import { baskets, basketMedia, basketContents, basketExtras } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 
 interface Props {

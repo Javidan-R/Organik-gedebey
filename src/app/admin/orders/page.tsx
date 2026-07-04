@@ -1,6 +1,6 @@
 // src/app/admin/orders/page.tsx
 "use client";
-
+  
 import { useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -19,7 +19,7 @@ import {
 import { ID, useHasHydrated } from "@/lib/store";
 import { OrderStatusDisplay, OrderFull, ColumnVisibility } from "@/types/orders";
 import { transformOrderForFrontend, fromDisplayStatus } from "@/lib/utils/order-utils";
-import { KpiCard } from "@/components/atoms/finance/KpiCard";
+import { KpiCard } from "@/components/admin/finance/atoms/KpiCard";
 import ConfirmationModal from "@/components/admin/orders/ConfirmationModal";
 import OrdersPageSkeleton from "@/components/admin/molecules/OrdersPageSkeleton";
 import { OrderDetailsFlyout } from "@/components/admin/orders/OrderDetailsFlyout";

@@ -6,7 +6,7 @@ import { requireAuth, AuthError } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { baskets, orderItems, orders } from '@/lib/db/schema'
 import { eq, and, gte, sql, desc, inArray } from 'drizzle-orm'
-
+ 
 export async function GET(request: NextRequest) {
   try {
     await requireAuth(request, ['ADMIN', 'MANAGER', 'SUPERADMIN'])

@@ -6,6 +6,8 @@ import {
   ShoppingCart, Heart, Star, Leaf, Clock, AlertTriangle, 
   Truck, Tag, Minus, Plus, Package 
 } from 'lucide-react'
+import { QuantitySelector } from '@/components/ui/molecules/QuantitySelector'
+import { PremiumBadges } from '@/components/ui/molecules/PremiumBadges'
 import type { Product, Variant as BaseVariant, UnitType } from '@/types/products'
 
 // Mock store and types
@@ -81,115 +83,7 @@ const formatQuantity = (qty: number, unit: Unit | UnitType): string => {
   return Math.round(qty).toString() // 3 ədəd
 }
 
-// Premium Badges Component
-const PremiumBadges = memo(({ 
-  product, 
-  hasDiscount, 
-  offPerc, 
-  isOutOfStock, 
-  stock 
-}: { 
-  product: StorefrontProduct
-  hasDiscount: boolean
-  offPerc: number
-  isOutOfStock: boolean
-  stock: number
-}) => {
-  const { toggleFavorite, isFavorite } = useApp()
-  const fav = isFavorite(product.id)
-  const isLowStock = stock > 0 && stock < 5
-
-  return (
-    <div className="absolute top-3 right-3 flex flex-col items-end space-y-2 z-10">
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={(e) => { e.preventDefault(); toggleFavorite(product.id) }}
-        className={`p-2 rounded-full transition bg-white/90 hover:bg-white backdrop-blur-sm shadow-md ${
-          fav ? 'text-rose-600' : 'text-gray-400'
-        }`}
-      >
-        <Heart className={`w-4 h-4 transition ${fav ? 'fill-rose-500' : ''}`} />
-      </motion.button>
-
-      {hasDiscount && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-3 py-1 text-[11px] font-bold text-white shadow-xl animate-pulse">
-          <Clock className="w-3 h-3" /> 
-          -{offPerc}% ENDİRİM!
-        </span>
-      )}
-      
-      {isLowStock && (
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-[11px] font-bold text-white shadow-md">
-          <AlertTriangle className="w-3 h-3" /> Az Qalıb
-        </span>
-      )}
-
-      <span className="inline-flex items-center gap-1 rounded-full bg-blue-500 px-3 py-1 text-[11px] font-bold text-white shadow-md">
-        <Truck className="w-3 h-3" /> Sürətli Çatdırılma
-      </span>
-    </div>
-  )
-})
-PremiumBadges.displayName = 'PremiumBadges'
-
-// Quantity Selector Component
-const QuantitySelector = memo(({ 
-  qty, 
-  unit, 
-  step, 
-  minQty, 
-  maxQty, 
-  stock,
-  onIncrement, 
-  onDecrement,
-  onChange 
-}: {
-  qty: number
-  unit: Unit | UnitType
-  step: number
-  minQty: number
-  maxQty: number
-  stock: number
-  onIncrement: () => void
-  onDecrement: () => void
-  onChange: (value: number) => void
-}) => {
-  const unitDisplay = getUnitDisplay(unit)
-  const displayQty = formatQuantity(qty, unit)
-  
-  return (
-    <div className="flex items-center border-2 border-emerald-500 rounded-xl overflow-hidden shadow-sm bg-white">
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        onClick={onDecrement}
-        disabled={qty <= minQty}
-        className="p-3 text-emerald-700 hover:bg-emerald-50 transition disabled:opacity-30 disabled:cursor-not-allowed font-bold"
-      >
-        <Minus className="w-4 h-4" />
-      </motion.button>
-      
-      <div className="flex-1 px-2 text-center min-w-[80px]">
-        <div className="text-lg font-bold text-gray-900">
-          {displayQty}
-        </div>
-        <div className="text-xs text-gray-500 font-medium">
-          {unitDisplay}
-        </div>
-      </div>
-      
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        onClick={onIncrement}
-        disabled={qty >= Math.min(maxQty, stock)}
-        className="p-3 text-emerald-700 hover:bg-emerald-50 transition disabled:opacity-30 disabled:cursor-not-allowed font-bold"
-      >
-        <Plus className="w-4 h-4" />
-      </motion.button>
-    </div>
-  )
-})
-QuantitySelector.displayName = 'QuantitySelector'
+// Shared UI molecules: PremiumBadges and QuantitySelector are imported above
 
 // Main Product Card Component
 export const StorefrontProductCard = memo(({ product }: { product: StorefrontProduct }) => {

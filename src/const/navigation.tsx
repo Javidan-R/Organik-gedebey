@@ -6,12 +6,11 @@ import {
   Menu,
   Grid2X2,
   User,
-  Heart,
   Package,
   BookOpen,
   type LucideIcon,
 } from "lucide-react";
-
+ 
 export interface NavItem {
   key: string;
   href?: string;

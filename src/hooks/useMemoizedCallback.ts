@@ -3,7 +3,7 @@ import { useCallback, useRef } from 'react';
 /**
  * Custom hook for memoized callbacks that won't change unless dependencies change
  * This is more performant than useCallback for complex dependencies
- */
+ */ 
 export function useMemoizedCallback<T extends (...args: unknown[]) => unknown>(
   callback: T,
   deps: React.DependencyList

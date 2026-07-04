@@ -14,7 +14,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
-
+ 
 // ============================================
 // ENUMS
 // ============================================
@@ -1559,3 +1559,4 @@ export const wishlistRelations = relations(wishlist, ({ one }) => ({
     references: [productVariants.id],
   }),
 }))
+

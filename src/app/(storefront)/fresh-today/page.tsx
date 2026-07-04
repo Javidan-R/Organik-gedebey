@@ -5,19 +5,18 @@
  * Instagram Stories + Luxury E-Commerce hybrid
  * Mobile-first, gesture-friendly, cinematic animations
  */
-
+ 
 import {
-  useMemo, useState, useCallback, useRef, useEffect, useLayoutEffect,
+  useMemo, useState, useCallback, useRef, useEffect, 
 } from "react";
 import {
-  motion, AnimatePresence, useMotionValue, useTransform,
-  useSpring, useInView, animate, PanInfo,
+  motion, AnimatePresence,  useInView
 } from "framer-motion";
 import {
   Leaf, ShoppingBag, Heart, Share2, Bell, BellOff, X,
-  ChevronLeft, ChevronRight, Flame, Sparkles, MapPin,
+  Flame, Sparkles, MapPin,
   Clock, Star, Minus, Plus, Ban, ArrowRight, Check,
-  Bookmark, BookmarkCheck, Eye, Zap, TimerOff, Package,
+  Bookmark, BookmarkCheck, Eye, Zap, TimerOff, 
   Calendar, ShieldCheck, Truck, Crown,
 } from "lucide-react";
 import Image from "next/image";
@@ -28,8 +27,9 @@ import {
   getFirstImageUrl,
   getProductBasePrice,
   formatCurrency,
-} from "@/utils/storefront_home";
+} from "@/utils/product";
 import type { ID, Product } from "@/types/products";
+import Toast from "@/components/ui/Toast";
 
 /* ══════════════════════════════════════════════════════════════════
    TYPES & CONSTANTS
@@ -58,26 +58,6 @@ function useLocalStorage<T>(key: string, initial: T) {
   return [val, setVal] as const;
 }
 
-/* ══════════════════════════════════════════════════════════════════
-   TOAST
-══════════════════════════════════════════════════════════════════ */
-function Toast({ msg, icon }: { msg: string; icon?: React.ReactNode }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -48, scale: 0.9 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -24, scale: 0.95 }}
-      transition={{ type: "spring", stiffness: 500, damping: 35 }}
-      className="fixed top-5 left-1/2 -translate-x-1/2 z-[999]
-        flex items-center gap-2 bg-[#051F0A] text-[#B5E935]
-        rounded-full px-5 py-2.5 text-xs font-bold shadow-2xl
-        border border-[#B5E935]/20 backdrop-blur-xl whitespace-nowrap"
-    >
-      {icon && <span className="text-sm">{icon}</span>}
-      {msg}
-    </motion.div>
-  );
-}
 
 /* ══════════════════════════════════════════════════════════════════
    STORY PROGRESS BAR
@@ -1297,11 +1277,7 @@ export default function FreshTodayPage() {
 
   return (
     <div className="min-h-screen bg-[#FDFBF4] font-sans">
-      {/* ── TOAST ── */}
-      <AnimatePresence>
-        {toast && <Toast msg={toast.msg} icon={toast.icon} />}
-      </AnimatePresence>
-
+     
       {/* ── HEADER ── */}
       <div className="sticky top-0 z-40 bg-[#FDFBF4]/90 backdrop-blur-xl
         border-b border-slate-200/60">

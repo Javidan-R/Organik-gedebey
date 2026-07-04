@@ -1,6 +1,4 @@
 "use client";
-
-import { Product } from "@/types/products";
 /**
  * FreshTodayStoryBar — Premium Edition v3
  *
@@ -21,13 +19,12 @@ import {
 } from "framer-motion";
 import {
   Leaf, Truck, Zap, Sun, CheckCircle2,
-  ChevronRight, Wheat, Apple, Droplets,
-  Clock, MapPin, Star, ShoppingBag, X,
-  TrendingUp, Users, Flame, Bell, Plus,
-  Timer, ArrowRight, Heart,
+  ChevronRight,MapPin, Star, ShoppingBag, X,
+  TrendingUp, Users, Flame, Bell,
+  Timer, ArrowRight
 } from "lucide-react";
 import {
-  useState, useRef, useMemo, useEffect,
+  useState, useMemo, useEffect,
   useCallback,
 } from "react";
 
@@ -59,22 +56,6 @@ interface Props {
   onOpenStory: (index: number) => void;
   items?: FreshStoryItem[];
 }
-
-/* ════════════════════════════════════════
-   DEMO DATA
-════════════════════════════════════════ */
-const DEMO: FreshStoryItem[] = [
-  { id:"1", productName:"Çiçək Balı", farmName:"Bəylər Arıxanası", farmerInitials:"BK", farmerColor:"bg-amber-500", region:"Gədəbəy", category:"bal", hoursAgo:1, availableToday:true, stockLeft:8, imageEmoji:"🍯", isBestSeller:true, pricePerUnit:"18₼/kg", soldToday:24, rating:4.9 },
-  { id:"2", productName:"Kənd Südü", farmName:"Əhmədli Ferması", farmerInitials:"ƏF", farmerColor:"bg-sky-500", region:"Gəncə", category:"süd", hoursAgo:1, availableToday:true, stockLeft:15, imageEmoji:"🥛", isNew:true, pricePerUnit:"2.5₼/L", soldToday:31, rating:4.8 },
-  { id:"3", productName:"Pomidor", farmName:"Qasımov Bağı", farmerInitials:"QB", farmerColor:"bg-red-500", region:"Gədəbəy", category:"tərəvəz", hoursAgo:3, availableToday:true, imageEmoji:"🍅", pricePerUnit:"3₼/kg", soldToday:17, rating:4.7 },
-  { id:"4", productName:"Üzüm", farmName:"Nəcəfov Bağı", farmerInitials:"NB", farmerColor:"bg-purple-500", region:"Gəncə", category:"meyvə", hoursAgo:4, availableToday:true, stockLeft:5, imageEmoji:"🍇", pricePerUnit:"5₼/kg", soldToday:12, rating:4.9 },
-  { id:"5", productName:"Kənd Yumurtası", farmName:"Muradov Ferması", farmerInitials:"MF", farmerColor:"bg-amber-600", region:"Göygöl", category:"süd", hoursAgo:2, availableToday:true, imageEmoji:"🥚", isNew:true, pricePerUnit:"6₼/12 əd", soldToday:20, rating:4.8 },
-  { id:"6", productName:"Alma (Aport)", farmName:"İsmayılov Bağı", farmerInitials:"İB", farmerColor:"bg-rose-500", region:"Gədəbəy", category:"meyvə", hoursAgo:5, availableToday:true, imageEmoji:"🍎", isBestSeller:true, pricePerUnit:"4₼/kg", soldToday:38, rating:4.9 },
-  { id:"7", productName:"Lobya", farmName:"Hüseynov Bağçası", farmerInitials:"HB", farmerColor:"bg-green-700", region:"Gədəbəy", category:"tərəvəz", hoursAgo:6, availableToday:false, preOrderAvailable:true, imageEmoji:"🫘", pricePerUnit:"7₼/kg" },
-  { id:"8", productName:"Buğda Unu", farmName:"Kəlbəliyev Dəyirmanı", farmerInitials:"KD", farmerColor:"bg-stone-600", region:"Gəncə", category:"taxıl", hoursAgo:7, availableToday:true, imageEmoji:"🌾", isNew:true, pricePerUnit:"2₼/kg", soldToday:9, rating:4.6 },
-  { id:"9", productName:"Qaymaq", farmName:"Əhmədli Ferması", farmerInitials:"ƏF", farmerColor:"bg-sky-500", region:"Gəncə", category:"süd", hoursAgo:2, availableToday:true, stockLeft:4, imageEmoji:"🧈", pricePerUnit:"12₼/250q", soldToday:14, rating:5.0 },
-  { id:"10", productName:"Gilas", farmName:"Nəcəfov Bağı", farmerInitials:"NB", farmerColor:"bg-rose-600", region:"Gəncə", category:"meyvə", hoursAgo:3, availableToday:true, imageEmoji:"🍒", isBestSeller:true, pricePerUnit:"8₼/kg", soldToday:41, rating:4.9 },
-];
 
 /* ════════════════════════════════════════
    CATEGORY CONFIG
@@ -587,17 +568,17 @@ function FreshnessLegend() {
         <div key={s.l} className="flex items-center gap-1 shrink-0">
           <div className="w-3 h-3 rounded-full" style={{ background:`linear-gradient(135deg,${s.f},${s.t})` }} />
           <span className="text-[9px] font-bold text-slate-400">{s.l}</span>
-        </div>
+        </div>   
       ))}
       <span className="text-[9px] text-slate-300 font-medium">· təzəlik şkalası</span>
     </div>
   );
 }
 
-/* ════════════════════════════════════════
+/* ════════════════════════════════════════ 
    MAIN EXPORT
 ════════════════════════════════════════ */
-export function FreshTodayStoryBar({ onOpenStory, items = [] as Product[] }: Props) {
+export function FreshTodayStoryBar({ onOpenStory, items = [] }: Props) {
   const [cat, setCat] = useState<string>("hamısı");
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [hovered, setHovered] = useState<FreshStoryItem|null>(null);

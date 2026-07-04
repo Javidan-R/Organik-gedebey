@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
 
     const conditions = []
-    if (status && status !== 'all') conditions.push(eq(orders.paymentStatus, status))
-    if (method && method !== 'all') conditions.push(eq(orders.paymentMethod, method))
+    if (status && status !== 'all') conditions.push(eq(orders.paymentStatus, status as 'UNPAID' | 'PAID' | 'PARTIALLY_REFUNDED' | 'REFUNDED'))
+    if (method && method !== 'all') conditions.push(eq(orders.paymentMethod, method as 'CASH_ON_DELIVERY' | 'CARD' | 'BANK_TRANSFER'))
     if (dateFrom) conditions.push(gte(orders.createdAt, new Date(dateFrom)))
     if (dateTo) {
       const endDate = new Date(dateTo)

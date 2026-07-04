@@ -15,7 +15,7 @@ const createSupplierSchema = z.object({
   email: z.string().email().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),
-})
+}) 
 
 export async function GET(request: NextRequest) {
   try {

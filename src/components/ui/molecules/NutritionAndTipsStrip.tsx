@@ -1,7 +1,7 @@
 "use client";
 
 import { Product } from "@/types/products";
-import { getFirstImageUrl } from "@/utils/storefront_home";
+import { getFirstImageUrl } from "@/utils/product";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Lightbulb,
@@ -16,11 +16,10 @@ import {
   Clock,
   ChevronRight,
   FlameKindling,
-  ChefHat,
   Users,
 } from "lucide-react";
 import { useState, useMemo } from "react";
-
+ 
 // ─── Tiplər ────────────────────────────────────────────────
 type NutrTab = "tips" | "nutrition" | "allergens" | "recipes";
 
@@ -44,7 +43,7 @@ const MacroBar = ({
 }: {
   label: string;
   value: number;
-  color: string;
+  color?: string;
   unit?: string;
 }) => (
   <div className="space-y-1">

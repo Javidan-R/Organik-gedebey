@@ -4,16 +4,27 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Plus, Search, AlertTriangle, Archive, PackageSearch,
-  Filter, Sparkles, LayoutGrid, Rows3, SlidersHorizontal,
-  X, Percent, Layers, Star, BadgeDollarSign,
+  Plus,
+  Search,
+  AlertTriangle,
+  Archive,
+  PackageSearch,
+  Filter,
+  Sparkles,
+  LayoutGrid,
+  Rows3,
+  SlidersHorizontal,
+  X,
+  Percent,
+  Layers,
+  Star,
+  BadgeDollarSign,
 } from 'lucide-react';
 
-import { useApp, useHasHydrated } from '@/lib/store';
-import {
-  useProducts as useProductsAPI,
-  useCategories as useCategoriesAPI,
-} from '@/hooks/useProducts';
+import { useApp } from '@/lib/store';
+import { useProducts } from '@/hooks/useProducts';
+import { useCategories } from '@/hooks/useCategories';
+import { useCreateProduct } from '@/hooks/useProducts';
 
 import { Input } from '@/components/atoms/input';
 import { Select } from '@/components/atoms/select';
@@ -24,15 +35,9 @@ import { SkeletonGrid } from '@/components/admin/molecules/SkeletonGrid';
 import { ProductStatistic } from '@/components/admin/products/ProductStatistic';
 import { ID, Product, ProductCardViewMode } from '@/types/products';
 import { FilterState, useProductFilters } from '@/utils/useProductFilter';
+import { cryptoId } from '@/lib/store';
 
-function cryptoIdSafe(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-// src/app/admin/products/page.tsx - newProductStub düzəlişi
-
+// ─── NEW PRODUCT STUB ──────────────────────────────────────────
 export const newProductStub: Partial<Product> = {
   name: 'Yeni Məhsul',
   slug: '',
@@ -48,100 +53,114 @@ export const newProductStub: Partial<Product> = {
   statusTags: ['newArrival'],
   createdAt: new Date().toISOString(),
   archived: false,
-  variants: [{
-    id: '',
-    name: 'Standart',
-    price: 0,
-    stock: 0,
-    costPrice: 0,
-    arrivalCost: 0,
-    unit: 'ədəd',
-    grade: 'A',
-    minStock: 10,
-    batchDate: new Date().toISOString().split('T')[0], // ✅ DÜZƏLİŞ: boş string əvəzinə tarix
-    createdAt: new Date().toISOString(),
-    label: ''
-  }],
+  variants: [
+    {
+      id: '',
+      name: 'Standart',
+      price: 0,
+      stock: 0,
+      costPrice: 0,
+      arrivalCost: 0,
+      unit: 'ədəd',
+      grade: 'A',
+      minStock: 10,
+      batchDate: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      label: '',
+    },
+  ],
 };
+
+// ─── MAIN PAGE ──────────────────────────────────────────────────
 export default function AdminProducts() {
-  const [viewMode, setViewMode]         = useState<ProductCardViewMode>('grid');
+  // ── React Query ──────────────────────────────────────────────
+  const { data: productsData, isLoading: productsLoading } = useProducts();
+  const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
+  const createProductMutation = useCreateProduct();
+
+  // ── Zustand ──────────────────────────────────────────────────
+  const products = useApp((state) => state.products);
+  const categories = useApp((state) => state.categories);
+  const archiveProduct = useApp((state) => state.archiveProduct);
+  const unarchiveProduct = useApp((state) => state.unarchiveProduct);
+  const deleteProduct = useApp((state) => state.deleteProduct);
+
+  // ── UI State ──────────────────────────────────────────────────
+  const [viewMode, setViewMode] = useState<ProductCardViewMode>('grid');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const [filters, setFilters] = useState<FilterState>({
-    searchTerm: '', categoryId: '', showArchived: false,
-    stockFilter: 'all', discountOnly: false,
-    minPrice: '', maxPrice: '', minRating: '', sortKey: 'newest',
+    searchTerm: '',
+    categoryId: '',
+    showArchived: false,
+    stockFilter: 'all',
+    discountOnly: false,
+    minPrice: '',
+    maxPrice: '',
+    minRating: '',
+    sortKey: 'newest',
   });
 
-  // ── Data ──────────────────────────────────────────────────────
-  const hasHydrated       = useHasHydrated();
-  const productsZustand   = useApp((s) => s.products   ?? []);
-  const categoriesZustand = useApp((s) => s.categories ?? []);
-
-  // ✅ All three actions from Zustand
-  const archiveProduct   = useApp((s) => s.archiveProduct);
-  const unarchiveProduct = useApp((s) => s.unarchiveProduct);
-  const deleteProduct    = useApp((s) => s.deleteProduct);   // ← was missing before
-  const setProducts      = useApp((s) => s.setProducts);
-  const setCategories    = useApp((s) => s.setCategories);
-
-  const { data: productsDataAPI }   = useProductsAPI();
-  const { data: categoriesDataAPI } = useCategoriesAPI();
-
-  // Sync Zustand with API data
-  useEffect(() => {
-    if (productsDataAPI?.products && productsDataAPI.products.length > 0) {
-      setProducts(productsDataAPI.products);
-    }
-    if (categoriesDataAPI?.categories && categoriesDataAPI.categories.length > 0) {
-      setCategories(categoriesDataAPI.categories);
-    }
-  }, [productsDataAPI, categoriesDataAPI, setProducts, setCategories]);
-
-  const products = useMemo(() => {
-    if (hasHydrated && productsZustand.length > 0) return productsZustand;
-    return productsDataAPI?.products ?? [];
-  }, [hasHydrated, productsZustand, productsDataAPI]);
-
-  const categories = useMemo(() => {
-    if (hasHydrated && categoriesZustand.length > 0) return categoriesZustand;
-    return categoriesDataAPI?.categories ?? [];
-  }, [hasHydrated, categoriesZustand, categoriesDataAPI]);
-
-  const filteredProducts = useProductFilters(products, filters);
-
+  // ── Memoized Data ────────────────────────────────────────────
   const categoryMap = useMemo(
-    () => categories.reduce((m: any, c: { id: any; name: any; }) => ({ ...m, [c.id]: c.name }), {} as Record<ID, string>),
+    () =>
+      categories.reduce(
+        (acc, c) => ({ ...acc, [c.id]: c.name }),
+        {} as Record<ID, string>,
+      ),
     [categories],
   );
 
-  const activeProductCount   = useMemo(() => products.filter((p: { archived: any; }) => !p.archived).length, [products]);
-  const archivedProductCount = useMemo(() => products.filter((p: { archived: any; }) =>  p.archived).length, [products]);
+  const activeProductCount = useMemo(
+    () => products.filter((p) => !p.archived).length,
+    [products],
+  );
+  const archivedProductCount = useMemo(
+    () => products.filter((p) => p.archived).length,
+    [products],
+  );
 
-  const handleFilterChange = useCallback(<K extends keyof FilterState>(key: K, value: FilterState[K]) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  }, []);
+  const filteredProducts = useProductFilters(products, filters);
+
+  // ── Filter Handlers ────────────────────────────────────────────
+  const handleFilterChange = useCallback(
+    <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
+      setFilters((prev) => ({ ...prev, [key]: value }));
+    },
+    [],
+  );
 
   const handleResetAdvanced = useCallback(() => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
-      stockFilter: 'all', discountOnly: false,
-      minPrice: '', maxPrice: '', minRating: '', sortKey: 'newest',
+      stockFilter: 'all',
+      discountOnly: false,
+      minPrice: '',
+      maxPrice: '',
+      minRating: '',
+      sortKey: 'newest',
     }));
   }, []);
 
-  // ── Actions ───────────────────────────────────────────────────
-  // NOTE: Delete confirmation is now handled INSIDE ProductCard.
-  // The page just passes the raw deleteProduct function.
-  const handleArchiveProduct   = useCallback((id: ID) => archiveProduct(id),   [archiveProduct]);
-  const handleUnarchiveProduct = useCallback((id: ID) => unarchiveProduct(id), [unarchiveProduct]);
-  const handleDeleteProduct    = useCallback((id: ID) => deleteProduct(id),    [deleteProduct]);
+  // ── Product Actions ────────────────────────────────────────────
+  const handleArchiveProduct = useCallback(
+    (id: ID) => archiveProduct(id),
+    [archiveProduct],
+  );
+  const handleUnarchiveProduct = useCallback(
+    (id: ID) => unarchiveProduct(id),
+    [unarchiveProduct],
+  );
+  const handleDeleteProduct = useCallback(
+    (id: ID) => deleteProduct(id),
+    [deleteProduct],
+  );
 
   const handleCreateNew = useCallback(() => {
-    const now  = new Date().toISOString();
-    const id1  = cryptoIdSafe();
-    const id2  = cryptoIdSafe();
+    const now = new Date().toISOString();
+    const id1 = cryptoId();
+    const id2 = cryptoId();
     const base = (filters.searchTerm || 'yeni-mehsul')
       .toLowerCase()
       .replace(/[^\wşəğüçıö\s-]/gi, ' ')
@@ -154,22 +173,35 @@ export default function AdminProducts() {
       name: 'Yeni Məhsul',
       slug: `${base}-${id2.slice(0, 6)}`,
       createdAt: now,
-      reviews: [], images: [], archived: false,
-      variants: [{
-        id: cryptoIdSafe(), name: 'Standart', price: 0, stock: 0,
-        costPrice: 0, arrivalCost: 0, unit: 'ədəd', grade: 'A', minStock: 10,
-        batchDate: now.split('T')[0], createdAt: now,
-        label: ''
-      }],
+      reviews: [],
+      images: [],
+      archived: false,
+      variants: [
+        {
+          id: cryptoId(),
+          name: 'Standart',
+          price: 0,
+          stock: 0,
+          costPrice: 0,
+          arrivalCost: 0,
+          unit: 'ədəd',
+          grade: 'A',
+          minStock: 10,
+          batchDate: now,
+          createdAt: now,
+          label: '',
+        },
+      ],
     };
     setEditingProduct(fresh);
   }, [filters.searchTerm]);
 
-  const showSkeleton = !hasHydrated;
+  // ── Loading State ─────────────────────────────────────────────
+  const showSkeleton = productsLoading || categoriesLoading;
 
+  // ─── RENDER ────────────────────────────────────────────────────
   return (
     <div className="relative min-h-screen bg-gradient-to-b from-emerald-50 via-slate-50 to-white">
-
       {/* ── HEADER ─────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 border-b border-emerald-100 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-md md:px-6">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
@@ -184,8 +216,7 @@ export default function AdminProducts() {
           </div>
           <div className="hidden items-center gap-3 md:flex">
             <div className="rounded-2xl bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 shadow-inner">
-              Aktiv:{' '}
-              <span className="font-bold">{activeProductCount}</span> · Arxiv:{' '}
+              Aktiv: <span className="font-bold">{activeProductCount}</span> · Arxiv:{' '}
               <span className="font-bold">{archivedProductCount}</span>
             </div>
             <Button variant="primary" onClick={handleCreateNew}>
@@ -199,27 +230,32 @@ export default function AdminProducts() {
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 pb-24 pt-4 md:px-6 md:pt-6">
         <ProductStatistic />
 
-        {/* Filter panel */}
+        {/* ── FILTER PANEL ────────────────────────────────────── */}
         <section className="rounded-3xl border border-emerald-100 bg-white/85 p-4 shadow-xl shadow-emerald-50 backdrop-blur-md md:p-5">
           <div className="flex flex-col gap-4 md:flex-row md:items-center w-full">
             <Input
-              label="Məhsul Axtarışı" name="productSearch"
+              label="Məhsul Axtarışı"
+              name="productSearch"
               value={filters.searchTerm}
-              onChange={value => handleFilterChange('searchTerm', value)}
+              onChange={(value) => handleFilterChange('searchTerm', value)}
               placeholder="Ad, teq, slug və təsvir üzrə axtar..."
               icon={<Search className="h-4 w-4" />}
               className="flex-1 w-80"
             />
             <Select
-              label="Kateqoriya" name="categoryFilter"
+              label="Kateqoriya"
+              name="categoryFilter"
               value={filters.categoryId}
-              onChange={(valOrEvent: any) => {
-                const val = typeof valOrEvent === 'string' ? valOrEvent : valOrEvent?.target?.value ?? '';
+              onChange={(valOrEvent) => {
+                const val =
+                  typeof valOrEvent === 'string'
+                    ? valOrEvent
+                    : valOrEvent?.target?.value ?? '';
                 handleFilterChange('categoryId', val as ID | '');
               }}
               options={[
                 { value: '', label: 'Bütün kateqoriyalar' },
-                ...categories.map((c: { id: unknown; name: unknown; }) => ({ value: c.id, label: c.name })),
+                ...categories.map((c) => ({ value: c.id, label: c.name })),
               ]}
               icon={<Filter className="h-4 w-4" />}
               className="w-full md:w-64"
@@ -256,14 +292,22 @@ export default function AdminProducts() {
 
             {/* View mode toggle */}
             <div className="ml-auto inline-flex items-center gap-1 rounded-2xl bg-slate-50 px-1 py-1 shadow-inner">
-              {(['grid', 'list'] as const).map(mode => (
+              {(['grid', 'list'] as const).map((mode) => (
                 <button
-                  key={mode} type="button" onClick={() => setViewMode(mode)}
+                  key={mode}
+                  type="button"
+                  onClick={() => setViewMode(mode)}
                   className={`inline-flex items-center gap-1 rounded-2xl px-2 py-1 text-xs font-semibold transition ${
-                    viewMode === mode ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                    viewMode === mode
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
-                  {mode === 'grid' ? <LayoutGrid className="h-4 w-4" /> : <Rows3 className="h-4 w-4" />}
+                  {mode === 'grid' ? (
+                    <LayoutGrid className="h-4 w-4" />
+                  ) : (
+                    <Rows3 className="h-4 w-4" />
+                  )}
                   {mode === 'grid' ? 'Grid' : 'List'}
                 </button>
               ))}
@@ -272,17 +316,18 @@ export default function AdminProducts() {
             {/* Advanced filter toggle */}
             <button
               type="button"
-              onClick={() => setAdvancedOpen(v => !v)}
+              onClick={() => setAdvancedOpen((v) => !v)}
               className={`inline-flex items-center gap-1 rounded-2xl px-3 py-1.5 text-[11px] font-semibold shadow-inner transition md:text-xs ${
-                advancedOpen ? 'bg-emerald-600 text-white' : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+                advancedOpen
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
               }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" /> Ətraflı filtr
             </button>
 
             <p className="text-[11px] text-slate-500 md:text-xs">
-              Göstərilən:{' '}
-              <span className="font-semibold text-slate-900">{filteredProducts.length}</span>
+              Göstərilən: <span className="font-semibold text-slate-900">{filteredProducts.length}</span>
             </p>
           </div>
 
@@ -318,13 +363,15 @@ export default function AdminProducts() {
                         <BadgeDollarSign className="h-3.5 w-3.5 text-emerald-600" /> Qiymət aralığı (AZN)
                       </p>
                       <div className="flex gap-2">
-                        {(['minPrice', 'maxPrice'] as const).map(k => (
+                        {(['minPrice', 'maxPrice'] as const).map((k) => (
                           <input
-                            key={k} type="number" min={0}
+                            key={k}
+                            type="number"
+                            min={0}
                             className="w-full rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
                             placeholder={k === 'minPrice' ? 'Min' : 'Max'}
                             value={filters[k]}
-                            onChange={e => handleFilterChange(k, e.target.value)}
+                            onChange={(e) => handleFilterChange(k, e.target.value)}
                           />
                         ))}
                       </div>
@@ -336,9 +383,17 @@ export default function AdminProducts() {
                         <Layers className="h-3.5 w-3.5 text-emerald-600" /> Stok statusu
                       </p>
                       <div className="flex flex-wrap gap-1">
-                        {([['all','Hamısı'],['in_stock','Stokda'],['low_stock','Az stok'],['out_of_stock','Stoksuz']] as const).map(([v, l]) => (
+                        {(
+                          [
+                            ['all', 'Hamısı'],
+                            ['in_stock', 'Stokda'],
+                            ['low_stock', 'Az stok'],
+                            ['out_of_stock', 'Stoksuz'],
+                          ] as const
+                        ).map(([v, l]) => (
                           <button
-                            key={v} type="button"
+                            key={v}
+                            type="button"
                             onClick={() => handleFilterChange('stockFilter', v)}
                             className={`rounded-xl px-2 py-1 text-[11px] font-medium transition ${
                               filters.stockFilter === v
@@ -363,18 +418,23 @@ export default function AdminProducts() {
                             type="checkbox"
                             className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 accent-emerald-600"
                             checked={filters.discountOnly}
-                            onChange={e => handleFilterChange('discountOnly', e.target.checked)}
+                            onChange={(e) =>
+                              handleFilterChange('discountOnly', e.target.checked)
+                            }
                           />
                           Yalnız endirimdə olanlar
                         </label>
                         <div className="flex items-center gap-1">
                           <Star className="h-3.5 w-3.5 text-amber-500" />
                           <input
-                            type="number" min={0} max={5} step={0.1}
+                            type="number"
+                            min={0}
+                            max={5}
+                            step={0.1}
                             className="w-full rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] shadow-sm"
                             placeholder="Min reytinq (0-5)"
                             value={filters.minRating}
-                            onChange={e => handleFilterChange('minRating', e.target.value)}
+                            onChange={(e) => handleFilterChange('minRating', e.target.value)}
                           />
                         </div>
                       </div>
@@ -388,7 +448,9 @@ export default function AdminProducts() {
                       <select
                         className="w-full rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-[11px] shadow-sm focus:border-emerald-500 focus:outline-none"
                         value={filters.sortKey}
-                        onChange={e => handleFilterChange('sortKey', e.target.value as FilterState['sortKey'])}
+                        onChange={(e) =>
+                          handleFilterChange('sortKey', e.target.value as FilterState['sortKey'])
+                        }
                       >
                         <option value="newest">Ən yenilər</option>
                         <option value="price_asc">Qiymət: artan</option>
@@ -403,22 +465,33 @@ export default function AdminProducts() {
           </AnimatePresence>
         </section>
 
-        {/* Mobile view-mode + create */}
+        {/* ── MOBILE VIEW MODE + CREATE ──────────────────────────── */}
         <div className="flex items-center justify-between gap-2 md:hidden">
           <div className="inline-flex items-center gap-1 rounded-2xl bg-slate-50 px-1 py-1 shadow-inner">
-            {(['grid', 'list'] as const).map(mode => (
+            {(['grid', 'list'] as const).map((mode) => (
               <button
-                key={mode} type="button" onClick={() => setViewMode(mode)}
+                key={mode}
+                type="button"
+                onClick={() => setViewMode(mode)}
                 className={`inline-flex items-center gap-1 rounded-2xl px-2 py-1 text-[11px] font-semibold transition ${
-                  viewMode === mode ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                  viewMode === mode
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                {mode === 'grid' ? <LayoutGrid className="h-3.5 w-3.5" /> : <Rows3 className="h-3.5 w-3.5" />}
+                {mode === 'grid' ? (
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                ) : (
+                  <Rows3 className="h-3.5 w-3.5" />
+                )}
                 {mode === 'grid' ? 'Grid' : 'List'}
               </button>
             ))}
           </div>
-          <Button type="button" variant="primary" onClick={handleCreateNew}
+          <Button
+            type="button"
+            variant="primary"
+            onClick={handleCreateNew}
             className="inline-flex items-center gap-1 px-3 py-2 text-xs"
           >
             <Plus className="h-3.5 w-3.5" /> Yeni
@@ -446,7 +519,7 @@ export default function AdminProducts() {
                     }
                   >
                     <AnimatePresence>
-                      {filteredProducts.map(p => (
+                      {filteredProducts.map((p) => (
                         <ProductCard
                           key={p.id}
                           p={p}
@@ -454,7 +527,7 @@ export default function AdminProducts() {
                           setEditingProduct={setEditingProduct}
                           archiveProduct={handleArchiveProduct}
                           unarchiveProduct={handleUnarchiveProduct}
-                          deleteProduct={handleDeleteProduct}   // ← correctly passed
+                          deleteProduct={handleDeleteProduct}
                           viewMode={viewMode}
                         />
                       ))}
@@ -483,16 +556,17 @@ export default function AdminProducts() {
           )}
         </section>
 
-        {/* Mobile FAB */}
+        {/* ── MOBILE FAB ─────────────────────────────────────────── */}
         <Button
-          type="button" variant="primary"
+          type="button"
+          variant="primary"
           onClick={handleCreateNew}
           className="fixed bottom-6 right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full shadow-xl shadow-emerald-400/40 md:hidden"
         >
           <Plus className="h-6 w-6" />
         </Button>
 
-        {/* Edit modal */}
+        {/* ── EDIT MODAL ─────────────────────────────────────────── */}
         <AnimatePresence>
           {editingProduct && (
             <ProductEditModal

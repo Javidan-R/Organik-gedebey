@@ -20,4 +20,4 @@ export function useTimeOfDay(): TimeOfDay {
   }, []);
 
   return timeOfDay;
-}
+} 

@@ -1,6 +1,6 @@
 // src/app/api/account/loyalty/route.ts
 // İstifadəçi sadiqlik proqramı
-
+ 
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyCustomerToken, COOKIE_CUSTOMER } from '@/lib/auth/jwt'
 import { db } from '@/lib/db'

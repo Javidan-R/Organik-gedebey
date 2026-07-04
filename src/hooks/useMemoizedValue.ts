@@ -3,7 +3,7 @@ import { useMemo, useRef } from 'react';
 /**
  * Custom hook for memoized values with deep comparison
  * Useful when the value is an object or array
- */
+ */ 
 export function useMemoizedValue<T>(factory: () => T, deps: React.DependencyList): T {
   const valueRef = useRef<T | null>(null);
   const depsRef = useRef<string>(JSON.stringify(deps));

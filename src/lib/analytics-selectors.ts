@@ -2,7 +2,7 @@
 import { format, parseISO, startOfDay, isValid } from 'date-fns'
 import { productDisplayPrice } from '@/lib/calc'
 import type { Product } from '@/lib/types' // ...changed code...
-
+ 
 /** Minimum lazım olan tiplər (sənin real tiplərin daha geniş ola bilər) */
 type OrderItem = { productId: string; qty: number; priceAtOrder: number }
 type Order = { createdAt?: string; items: OrderItem[] }
@@ -63,9 +63,15 @@ export const buildPriceBands = (
 ): { name: string; value: number }[] => {
   const bands = [0, 5, 10, 15, 25, 50, 100]
   const bucket = (v: number) => {
-    for (let i = 0; i < bands.length - 1; i++)
-      if (v >= bands[i] && v < bands[i + 1]) return `${bands[i]}-${bands[i + 1]}`
-    return `>${bands[bands.length - 1]}`
+    for (let i = 0; i < bands.length - 1; i++) {
+      const lower = bands[i];
+      const upper = bands[i + 1];
+      if (lower !== undefined && upper !== undefined && v >= lower && v < upper) {
+        return `${lower}-${upper}`;
+      }
+    }
+    const last = bands[bands.length - 1];
+    return `>${last !== undefined ? last : 0}`;
   }
 
   const m = new Map<string, number>()

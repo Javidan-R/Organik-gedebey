@@ -6,7 +6,7 @@ import { Leaf, Mail, Lock, Loader2, Star, ChevronRight, AlertCircle, Sparkles,  
 import { useAuth } from "@/lib/auth-store";
 import { useApp } from "@/lib/store";
 import Link from "next/link";
-
+ 
 export default function UserLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();

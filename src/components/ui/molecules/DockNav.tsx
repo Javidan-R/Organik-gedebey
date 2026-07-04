@@ -15,7 +15,7 @@ type DockNavProps = {
   onAction?: (key: string) => void;
   className?: string;
 };
-
+ 
 export function DockNav({
   items,
   variant,

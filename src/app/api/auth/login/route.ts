@@ -14,7 +14,7 @@ const cookieOptions = {
   secure: isProd,
   sameSite: (isProd ? 'strict' : 'lax') as 'strict' | 'lax',
   path: '/',
-}
+} 
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req)

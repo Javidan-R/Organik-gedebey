@@ -1,16 +1,14 @@
-import { useMemo, useCallback, memo, type ComponentType, type MemoExoticComponent } from 'react';
+import { useMemo, useCallback,  } from 'react';
 
 /**
  * Higher-order component to memoize a component with custom comparison
  * This is a production-ready alternative to React.memo with better TypeScript support
  */
-export function memoizeComponent<P extends object>(
-  Component: ComponentType<P>,
-  arePropsEqual?: (prevProps: P, nextProps: P) => boolean
-): MemoExoticComponent<P> {
-  return memo(Component, arePropsEqual);
-}
+import React from 'react';
 
+export function memoWithPerf<P extends object>(Component: React.ComponentType<P>) {
+  return React.memo(Component);
+}
 /**
  * Custom hook for memoized callback with deep dependency comparison
  * Useful when dependencies are objects or arrays

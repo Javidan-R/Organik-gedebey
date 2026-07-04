@@ -1,8 +1,43 @@
-import { ProductGrade, Variant } from "@/types/products";
-import { Product } from "./store";
+// src/lib/calc.ts – TİP UYĞUNSUZLUQLARI VƏ İMPORT XƏTALARI HƏLL EDİLDİ
+import { ProductGrade, Variant, Product } from "@/types/products";
 import { KPI } from "./types";
-import { Order } from "./db/types";
+import { Order } from "@/types/orders";
 
+// ============================================================
+// 1. BASKET PROFİT HESABLAMA
+// ============================================================
+export function calculateBasketProfit(basket: any, products: any[]) {
+  let totalRevenue = 0;
+  let totalCost = 0;
+
+  if (basket.products && basket.products.length > 0) {
+    for (const bp of basket.products) {
+      const product = products.find(p => p.id === bp.productId);
+      if (product) {
+        const variant = product.variants?.find((v: { id: any; }) => v.id === bp.productVariantId) || product.variants?.[0];
+        const price = variant?.price ?? 0;
+        const cost = variant?.costPrice ?? 0;
+        const qty = parseFloat(bp.quantity) || 1;
+        totalRevenue += price * qty;
+        totalCost += cost * qty;
+      }
+    }
+  } else {
+    const primaryVariant = basket.variants?.[0];
+    const price = primaryVariant ? parseFloat(primaryVariant.price) : 0;
+    totalRevenue = price;
+    totalCost = price * 0.6;
+  }
+
+  const profit = totalRevenue - totalCost;
+  const margin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
+
+  return { totalRevenue, totalCost, profit, margin };
+}
+
+// ============================================================
+// 2. ABC ANALİZİ
+// ============================================================
 export function abcSplit(items: { id: string; name: string; revenue: number }[]) {
   if (!items.length) return { A: [], B: [], C: [] };
 
@@ -22,66 +57,82 @@ export function abcSplit(items: { id: string; name: string; revenue: number }[])
   return { A, B, C };
 }
 
-/* ============================================================
-   2. ZAMAN VƏ TƏZƏLİK HESABLAMA (ageInDays, batchAgeInDays, isExpiringSoon)
-============================================================ */
-/** Normal yaş hesablama */
+// ============================================================
+// 3. YAŞ VƏ TƏZƏLİK HESABLAMA
+// ============================================================
 export function ageInDays(from: Date | string, to: Date | string = new Date()): number {
   const f = new Date(from).getTime();
   const t = new Date(to).getTime();
-  // 86400000 = 1000ms * 60s * 60m * 24h
   return Math.max(0, Math.floor((t - f) / 86400000));
 }
 
-/** Məhsul partiyasının nə qədər vaxtdır stokda olduğunu (günlərlə) tapır */
 export function batchAgeInDays(batchDate: string, to: Date | string = new Date()): number {
   return ageInDays(batchDate, to);
 }
 
-/**
- * Partiyanın saxlama müddətinin 75%-ni keçdiyini yoxlayır.
- * (Təhlükəli: Saxlama müddətinin bitməsinə son 25% qalıb.)
- */
 export function isExpiringSoon(v: Variant, productShelfLifeDays?: number): boolean {
-    const shelfLife = productShelfLifeDays ?? 0;
-    if (shelfLife <= 0 || !v.batchDate) return false;
-    
-    const age = batchAgeInDays(v.batchDate);
-    // Əgər partiyanın yaşı ümumi saxlama müddətinin 75%-ni keçibsə
-    return age >= (shelfLife * 0.75); 
+  const shelfLife = productShelfLifeDays ?? 0;
+  if (shelfLife <= 0 || !v.batchDate) return false;
+
+  const age = batchAgeInDays(v.batchDate);
+  return age >= (shelfLife * 0.75);
 }
 
-/* ============================================================
-   3. ENDİRİM & QİYMƏT LOGİKASI
-============================================================ */
+// ============================================================
+// 4. ENDİRİM & QİYMƏT LOGİKASI (discountType normalizasiyası ilə)
+// ============================================================
 
+/**
+ * discountType dəyərini standart "percentage" | "fixed" | undefined formatına çevirir.
+ * Backend-dən gələn 'PERCENTAGE', 'FIXED' kimi dəyərləri də idarə edir.
+ */
+function normalizeDiscountType(type: string | null | undefined): "percentage" | "fixed" | undefined {
+  if (!type) return undefined;
+  const normalized = type.toLowerCase();
+  if (normalized === "percentage") return "percentage";
+  if (normalized === "fixed") return "fixed";
+  return undefined;
+}
+
+/** Endirimin aktiv olub-olmadığını yoxlayır (discountType normalizasiyası ilə) */
 export function isDiscountActive(p: Product, at: Date = new Date()): boolean {
   if (!p.discountType || !p.discountValue) return false;
-  // Əgər discountStart və discountEnd mövcuddursa, yoxla
+
+  // discountType normalizasiya
+  const type = normalizeDiscountType(p.discountType as string);
+  if (!type) return false;
+
   if (p.discountStart && p.discountEnd) {
     const start = new Date(p.discountStart);
     const end = new Date(p.discountEnd);
     return at >= start && at <= end;
   }
-  // Yoxdursa, sadəcə dəyər olub-olmadığını yoxla
-  return true; 
+  return true;
 }
 
-/** Tək qiymət üzərindən yekun qiyməti hesablayır */
-export function finalPrice(base: number, type?: "percentage" | "fixed", value?: number): number {
-  if (!type || !value) return +base.toFixed(2);
-  const result = type === "percentage"
+/**
+ * Tək qiymət üzərindən yekun qiyməti hesablayır.
+ * discountType normalizasiyası burada da tətbiq olunur.
+ */
+export function finalPrice(
+  base: number,
+  type?: string | null,
+  value?: number | null
+): number {
+  const normalizedType = normalizeDiscountType(type);
+  if (!normalizedType || !value) return +base.toFixed(2);
+  const result = normalizedType === "percentage"
     ? base * (1 - value / 100)
     : Math.max(base - value, 0);
   return +result.toFixed(2);
 }
 
-/** Variantın endirimli qiyməti */
+/** Variantın endirimli qiyməti (discountType normalizasiyası ilə) */
 export function variantFinalPrice(p: Product, v: Variant, at: Date = new Date()): number {
   const base = v.price ?? 0;
   if (!isDiscountActive(p, at)) return +base.toFixed(2);
   const val = p.discountValue ?? 0;
-  return finalPrice(base, p.discountType, val);
+  return finalPrice(base, p.discountType as string, val);
 }
 
 /** Məhsulun ümumi qiymət diapazonu (BASE Price) */
@@ -96,10 +147,9 @@ export function priceRange(p: Product): { min: number; max: number } {
 /** Məhsulun mağaza vitrinində göstəriləcək qiyməti (Ən aşağı endirimli qiymət) */
 export function productDisplayPrice(p: Product, at: Date = new Date()): number {
   if (!p.variants || p.variants.length === 0) {
-    return finalPrice(p.price ?? 0, p.discountType, p.discountValue);
+    return finalPrice(p.price ?? 0, p.discountType as string, p.discountValue);
   }
-  
-  // Bütün variantların yekun qiymətini tapır və ən aşağı olanı qaytarır
+
   const prices = p.variants.map(v => variantFinalPrice(p, v, at));
   return Math.min(...prices);
 }
@@ -113,48 +163,40 @@ export function minPrice(p: Product): number {
   return Math.min(...prices);
 }
 
-/* ============================================================
-   4. STOK & INVENTORY FUNKSİYALARI (Rəng Kodlaması daxil)
-============================================================ */
+// ============================================================
+// 5. STOK & INVENTORY FUNKSİYALARI
+// ============================================================
 export function productTotalStock(p: Product): number {
   return (p.variants || []).reduce((sum, v) => sum + (v.stock ?? 0), 0);
 }
 
-/** Aşağı Stok səviyyəsində olan məhsulları tapır */
-// Qeyd: Bu util indi kpis funksiyasında variant səviyyəsində yoxlanılır.
 export function lowStockProducts(products: Product[], threshold = 10): Product[] {
   return products.filter((p) => productTotalStock(p) < (p.minStock ?? threshold));
 }
 
-/** Stokun vəziyyətinə görə rəng kodlaması (UI üçün) */
 export function getStockStatusColor(stock: number, minStock: number): 'green' | 'orange' | 'red' {
-    if (stock <= 0) return 'red';
-    if (stock <= minStock) return 'orange';
-    // Təhlükəli olana yaxınlaşırsa
-    if (stock < minStock * 2) return 'orange'; 
-    return 'green';
+  if (stock <= 0) return 'red';
+  if (stock <= minStock) return 'orange';
+  if (stock < minStock * 2) return 'orange';
+  return 'green';
 }
 
-/** Təzəliyə görə rəng kodlaması (UI üçün) */
 export function getFreshnessColor(p: Product, v: Variant): 'green' | 'yellow' | 'red' {
-    const shelfLife = p.shelfLifeDays ?? 0;
-    // Saxlama müddəti yoxdursa və ya batchDate yoxdursa, yaşıl (təhlükəsiz)
-    if (shelfLife <= 0 || !v.batchDate) return 'green'; 
-    
-    const age = batchAgeInDays(v.batchDate);
-    const remainingDays = shelfLife - age;
-    
-    if (remainingDays <= 0) return 'red'; // Vaxtı keçib
-    // Son 25% qalanda xəbərdarlıq (Yellow Zone)
-    if (remainingDays <= shelfLife * 0.25) return 'yellow'; 
-    
-    return 'green';
+  const shelfLife = p.shelfLifeDays ?? 0;
+  if (shelfLife <= 0 || !v.batchDate) return 'green';
+
+  const age = batchAgeInDays(v.batchDate);
+  const remainingDays = shelfLife - age;
+
+  if (remainingDays <= 0) return 'red';
+  if (remainingDays <= shelfLife * 0.25) return 'yellow';
+
+  return 'green';
 }
 
-
-/* ============================================================
-   5. RƏY VƏ REYTİNQ HESABLAMASI
-============================================================ */
+// ============================================================
+// 6. RƏY VƏ REYTİNQ HESABLAMASI
+// ============================================================
 export function avgRating(p: Product): number {
   const reviews = (p.reviews || []).filter((r) => r.approved);
   return reviews.length
@@ -168,9 +210,9 @@ export function topRatedProducts(products: Product[], count = 5): Product[] {
     .slice(0, count);
 }
 
-/* ============================================================
-   6. SİFARİŞLƏRİ GÜNƏ GÖRƏ QRUPLA
-============================================================ */
+// ============================================================
+// 7. SİFARİŞLƏRİ GÜNƏ GÖRƏ QRUPLA
+// ============================================================
 export function bucketByDay(orders: Order[]): Record<string, Order[]> {
   const map = new Map<string, Order[]>();
   for (const o of orders) {
@@ -187,76 +229,64 @@ export function bucketByDay(orders: Order[]): Record<string, Order[]> {
   return Object.fromEntries(map);
 }
 
-
-/* ============================================================
-   7. ORQANİK FAİZİ
-============================================================ */
-/** Ümumi məhsul sayına görə “təbiilik faizi” */
+// ============================================================
+// 8. ORQANİK FAİZİ
+// ============================================================
 export function organicRatio(products: Product[]): number {
   if (!products.length) return 0;
-  // Organic məhsul status tag-ı ilə yoxlanır
-  const organicCount = products.filter((p) => p.statusTags?.includes('organic')).length; 
+  const organicCount = products.filter((p) => p.statusTags?.includes('organic')).length;
   return +(organicCount / products.length * 100).toFixed(1);
 }
 
-/* ============================================================
-   8. KPI-lar — genişləndirilmiş (Admin Dashboard üçün) (SON VERSİYA)
-============================================================ */
+// ============================================================
+// 9. KPI-lar
+// ============================================================
 export function kpis(orders: Order[], products: Product[]): KPI {
-
-  // --- A. Sifariş Əsaslı Maliyyə Hesablamaları ---
   const revenue: number = orders.reduce(
     (sum: number, o: Order) => sum + Number(o.total ?? 0),
     0
   );
 
-  // Satılmış Malların Maya Dəyəri (COGS) - simplified since we don't have cost data in orders
   const cost = 0;
-
   const profit = +(revenue - cost).toFixed(2);
-  
-  // --- B. Stok Əsaslı Maliyyə & Freshness Hesablamaları ---
+
   let totalStockCost = 0;
   let potentialRevenue = 0;
-  let expiredSoon = 0; 
-  let lowStockCount = 0; 
+  let expiredSoon = 0;
+  let lowStockCount = 0;
 
   for (const p of products) {
-    // Məhsulun variantları yoxdursa, onu tək bir variant kimi işləmək üçün placeholder.
-    const variants = p.variants?.length ? p.variants : [{ 
-        id: p.id, 
-        name: p.name, 
-        price: p.price ?? 0, 
-        costPrice: p.costPrice ?? 0, 
-        stock: p.variants?.[0]?.stock ?? 0, 
-        minStock: p.variants?.[0]?.minStock ?? 0,
-        batchDate: p.variants?.[0]?.batchDate ?? p.createdAt, 
-        grade: 'Unsorted' as ProductGrade,
+    const variants = p.variants?.length ? p.variants : [{
+      id: p.id,
+      name: p.name,
+      price: p.price ?? 0,
+      costPrice: p.costPrice ?? 0,
+      stock: p.variants?.[0]?.stock ?? 0,
+      minStock: p.variants?.[0]?.minStock ?? 0,
+      batchDate: p.variants?.[0]?.batchDate ?? p.createdAt,
+      grade: 'Unsorted' as ProductGrade,
     } as Variant];
-    
+
     for (const v of variants) {
-        const itemCost = v.costPrice ?? p.costPrice ?? 0;
-        const itemPrice = v.price ?? p.price ?? 0;
-        const stockQty = v.stock ?? 0;
-        const minStockQty = v.minStock ?? 0;
-        
-        totalStockCost += itemCost * stockQty;
-        potentialRevenue += itemPrice * stockQty; 
-        
-        if (stockQty > 0 && stockQty <= minStockQty) {
-            lowStockCount++;
-        }
-        
-        // isExpiringSoon funksiyası burada istifadə olunur (2. bölmə)
-        if (p.shelfLifeDays && v.batchDate && isExpiringSoon(v, p.shelfLifeDays)) {
-            expiredSoon++;
-        }
+      const itemCost = v.costPrice ?? p.costPrice ?? 0;
+      const itemPrice = v.price ?? p.price ?? 0;
+      const stockQty = v.stock ?? 0;
+      const minStockQty = v.minStock ?? 0;
+
+      totalStockCost += itemCost * stockQty;
+      potentialRevenue += itemPrice * stockQty;
+
+      if (stockQty > 0 && stockQty <= minStockQty) {
+        lowStockCount++;
+      }
+
+      if (p.shelfLifeDays && v.batchDate && isExpiringSoon(v, p.shelfLifeDays)) {
+        expiredSoon++;
+      }
     }
   }
 
   const potentialProfit = +(potentialRevenue - totalStockCost).toFixed(2);
-  
-  // --- C. Ümumi Statistika ---
   const totalProducts = products.length;
   const totalOrders = orders.length;
 
@@ -271,25 +301,19 @@ export function kpis(orders: Order[], products: Product[]): KPI {
   const activeDiscounts = products.filter((p) => isDiscountActive(p)).length;
   const topRated = topRatedProducts(products, 5);
 
-  // DİQQƏT: Artıq KPI tipinə uyğun olaraq nested obyektlər qaytarılır
   return {
     totalProducts,
     totalOrders,
-    
     ordersByStatus: { pending, delivered, cancelled },
-    
     totals: {
       revenue: +revenue.toFixed(2),
       cost: +cost.toFixed(2),
       profit,
     },
-    
     avgRating: +avgRatingAll.toFixed(2),
-    lowStock: lowStockCount, 
+    lowStock: lowStockCount,
     activeDiscounts,
-    topRated, // Array qaytarır
-
-    // Yeni Maliyyə Metrikaları
+    topRated,
     totalStockCost: +totalStockCost.toFixed(2),
     potentialRevenue: +potentialRevenue.toFixed(2),
     potentialProfit: potentialProfit,
@@ -297,9 +321,9 @@ export function kpis(orders: Order[], products: Product[]): KPI {
   };
 }
 
-/* ============================================================
-   9. ƏLAVƏ ANALİTİK FUNKSİYALAR
-============================================================ */
+// ============================================================
+// 10. ƏLAVƏ ANALİTİK FUNKSİYALAR
+// ============================================================
 export const DELIVERY_RATES = [
   { min: 0, max: 10, pct: 25 },
   { min: 10, max: 30, pct: 20 },
@@ -321,9 +345,8 @@ export function getDeliveryPercentage(total: number) {
   }
   return 5;
 }
-/** Məhsulun qiymət artımı / azalma trendləri (Bu funksiya dəyişməz qalır, amma diqqətli olun: variantların tarixçəsini yoxlamır) */
+
 export function priceTrend(p: Product): "increasing" | "decreasing" | "stable" {
-  // Qeyd: Bu, sadəcə variantların sırasına baxır, real tarixçəyə deyil.
   if (!p.variants || p.variants.length < 2) return "stable";
   const diffs = p.variants.map((v, i, arr) =>
     i === 0 ? 0 : (v.price ?? 0) - ((arr[i - 1]?.price) ?? 0)
@@ -334,43 +357,34 @@ export function priceTrend(p: Product): "increasing" | "decreasing" | "stable" {
   return "stable";
 }
 
-/** Aktiv endirimdə olan məhsulların orta endirim faizi */
 export function avgDiscount(products: Product[]): number {
-  const active = products.filter((p) => isDiscountActive(p))
+  const active = products.filter((p) => isDiscountActive(p));
   if (!active.length) return 0;
   const total = active.reduce(
-    (sum, p) => sum + (p.discountType === 'percentage' ? (p.discountValue ?? 0) : 0),
+    (sum, p) => sum + (normalizeDiscountType(p.discountType as string) === 'percentage' ? (p.discountValue ?? 0) : 0),
     0
   );
   return +(total / active.length).toFixed(1);
 }
 
-/** Satışların region üzrə qruplaşdırılması */
 export function salesByRegion(_products: Product[], _orders: Order[]) {
-  // This function needs orderItems to work properly - returning empty for now
-  // TODO: Update to accept orderItems as parameter
   return [];
 }
 
-/** Aylıq gəlir bölünməsi (monthly breakdown) */
 export function monthlyRevenue(orders: Order[]) {
   const map = new Map<string, number>();
   for (const o of orders) {
-    const key = new Date(o.createdAt).toISOString().slice(0, 7); // YYYY-MM
+    const key = new Date(o.createdAt).toISOString().slice(0, 7);
     const amount = Number(o.total ?? 0);
     map.set(key, (map.get(key) ?? 0) + amount);
   }
   return Array.from(map.entries()).map(([month, revenue]) => ({ month, revenue }));
 }
 
-/** Top 5 ən çox satılan məhsul */
 export function topSellingProducts(_products: Product[], _orders: Order[]) {
-  // This function needs orderItems to work properly - returning empty for now
-  // TODO: Update to accept orderItems as parameter
   return [];
 }
 
-/** “Smart KPI Overview” — bütün hesabatların birləşdirilmiş strukturu */
 export function advancedMetrics(products: Product[], orders: Order[]) {
   const base = kpis(orders, products);
   const organic = organicRatio(products);
@@ -383,24 +397,17 @@ export function advancedMetrics(products: Product[], orders: Order[]) {
     ...base.totals,
     totalProducts: base.totalProducts,
     totalOrders: base.totalOrders,
-    // Yeni Maliyyə
     totalStockCost: base.totalStockCost,
     potentialRevenue: base.potentialRevenue,
     potentialProfit: base.potentialProfit,
-    // Keyfiyyət/Stok
     avgRating: base.avgRating,
     lowStock: base.lowStock,
-    expiredSoon: base.expiredSoon, // Yeni əlavə
+    expiredSoon: base.expiredSoon,
     activeDiscounts: base.activeDiscounts,
     organicRatio: organic,
     avgDiscount: avgDisc,
-    // Trendlər
     monthlyRevenue: monthly,
     salesByRegion: regions,
     topSelling: topSelling,
   };
 }
-
-/* ============================================================
-   10. ÇATDIRILMA HAQQI HESABLAMA (Delivery Fee Calculation)
-============================================================ */

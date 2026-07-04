@@ -14,7 +14,7 @@ export type OrdersBulkActionsBarProps = {
   onBulkStatusChange: (value: OrderStatus | "all") => void;
   onApply: () => void;
 };
-
+ 
 export const OrdersBulkActionsBar: React.FC<OrdersBulkActionsBarProps> = ({
   selectedCount,
   bulkUpdateStatus,

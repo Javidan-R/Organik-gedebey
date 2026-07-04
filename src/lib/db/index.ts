@@ -1,71 +1,100 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import * as schema from './schema';
-import { logger } from '../logger';
+// ============================================================
+// src/lib/db/index.ts
+// ============================================================
 
-let queryClient: postgres.Sql | null = null;
-let _dbInstance: ReturnType<typeof drizzle> | null = null;
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
 
-export function getDb() {
-  if (_dbInstance) return _dbInstance;
+import * as schema from "./schema";
+import { logger } from "../logger";
 
-  try {
-    if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL is not set');
-    }
-
-    const isProd = process.env.NODE_ENV === 'production';
-    const poolConfig = {
-      max: isProd ? 20 : 5,
-      min: isProd ? 2 : 1,
-      idle_timeout: isProd ? 30 : 20,
-      connect_timeout: 10,
-      max_lifetime: isProd ? 3600 : 1800,
-      prepare: true,
-      connection: { application_name: 'organik-gedebey' },
-    };
-    queryClient = postgres(process.env.DATABASE_URL, poolConfig);
-    _dbInstance = drizzle(queryClient, { schema, logger: false });
-
-    logger.info('Database connected', { max: poolConfig.max, min: poolConfig.min });
-    if (isProd) setupHealthCheck();
-
-    return _dbInstance;
-  } catch (error) {
-    logger.error('Database connection failed', { error });
-    throw new Error('Database connection failed');
-  }
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is not defined");
 }
 
-async function setupHealthCheck() {
-  setInterval(async () => {
-    try {
-      if (queryClient) await queryClient`SELECT 1`;
-    } catch (error) {
-      logger.error('DB health check failed', { error });
-      if (queryClient) {
-        await queryClient.end();
-        queryClient = null;
-        _dbInstance = null;
-      }
-    }
-  }, 60_000);
+const isProduction = process.env.NODE_ENV === "production";
+
+const connectionOptions: postgres.Options<Record<string, postgres.PostgresType>> = {
+  max: isProduction ? 20 : 5,
+  idle_timeout: isProduction ? 30 : 20,
+  connect_timeout: 10,
+  max_lifetime: isProduction ? 60 * 60 : 30 * 60,
+  prepare: true,
+  connection: {
+    application_name: "organik-market",
+  },
+};
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __postgres__: postgres.Sql | undefined;
+  // eslint-disable-next-line no-var
+  var __drizzle__: ReturnType<typeof drizzle<typeof schema>> | undefined;
 }
 
-export async function closeDb() {
-  if (queryClient) {
-    try { await queryClient.end(); } catch (e) { logger.error(e as string); }
-    queryClient = null;
-    _dbInstance = null;
-  }
+const client =
+  global.__postgres__ ??
+  postgres(process.env.DATABASE_URL, connectionOptions);
+
+if (!isProduction) {
+  global.__postgres__ = client;
 }
 
-export const db = getDb();
+export const db =
+  global.__drizzle__ ??
+  drizzle(client, {
+    schema,
+    logger: false,
+  });
+
+if (!isProduction) {
+  global.__drizzle__ = db;
+}
+
+logger.info("Database initialized", {
+  env: process.env.NODE_ENV,
+});
+
 export type DB = typeof db;
 
-// Shutdown handlers
-if (typeof process !== 'undefined') {
-  process.on('beforeExit', closeDb);
-  process.on('SIGINT', async () => { await closeDb(); process.exit(0); });
-  process.on('SIGTERM', async () => { await closeDb(); process.exit(0); });
+export async function closeDb() {
+  try {
+    await client.end();
+
+    logger.info("Database connection closed");
+  } catch (error) {
+    logger.error("Failed to close database", {
+      error,
+    });
+  }
 }
+
+async function healthCheck() {
+  try {
+    await client`SELECT 1`;
+  } catch (error) {
+    logger.error("Database health check failed", {
+      error,
+    });
+  }
+}
+
+if (isProduction) {
+  setInterval(healthCheck, 60_000);
+}
+
+process.once("SIGINT", async () => {
+  await closeDb();
+  process.exit(0);
+});
+
+process.once("SIGTERM", async () => {
+  await closeDb();
+  process.exit(0);
+});
+
+process.once("beforeExit", async () => {
+  await closeDb();
+});
+
+export default db;

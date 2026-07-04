@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { baskets, basketReviews, orderItems, orders } from '@/lib/db/schema'
+import { baskets, basketReviews, orderItems } from '@/lib/db/schema'
 import { eq, and, desc, avg, sql } from 'drizzle-orm'
 import { requireAuth, AuthError } from '@/lib/auth'
 import { z } from 'zod'
@@ -14,7 +14,7 @@ const reviewSchema = z.object({
   comment: z.string().min(10).max(2000),
   images: z.array(z.string()).optional(),
 })
-
+ 
 // GET reviews for a basket
 export async function GET(
   request: NextRequest,

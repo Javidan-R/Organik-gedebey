@@ -33,7 +33,7 @@ import {
   useState, useRef, useEffect, useCallback,
   useMemo, useReducer, memo
 } from "react"
-import { formatCurrency, getProductBasePrice, getFirstImageUrl } from "@/app/(storefront)/page"
+import { formatCurrency, getProductBasePrice, getFirstImageUrl } from "@/utils"
 
 /* ================================================================ */
 /*                     SHARED UTILITIES                            */

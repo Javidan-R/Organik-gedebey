@@ -2,7 +2,7 @@ import { Redis } from '@upstash/redis';
 
 // Redis cache configuration for advanced caching strategies
 let redis: Redis | null = null;
-
+ 
 export function getRedisClient() {
   if (!redis && process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
     redis = new Redis({

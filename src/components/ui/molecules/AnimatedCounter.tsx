@@ -4,12 +4,12 @@ export function AnimatedCounter({ target, duration = 1.5 }: { target: number; du
   const [count, setCount] = useState(0)
   const ref = useRef<HTMLSpanElement>(null)
   const inViewRef = useRef(false)
-
+ 
   useEffect(() => {
     const el = ref.current
     if (!el) return
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !inViewRef.current) {
+      if (entry?.isIntersecting && !inViewRef.current) {
         inViewRef.current = true
         const start = Date.now()
         const tick = () => {

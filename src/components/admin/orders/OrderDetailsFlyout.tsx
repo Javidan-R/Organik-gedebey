@@ -16,9 +16,9 @@ import {
   Package,
 } from "lucide-react";
 import type { OrderWithTotal } from "@/types/orders";
-import StatusBadge from "@/components/admin/orders/StatusBadge";
+import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/atoms/button";
-
+ 
 type Props = {
   order: (OrderWithTotal & {
     paymentMethod?: "cash" | "card" | "mixed";

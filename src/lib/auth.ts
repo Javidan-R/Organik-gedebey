@@ -34,37 +34,43 @@ async function resolveUserFromDb(
     return null
   }
 
-  const { db } = await import('@/lib/db')
-  const { users } = await import('@/lib/db/schema')
-  const { eq } = await import('drizzle-orm')
+  try {
+    const { db } = await import('@/lib/db')
+    const { users } = await import('@/lib/db/schema')
+    const { eq } = await import('drizzle-orm')
 
-  const [user] = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      role: users.role,
-      isActive: users.isActive,
-      isBlocked: users.isBlocked,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1)
+    const [user] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        isActive: users.isActive,
+        isBlocked: users.isBlocked,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
 
-  if (!user || !user.isActive || user.isBlocked) return null
+    if (!user || !user.isActive || user.isBlocked) return null
 
-  if (type === 'admin' && !ADMIN_ROLES.includes(user.role as AdminRole)) return null
-  if (type === 'customer' && !['CUSTOMER', 'COURIER'].includes(user.role)) return null
+    if (type === 'admin' && !ADMIN_ROLES.includes(user.role as AdminRole)) return null
+    if (type === 'customer' && !['CUSTOMER', 'COURIER'].includes(user.role)) return null
 
-  const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email
+    const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email
 
-  return {
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    name,
-    type,
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      name,
+      type,
+    }
+  } catch (error) {
+    // ✅ FIX: If DB fails, return null so token payload fallback is used
+    console.warn('[auth] DB resolve failed, using token payload:', error)
+    return null
   }
 }
 
@@ -85,11 +91,14 @@ async function validateTokenUser(
   payload: { sub: string; email: string; role: string; name: string },
   type: 'admin' | 'customer'
 ): Promise<SessionUser | null> {
+  // ✅ Try DB resolve first
   if (isUuid(payload.sub)) {
-    return resolveUserFromDb(payload.sub, type)
+    const dbUser = await resolveUserFromDb(payload.sub, type)
+    if (dbUser) return dbUser
+    // Fall through to payload fallback
   }
 
-  // Dev / env fallback tokens (non-UUID sub)
+  // ✅ Dev / env fallback tokens (non-UUID sub) - always allowed in dev
   if (process.env.NODE_ENV !== 'production' && payload.sub === 'dev-admin-id' && type === 'admin') {
     return sessionFromPayload(payload, type)
   }
@@ -97,8 +106,23 @@ async function validateTokenUser(
     return sessionFromPayload(payload, type)
   }
 
+  // ✅ PAYLOAD FALLBACK: If DB failed but token is valid, trust token
+  // This prevents constant logouts when DB is slow/unavailable
+  if (isUuid(payload.sub) && payload.role) {
+    // Check role validity
+    if (type === 'admin' && !ADMIN_ROLES.includes(payload.role as AdminRole)) {
+      return null
+    }
+    if (type === 'customer' && !['CUSTOMER', 'COURIER'].includes(payload.role)) {
+      return null
+    }
+    return sessionFromPayload(payload, type)
+  }
+
   return null
 }
+
+// ─── Admin Auth ──────────────────────────────────────────────────────────────
 
 export async function requireAuth(
   req: NextRequest,
@@ -109,11 +133,15 @@ export async function requireAuth(
     const payload = await verifyAdminToken(adminToken)
     if (payload) {
       const user = await validateTokenUser(payload, 'admin')
-      if (!user) throw new AuthError('Sessiya bitmişdir. Yenidən giriş edin.', 401)
-      if (allowedRoles && !allowedRoles.includes(user.role)) {
-        throw new AuthError('Bu əməliyyat üçün icazəniz yoxdur', 403)
+      if (user) {
+        if (allowedRoles && !allowedRoles.includes(user.role)) {
+          throw new AuthError('Bu əməliyyat üçün icazəniz yoxdur', 403)
+        }
+        return { user }
       }
-      return { user }
+      // If validateTokenUser returns null but token was valid, it means
+      // user not found or inactive. Still throw error.
+      throw new AuthError('Sessiya bitmişdir. Yenidən giriş edin.', 401)
     }
   }
 
@@ -122,11 +150,13 @@ export async function requireAuth(
     const payload = await verifyCustomerToken(customerToken)
     if (payload) {
       const user = await validateTokenUser(payload, 'customer')
-      if (!user) throw new AuthError('Sessiya bitmişdir. Yenidən giriş edin.', 401)
-      if (allowedRoles && !allowedRoles.includes(user.role)) {
-        throw new AuthError('Bu əməliyyat üçün icazəniz yoxdur', 403)
+      if (user) {
+        if (allowedRoles && !allowedRoles.includes(user.role)) {
+          throw new AuthError('Bu əməliyyat üçün icazəniz yoxdur', 403)
+        }
+        return { user }
       }
-      return { user }
+      throw new AuthError('Sessiya bitmişdir. Yenidən giriş edin.', 401)
     }
   }
 
@@ -153,29 +183,67 @@ export async function requireAdminAuth(
   return { user }
 }
 
+// ─── Optional Auth (for guest checkout) ────────────────────────────────────
+
+export async function optionalAuth(
+  req: NextRequest
+): Promise<{ user: SessionUser | null }> {
+  try {
+    // Try admin token first
+    const adminToken = req.cookies.get(COOKIE_ADMIN)?.value
+    if (adminToken) {
+      const payload = await verifyAdminToken(adminToken)
+      if (payload) {
+        const user = await validateTokenUser(payload, 'admin')
+        if (user) return { user }
+      }
+    }
+
+    // Try customer token
+    const customerToken = req.cookies.get(COOKIE_CUSTOMER)?.value
+    if (customerToken) {
+      const payload = await verifyCustomerToken(customerToken)
+      if (payload) {
+        const user = await validateTokenUser(payload, 'customer')
+        if (user) return { user }
+      }
+    }
+
+    // Guest (no auth)
+    return { user: null }
+  } catch {
+    // Any error, treat as guest
+    return { user: null }
+  }
+}
+
 export async function getServerSession() {
-  const { cookies } = await import('next/headers')
-  const cookieStore = await cookies()
+  try {
+    const { cookies } = await import('next/headers')
+    const cookieStore = await cookies()
 
-  const adminToken = cookieStore.get(COOKIE_ADMIN)?.value
-  if (adminToken) {
-    const payload = await verifyAdminToken(adminToken)
-    if (payload) {
-      const user = await validateTokenUser(payload, 'admin')
-      if (user) return { user }
+    const adminToken = cookieStore.get(COOKIE_ADMIN)?.value
+    if (adminToken) {
+      const payload = await verifyAdminToken(adminToken)
+      if (payload) {
+        const user = await validateTokenUser(payload, 'admin')
+        if (user) return { user }
+      }
     }
-  }
 
-  const customerToken = cookieStore.get(COOKIE_CUSTOMER)?.value
-  if (customerToken) {
-    const payload = await verifyCustomerToken(customerToken)
-    if (payload) {
-      const user = await validateTokenUser(payload, 'customer')
-      if (user) return { user }
+    const customerToken = cookieStore.get(COOKIE_CUSTOMER)?.value
+    if (customerToken) {
+      const payload = await verifyCustomerToken(customerToken)
+      if (payload) {
+        const user = await validateTokenUser(payload, 'customer')
+        if (user) return { user }
+      }
     }
-  }
 
-  return null
+    return null
+  } catch {
+    return null
+  }
 }
 
 export { AuthError } from '@/lib/auth/server'

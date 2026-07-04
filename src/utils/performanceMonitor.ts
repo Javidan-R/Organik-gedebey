@@ -10,7 +10,7 @@ export interface PerformanceMetrics {
   interactionTime: number;
   timestamp: number;
 }
-
+ 
 class PerformanceMonitor {
   private metrics: PerformanceMetrics[] = [];
   private frameCount = 0;

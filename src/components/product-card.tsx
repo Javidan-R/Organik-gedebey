@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { ShoppingBag, Sparkles, Zap, Plus, Fingerprint, Eye, Info } from 'lucide-react'
 import { useApp } from '@/lib/store'
 import { Product } from '@/lib/store'
+import { StockBadge } from '@/components/ui/molecules/StockBadge'
 
 export default function ProductCard({ p }: { p: Product }) {
   const { addToCart, productPriceNow, isDiscountActive } = useApp()
@@ -110,6 +111,8 @@ export default function ProductCard({ p }: { p: Product }) {
                 </span>
               </motion.div>
             )}
+            {/* Stock badge - shared molecule */}
+            <StockBadge stock={p.stock ?? 0} unit={p.unit || 'ədəd'} />
           </div>
         </div>
 

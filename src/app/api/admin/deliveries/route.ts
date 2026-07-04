@@ -4,8 +4,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, AuthError } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { deliveries, orders, users } from '@/lib/db/schema'
-import { eq, desc, and, like } from 'drizzle-orm'
+import { deliveries, orders, users, deliveryTracking } from '@/lib/db/schema'
+import { eq, desc, and, like, gte, lte, sql } from 'drizzle-orm'
 import { z } from 'zod'
 
 const updateDeliverySchema = z.object({

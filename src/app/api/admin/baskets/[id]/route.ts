@@ -1,12 +1,29 @@
 // src/app/api/admin/baskets/[id]/route.ts
-// Admin Basket API - Individual Basket Operations
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import {
+  baskets,
+  basketVariants,
+  basketContents,
+  basketExtras,
+  basketMedia,
+  basketProducts,
+} from '@/lib/db/schema';
+import { eq, inArray } from 'drizzle-orm';
+import { z } from 'zod';
+import { verifyAdminToken, COOKIE_ADMIN } from '@/lib/auth/jwt';
 
-import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, AuthError } from '@/lib/auth'
-import { db } from '@/lib/db'
-import { baskets } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
-import { z } from 'zod'
+async function authenticateAdmin(request: NextRequest) {
+  const cookie = request.cookies.get(COOKIE_ADMIN);
+  if (!cookie?.value) return null;
+  try {
+    const payload = await verifyAdminToken(cookie.value);
+    if (!payload || !['ADMIN', 'MANAGER', 'SUPERADMIN'].includes(payload.role)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
 
 const updateBasketSchema = z.object({
   name: z.string().min(2).optional(),
@@ -31,100 +48,191 @@ const updateBasketSchema = z.object({
   archived: z.boolean().optional(),
   metaTitle: z.string().optional(),
   metaDescription: z.string().optional(),
-})
+  variants: z.array(z.any()).optional(),
+  products: z.array(z.any()).optional(),
+});
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await authenticateAdmin(request);
+  if (!admin) {
+    return NextResponse.json({ error: 'Giriş tələb olunur' }, { status: 403 });
+  }
+
   try {
-    await requireAuth(request, ['ADMIN', 'MANAGER', 'SUPERADMIN'])
-    
-    const { id } = params
-    
-    const basket = await (db.query as any).baskets.findFirst({
-      where: eq(baskets.id, id),
-      with: {
-        variants: true,
-      },
-    })
+    const { id } = params;
+    const basket = await db
+      .select()
+      .from(baskets)
+      .where(eq(baskets.id, id))
+      .then(async ([b]) => {
+        if (!b) return null;
+        const variants = await db.select().from(basketVariants).where(eq(basketVariants.basketId, id));
+        const variantIds = variants.map(v => v.id);
+        const contents = variantIds.length ? await db.select().from(basketContents).where(inArray(basketContents.basketVariantId, variantIds)) : [];
+        const extras = variantIds.length ? await db.select().from(basketExtras).where(inArray(basketExtras.basketVariantId, variantIds)) : [];
+        const bp = await db.select().from(basketProducts).where(eq(basketProducts.basketId, id));
+        const media = await db.select().from(basketMedia).where(eq(basketMedia.basketId, id));
+        return {
+          ...b,
+          variants: variants.map(v => ({ ...v, contents: contents.filter(c => c.basketVariantId === v.id), extras: extras.filter(e => e.basketVariantId === v.id) })),
+          products: bp,
+          media,
+        };
+      });
 
-    if (!basket) {
-      return NextResponse.json({ error: 'Səbət tapılmadı' }, { status: 404 })
-    }
-
-    return NextResponse.json({ basket })
+    if (!basket) return NextResponse.json({ error: 'Səbət tapılmadı' }, { status: 404 });
+    return NextResponse.json({ basket });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
-    }
-    console.error('Basket GET error:', error)
-    return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
+    console.error('Basket GET error:', error);
+    return NextResponse.json({ error: 'Server xətası' }, { status: 500 });
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await authenticateAdmin(request);
+  if (!admin || (admin.role !== 'SUPERADMIN' && admin.role !== 'ADMIN')) {
+    return NextResponse.json({ error: 'Icazə yoxdur' }, { status: 403 });
+  }
+
   try {
-    await requireAuth(request, ['ADMIN', 'SUPERADMIN'])
-    
-    const { id } = params
-    const body = await request.json()
-    const validatedData = updateBasketSchema.parse(body)
+    const { id } = params;
+    const body = await request.json();
+    const validatedData = updateBasketSchema.parse(body);
 
     const [updatedBasket] = await db
       .update(baskets)
       .set({
-        ...validatedData,
+        name: validatedData.name,
+        slug: validatedData.slug,
+        tagline: validatedData.tagline,
+        description: validatedData.description,
+        type: validatedData.type,
+        servings: validatedData.servings,
+        unit: validatedData.unit,
+        origin: validatedData.origin,
+        freshness: validatedData.freshness,
+        nutrition: validatedData.nutrition,
+        bestseller: validatedData.bestseller,
+        trending: validatedData.trending,
+        new: validatedData.new,
+        lowStock: validatedData.lowStock,
+        stock: validatedData.stock,
+        discount: validatedData.discount,
+        highlights: validatedData.highlights,
+        displayOrder: validatedData.displayOrder,
+        isActive: validatedData.isActive,
+        archived: validatedData.archived,
+        metaTitle: validatedData.metaTitle,
+        metaDescription: validatedData.metaDescription,
         updatedAt: new Date(),
       })
       .where(eq(baskets.id, id))
-      .returning()
+      .returning();
 
-    if (!updatedBasket) {
-      return NextResponse.json({ error: 'Səbət tapılmadı' }, { status: 404 })
+    if (!updatedBasket) return NextResponse.json({ error: 'Səbət tapılmadı' }, { status: 404 });
+
+    if (validatedData.variants) {
+      await db.delete(basketVariants).where(eq(basketVariants.basketId, id));
+      for (const v of validatedData.variants) {
+        const [variant] = await db
+          .insert(basketVariants)
+          .values({
+            basketId: id,
+            variant: v.variant,
+            price: v.price,
+            originalPrice: v.originalPrice || null,
+            stock: v.stock || 0,
+            gift: v.gift || null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
+
+        if (variant && v.contents?.length) {
+          await db.insert(basketContents).values(
+            v.contents.map((c: any, i: number) => ({
+              basketVariantId: variant.id,
+              content: c.content || c,
+              displayOrder: i,
+            }))
+          );
+        }
+        if (variant && v.extras?.length) {
+          await db.insert(basketExtras).values(
+            v.extras.map((e: any, i: number) => ({
+              basketVariantId: variant.id,
+              extra: e.extra || e,
+              displayOrder: i,
+            }))
+          );
+        }
+      }
     }
 
-    return NextResponse.json({ basket: updatedBasket })
+    if (validatedData.products) {
+      await db.delete(basketProducts).where(eq(basketProducts.basketId, id));
+      if (validatedData.products.length > 0) {
+        await db.insert(basketProducts).values(
+          validatedData.products.map((p: any) => ({
+            basketId: id,
+            productId: p.productId,
+            productVariantId: p.productVariantId || null,
+            quantity: p.quantity || '1',
+            unit: p.unit || 'əd',
+            displayOrder: p.displayOrder || 0,
+          }))
+        );
+      }
+    }
+
+    const fullBasket = await db
+      .select()
+      .from(baskets)
+      .where(eq(baskets.id, id))
+      .then(async ([b]) => {
+        if (!b) throw new Error('Basket tapılmadı');
+        const variants = await db.select().from(basketVariants).where(eq(basketVariants.basketId, id));
+        const variantIds = variants.map(v => v.id);
+        const contents = variantIds.length ? await db.select().from(basketContents).where(inArray(basketContents.basketVariantId, variantIds)) : [];
+        const extras = variantIds.length ? await db.select().from(basketExtras).where(inArray(basketExtras.basketVariantId, variantIds)) : [];
+        const bp = await db.select().from(basketProducts).where(eq(basketProducts.basketId, id));
+        const media = await db.select().from(basketMedia).where(eq(basketMedia.basketId, id));
+        return {
+          ...b,
+          variants: variants.map(v => ({ ...v, contents: contents.filter(c => c.basketVariantId === v.id), extras: extras.filter(e => e.basketVariantId === v.id) })),
+          products: bp,
+          media,
+        };
+      });
+
+    return NextResponse.json({ basket: fullBasket });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
-    }
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validasiya xətası', details: error.issues }, { status: 400 })
+      return NextResponse.json({ error: 'Validasiya xətası', details: error.issues }, { status: 400 });
     }
-    console.error('Basket PATCH error:', error)
-    return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
+    console.error('Basket PATCH error:', error);
+    return NextResponse.json({ error: 'Server xətası' }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    await requireAuth(request, ['ADMIN', 'SUPERADMIN'])
-    
-    const { id } = params
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  const admin = await authenticateAdmin(request);
+  if (!admin || (admin.role !== 'SUPERADMIN' && admin.role !== 'ADMIN')) {
+    return NextResponse.json({ error: 'Icazə yoxdur' }, { status: 403 });
+  }
 
+  try {
+    const { id } = params;
     const [deletedBasket] = await db
       .update(baskets)
       .set({ archived: true, isActive: false, updatedAt: new Date() })
       .where(eq(baskets.id, id))
-      .returning()
+      .returning();
 
-    if (!deletedBasket) {
-      return NextResponse.json({ error: 'Səbət tapılmadı' }, { status: 404 })
-    }
-
-    return NextResponse.json({ message: 'Səbət uğurla arxivləşdirildi' })
+    if (!deletedBasket) return NextResponse.json({ error: 'Səbət tapılmadı' }, { status: 404 });
+    return NextResponse.json({ message: 'Səbət uğurla arxivləşdirildi' });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
-    }
-    console.error('Basket DELETE error:', error)
-    return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
+    console.error('Basket DELETE error:', error);
+    return NextResponse.json({ error: 'Server xətası' }, { status: 500 });
   }
 }

@@ -2,28 +2,30 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useAuth } from '@/lib/auth-store'
+import { useSession } from 'next-auth/react'
 import { subscribeToNotifications } from '@/lib/pusher/client'
 import toast from 'react-hot-toast'
 
 export function NotificationListener() {
-  const { user } = useAuth()
+  const { data: session } = useSession()
   
   useEffect(() => {
-    if (!user?.id) return
+    if (!session?.user?.id) return
     
     const unsubscribe = subscribeToNotifications(
-      user.id,
+      session.user.id,
       (notification) => {
         toast.success(notification.title, {
           duration: 3000,
           position: 'top-right',
+
+
         })
       }
-    )
+    ) 
     
     return unsubscribe
-  }, [user?.id])
+  }, [session?.user?.id])
   
   return null
 }

@@ -17,7 +17,7 @@ function verifyTwilioSignature(url: string, params: URLSearchParams, signature: 
   // For now, we'll skip this but it should be added for production
   return true
 }
-
+ 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text()

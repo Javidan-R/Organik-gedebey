@@ -1,188 +1,285 @@
 // src/app/api/baskets/[id]/route.ts
-// Tək səbət əməliyyatları
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth, AuthError } from '@/lib/auth';
+import { db } from '@/lib/db';
+import {
+  baskets,
+  basketVariants,
+  basketContents,
+  basketExtras,
+  basketMedia,
+  basketProducts,
+} from '@/lib/db/schema';
+import { eq, sql, inArray } from 'drizzle-orm';
+import { z } from 'zod';
 
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { baskets, basketMedia, basketVariants, basketContents, basketExtras } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
+const updateBasketSchema = z.object({
+  name: z.string().min(2).optional(),
+  slug: z.string().min(2).optional(),
+  tagline: z.string().optional(),
+  description: z.string().min(10).optional(),
+  type: z.enum(['gence', 'gedebey', 'sheki', 'lenkaran', 'ramazan', 'custom']).optional(),
+  servings: z.string().optional(),
+  unit: z.string().optional(),
+  origin: z.string().optional(),
+  freshness: z.string().optional(),
+  nutrition: z.array(z.string()).optional(),
+  bestseller: z.boolean().optional(),
+  trending: z.boolean().optional(),
+  new: z.boolean().optional(),
+  lowStock: z.boolean().optional(),
+  stock: z.number().optional(),
+  discount: z.number().optional(),
+  highlights: z.array(z.string()).optional(),
+  displayOrder: z.number().optional(),
+  isActive: z.boolean().optional(),
+  archived: z.boolean().optional(),
+  metaTitle: z.string().optional(),
+  metaDescription: z.string().optional(),
+  variants: z.array(z.any()).optional(),
+  products: z.array(z.any()).optional(),
+});
 
+// ─── GET ─────────────────────────────────────────────────
 export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const basket = await (db.query as any).baskets.findFirst({
-      where: eq(baskets.id, params.id),
-      with: {
-        category: true,
-        media: {
-          orderBy: [basketMedia.displayOrder]
-        },
-        variants: {
-          with: {
-            contents: {
-              orderBy: [basketContents.displayOrder]
-            },
-            extras: {
-              orderBy: [basketExtras.displayOrder]
-            }
-          }
-        }
-      }
-    })
-
-    if (!basket) {
-      return NextResponse.json({ error: 'Səbət tapılmadı' }, { status: 404 })
-    }
-
-    return NextResponse.json({ basket })
-  } catch (error) {
-    console.error('[baskets/[id]] error:', error)
-    return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
-  }
-}
-
-export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = await request.json()
-    
-    const updatedBasket = await db.transaction(async (tx) => {
-      // Əsas səbəti yenilə
-      const basketResult: any[] = await tx.update(baskets)
-        .set({
-          name: body.name,
-          slug: body.slug,
-          tagline: body.tagline,
-          description: body.description,
-          categoryId: body.categoryId,
-          type: body.type,
-          servings: body.servings,
-          unit: body.unit,
-          origin: body.origin,
-          freshness: body.freshness,
-          nutrition: body.nutrition,
-          bestseller: body.bestseller,
-          trending: body.trending,
-          new: body.new,
-          lowStock: body.lowStock,
-          stock: body.stock,
-          discount: body.discount,
-          highlights: body.highlights,
-          displayOrder: body.displayOrder,
-          isActive: body.isActive,
-          archived: body.archived,
-          metaTitle: body.metaTitle,
-          metaDescription: body.metaDescription,
-          seasonalStart: body.seasonalStart ? new Date(body.seasonalStart) : null,
-          seasonalEnd: body.seasonalEnd ? new Date(body.seasonalEnd) : null,
-          isSeasonal: body.isSeasonal,
-        })
-        .where(eq(baskets.id, params.id))
-        .returning()
+    // Public oxu üçün autentifikasiya tələb olunmur (mağaza səhifəsi)
+    const { id } = params;
 
-      if (!basketResult || !Array.isArray(basketResult) || basketResult.length === 0) throw new Error('Basket update failed')
+    const basket = await db
+      .select()
+      .from(baskets)
+      .where(eq(baskets.id, id))
+      .then(async ([b]) => {
+        if (!b) return null;
+        const variants = await db
+          .select()
+          .from(basketVariants)
+          .where(eq(basketVariants.basketId, id));
 
-      const updatedBasket = basketResult[0]!
+        const variantIds = variants.map((v) => v.id);
 
-      // Köhnə media və variantları sil
-      await tx.delete(basketMedia).where(eq(basketMedia.basketId, params.id))
-      await tx.delete(basketVariants).where(eq(basketVariants.basketId, params.id))
+        const contents =
+          variantIds.length > 0
+            ? await db
+                .select()
+                .from(basketContents)
+                .where(inArray(basketContents.basketVariantId, variantIds))
+            : [];
 
-      // Yeni media əlavə et
-      if (body.media && body.media.length > 0) {
-        await tx.insert(basketMedia).values(
-          body.media.map((media: any, index: number) => ({
-            basketId: params.id,
-            type: media.type,
-            url: media.url,
-            altText: media.altText || null,
-            displayOrder: media.displayOrder !== undefined ? media.displayOrder : index,
-          }))
-        )
-      }
+        const extras =
+          variantIds.length > 0
+            ? await db
+                .select()
+                .from(basketExtras)
+                .where(inArray(basketExtras.basketVariantId, variantIds))
+            : [];
 
-      // Yeni variantları əlavə et
-      if (body.variants && body.variants.length > 0) {
-        for (const variant of body.variants) {
-          const variantResult: any[] = await tx.insert(basketVariants).values({
-            basketId: params.id,
-            variant: variant.variant,
-            price: typeof variant.price === 'number' ? variant.price.toString() : variant.price,
-            originalPrice: variant.originalPrice 
-              ? (typeof variant.originalPrice === 'number' ? variant.originalPrice.toString() : variant.originalPrice)
-              : null,
-            stock: variant.stock,
-            gift: variant.gift || null,
-          }).returning()
+        const bp = await db
+          .select()
+          .from(basketProducts)
+          .where(eq(basketProducts.basketId, id));
 
-          if (!variantResult || !Array.isArray(variantResult) || variantResult.length === 0) continue
+        const media = await db
+          .select()
+          .from(basketMedia)
+          .where(eq(basketMedia.basketId, id));
 
-          const insertedVariant = variantResult[0]!
+        return {
+          ...b,
+          variants: variants.map((v) => ({
+            ...v,
+            contents: contents.filter((c) => c.basketVariantId === v.id),
+            extras: extras.filter((e) => e.basketVariantId === v.id),
+          })),
+          products: bp,
+          media,
+        };
+      });
 
-          if (variant.contents && variant.contents.length > 0) {
-            await tx.insert(basketContents).values(
-              variant.contents.map((content: string, index: number) => ({
-                basketVariantId: insertedVariant.id,
-                content,
-                displayOrder: index,
-              }))
-            )
-          }
-
-          if (variant.extras && variant.extras.length > 0) {
-            await tx.insert(basketExtras).values(
-              variant.extras.map((extra: string, index: number) => ({
-                basketVariantId: insertedVariant.id,
-                extra,
-                displayOrder: index,
-              }))
-            )
-          }
-        }
-      }
-
-      return updatedBasket
-    })
-
-    const completeBasket = await (db.query as any).baskets.findFirst({
-      where: eq(baskets.id, updatedBasket.id),
-      with: {
-        category: true,
-        media: {
-          orderBy: [basketMedia.displayOrder]
-        },
-        variants: {
-          with: {
-            contents: {
-              orderBy: [basketContents.displayOrder]
-            },
-            extras: {
-              orderBy: [basketExtras.displayOrder]
-            }
-          }
-        }
-      }
-    })
-
-    return NextResponse.json({ basket: completeBasket })
+    if (!basket) {
+      return NextResponse.json({ error: 'Səbət tapılmadı' }, { status: 404 });
+    }
+    return NextResponse.json({ basket });
   } catch (error) {
-    console.error('[baskets/[id]] error:', error)
-    return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
+    console.error('Basket GET error:', error);
+    return NextResponse.json({ error: 'Server xətası' }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  _req: NextRequest,
+// ─── PATCH ────────────────────────────────────────────────
+export async function PATCH(
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    await db.delete(baskets).where(eq(baskets.id, params.id))
-    return NextResponse.json({ success: true })
+    // 🔒 TƏHLÜKƏSİZLİK: Yalnız ADMIN və SUPERADMIN
+    await requireAuth(request, ['ADMIN', 'SUPERADMIN']);
+
+    const { id } = params;
+    const body = await request.json();
+    const validatedData = updateBasketSchema.parse(body);
+
+    const [updatedBasket] = await db
+      .update(baskets)
+      .set({
+        name: validatedData.name,
+        slug: validatedData.slug,
+        tagline: validatedData.tagline,
+        description: validatedData.description,
+        type: validatedData.type,
+        servings: validatedData.servings,
+        unit: validatedData.unit,
+        origin: validatedData.origin,
+        freshness: validatedData.freshness,
+        nutrition: validatedData.nutrition,
+        bestseller: validatedData.bestseller,
+        trending: validatedData.trending,
+        new: validatedData.new,
+        lowStock: validatedData.lowStock,
+        stock: validatedData.stock,
+        discount: validatedData.discount,
+        highlights: validatedData.highlights,
+        displayOrder: validatedData.displayOrder,
+        isActive: validatedData.isActive,
+        archived: validatedData.archived,
+        metaTitle: validatedData.metaTitle,
+        metaDescription: validatedData.metaDescription,
+        updatedAt: new Date(),
+      })
+      .where(eq(baskets.id, id))
+      .returning();
+
+    if (!updatedBasket) {
+      return NextResponse.json({ error: 'Səbət tapılmadı' }, { status: 404 });
+    }
+
+    if (validatedData.variants) {
+      await db.delete(basketVariants).where(eq(basketVariants.basketId, id));
+      for (const v of validatedData.variants) {
+        const [variant] = await db
+          .insert(basketVariants)
+          .values({
+            basketId: id,
+            variant: v.variant,
+            price: v.price,
+            originalPrice: v.originalPrice || null,
+            stock: v.stock || 0,
+            gift: v.gift || null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
+
+        if (variant && v.contents?.length) {
+          await db.insert(basketContents).values(
+            v.contents.map((c: any, i: number) => ({
+              basketVariantId: variant.id,
+              content: c.content || c,
+              displayOrder: i,
+            }))
+          );
+        }
+        if (variant && v.extras?.length) {
+          await db.insert(basketExtras).values(
+            v.extras.map((e: any, i: number) => ({
+              basketVariantId: variant.id,
+              extra: e.extra || e,
+              displayOrder: i,
+            }))
+          );
+        }
+      }
+    }
+
+    if (validatedData.products) {
+      await db.delete(basketProducts).where(eq(basketProducts.basketId, id));
+      if (validatedData.products.length > 0) {
+        await db.insert(basketProducts).values(
+          validatedData.products.map((p: any) => ({
+            basketId: id,
+            productId: p.productId,
+            productVariantId: p.productVariantId || null,
+            quantity: p.quantity || '1',
+            unit: p.unit || 'əd',
+            displayOrder: p.displayOrder || 0,
+          }))
+        );
+      }
+    }
+
+    const fullBasket = await db
+      .select()
+      .from(baskets)
+      .where(eq(baskets.id, id))
+      .then(async ([b]) => {
+        if (!b) throw new Error('Basket tapılmadı');
+        const variants = await db.select().from(basketVariants).where(eq(basketVariants.basketId, id));
+        const variantIds = variants.map((v) => v.id);
+        const contents =
+          variantIds.length > 0
+            ? await db.select().from(basketContents).where(inArray(basketContents.basketVariantId, variantIds))
+            : [];
+        const extras =
+          variantIds.length > 0
+            ? await db.select().from(basketExtras).where(inArray(basketExtras.basketVariantId, variantIds))
+            : [];
+        const bp = await db.select().from(basketProducts).where(eq(basketProducts.basketId, id));
+        const media = await db.select().from(basketMedia).where(eq(basketMedia.basketId, id));
+        return {
+          ...b,
+          variants: variants.map((v) => ({
+            ...v,
+            contents: contents.filter((c) => c.basketVariantId === v.id),
+            extras: extras.filter((e) => e.basketVariantId === v.id),
+          })),
+          products: bp,
+          media,
+        };
+      });
+
+    return NextResponse.json({ basket: fullBasket });
   } catch (error) {
-    console.error('[baskets/[id]] error:', error)
-    return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validasiya xətası', details: error.issues }, { status: 400 });
+    }
+    console.error('Basket PATCH error:', error);
+    return NextResponse.json({ error: 'Server xətası' }, { status: 500 });
+  }
+}
+
+// ─── DELETE ───────────────────────────────────────────────
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // 🔒 TƏHLÜKƏSİZLİK: Yalnız ADMIN və SUPERADMIN
+    await requireAuth(request, ['ADMIN', 'SUPERADMIN']);
+
+    const { id } = params;
+
+    const [deletedBasket] = await db
+      .update(baskets)
+      .set({ archived: true, isActive: false, updatedAt: new Date() })
+      .where(eq(baskets.id, id))
+      .returning();
+
+    if (!deletedBasket) {
+      return NextResponse.json({ error: 'Səbət tapılmadı' }, { status: 404 });
+    }
+    return NextResponse.json({ message: 'Səbət uğurla arxivləşdirildi' });
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error('Basket DELETE error:', error);
+    return NextResponse.json({ error: 'Server xətası' }, { status: 500 });
   }
 }

@@ -19,4 +19,34 @@ export function useRecentViewed(products: Product[]): [Product[], (id: string) =
   }, [setRecentIds])
 
   return [recentProducts, addToRecent]
-}
+} 
+
+// // src/hooks/useRecentlyViewed.ts
+// 'use client';
+
+// import { useState, useCallback } from 'react';
+
+// export function useRecentlyViewed() {
+//   // ✅ useState initializer funksiyasında localStorage-dan oxu
+//   const [recent, setRecent] = useState<string[]>(() => {
+//     try {
+//       const stored = localStorage.getItem('recently_viewed');
+//       return stored ? JSON.parse(stored) : [];
+//     } catch {
+//       return [];
+//     }
+//   });
+
+//   const add = useCallback((id: string) => {
+//     setRecent((prev) => {
+//       const filtered = prev.filter((p) => p !== id);
+//       const updated = [id, ...filtered].slice(0, 10);
+//       try {
+//         localStorage.setItem('recently_viewed', JSON.stringify(updated));
+//       } catch {}
+//       return updated;
+//     });
+//   }, []);
+
+//   return { recent, add };
+// }

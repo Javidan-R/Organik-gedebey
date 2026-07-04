@@ -7,7 +7,7 @@ export interface WishlistItem {
   image: string;
   addedAt: string;
 }
-
+ 
 /**
  * Optimistic wishlist operations hook
  * Provides instant UI feedback for wishlist actions

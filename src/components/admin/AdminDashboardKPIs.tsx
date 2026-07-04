@@ -15,7 +15,7 @@ interface KPICard {
     isPositive: boolean;
   };
   helperText?: string;
-}
+} 
 
 interface AdminDashboardKPIsProps {
   kpis: KPICard[];

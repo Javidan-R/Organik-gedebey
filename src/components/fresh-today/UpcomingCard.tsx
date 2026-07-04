@@ -16,7 +16,7 @@ const UpcomingCard = memo(({ product, notified, onNotify, index }: UpcomingCardP
   const cardRef = useRef<HTMLDivElement>(null);
   const inView = useInView(cardRef, { once: true, margin: '-30px' });
   const basePrice = getProductBasePrice(product);
-
+ 
   return (
     <motion.div
       ref={cardRef}

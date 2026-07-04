@@ -1,5 +1,5 @@
 'use client';
-
+ 
 import { useState, useMemo } from 'react';
 import { useFinance } from '@/lib/finance';
 import { format } from 'date-fns';

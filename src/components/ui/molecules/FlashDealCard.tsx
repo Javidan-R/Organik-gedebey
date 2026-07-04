@@ -1,5 +1,5 @@
 import { Product } from "@/types/products";
-import { getFirstImageUrl, formatCurrency, getProductBasePrice } from "@/utils/storefront_home";
+import { getFirstImageUrl, formatCurrency, getProductBasePrice } from "@/utils/product";
 import { motion } from "framer-motion";
 import { Flame, Timer } from "lucide-react";
 import { FC, useState, useEffect } from "react";
@@ -20,7 +20,7 @@ export const FlashDealCard: FC<{ product: Product; dealPrice: number; endsAt: nu
   const m = Math.floor((secsLeft % 3600) / 60)
   const s = secsLeft % 60
   const timer = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-
+ 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}

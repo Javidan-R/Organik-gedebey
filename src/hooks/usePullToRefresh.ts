@@ -12,7 +12,7 @@ export function usePullToRefresh(onRefresh: () => Promise<void>) {
         setIsRefreshing(true)
         onRefresh().finally(() => { setIsRefreshing(false); startY.current = 0 })
       }
-    }
+    } 
     const onEnd = () => { startY.current = 0 }
     document.addEventListener('touchstart', onStart)
     document.addEventListener('touchmove', onMove)

@@ -20,7 +20,7 @@ function EditableList({
     if (!v) return;
     onChange([v, ...items]);
     setDraft('');
-  };
+  }; 
 
   const removeItem = (idx: number) => {
     onChange(items.filter((_, i) => i !== idx));

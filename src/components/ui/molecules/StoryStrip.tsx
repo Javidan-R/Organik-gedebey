@@ -21,7 +21,7 @@ export interface StoryStripProps {
   backgroundGradient?: string;
   accentColor?: string;
 }
-
+ 
 const DEFAULT_MILESTONES: Milestone[] = [
   { year: '2019', text: 'İlk çatdırılma – 3 ailə' },
   { year: '2021', text: '100+ daimi müştəri' },

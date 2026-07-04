@@ -1,7 +1,7 @@
 import { COMPARE_STORAGE_KEY, MAX_COMPARE_ITEMS } from "@/const"
 import { useCallback } from "react"
 import { useLocalStorage } from "./useLocalStorage"
-
+ 
 // NEW: Compare hook
 export function useCompare(): [string[], (id: string) => void, (id: string) => void, (id: string) => boolean, () => void] {
   const [compareList, setCompareList] = useLocalStorage<string[]>(COMPARE_STORAGE_KEY, [])

@@ -1,13 +1,12 @@
-// src/app/admin/settings/page.tsx
-'use client';
+"use client";
 
 import React, {
   useState,
   useCallback,
   useMemo,
   useEffect,
-} from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+} from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Settings,
   Globe,
@@ -59,156 +58,25 @@ import {
   Menu,
   Globe2,
   Megaphone,
-} from 'lucide-react';
+} from "lucide-react";
 
-import { useApp } from '@/lib/store';
-import type { AdminUIState, StorefrontConfig } from '@/lib/types';
+import { useApp } from "@/lib/store";
+import type { AdminUIState, StorefrontConfig } from "@/lib/types";
+import { Button } from "@/components/atoms/button";
+import { Input } from "@/components/atoms/input";
+import { Select } from "@/components/atoms/select";
+import { Switch } from "@/components/atoms/switch";
+import { Textarea } from "@/components/atoms/textarea";
+
 
 // =========================================================
-// SMALL UI ATOMS
+//   Section Header (səhifə üçün reusable)
 // =========================================================
-
-type InputFieldProps = {
-  label: string;
-  value: string | number;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  type?: 'text' | 'number' | 'email' | 'password';
+const SectionHeader: React.FC<{
   icon?: React.ElementType;
-  placeholder?: string;
-  helperText?: string;
-};
-
-const InputField: React.FC<InputFieldProps> = ({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  icon: Icon,
-  placeholder,
-  helperText,
-}) => (
-  <div className="space-y-[0.25rem]">
-    <label className="block text-[0.75rem] font-semibold text-slate-600">
-      {label}
-    </label>
-    <div className="relative">
-      {Icon && (
-        <Icon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400" />
-      )}
-      <input
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        className={`w-full rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-[0.875rem] text-slate-800 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 ${
-          Icon ? 'pl-9' : ''
-        }`}
-      />
-    </div>
-    {helperText && (
-      <p className="mt-[0.2rem] text-[0.6875rem] text-slate-500">
-        {helperText}
-      </p>
-    )}
-  </div>
-);
-
-type SwitchToggleProps = {
-  label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  description: string;
-};
-
-const SwitchToggle: React.FC<SwitchToggleProps> = ({
-  label,
-  checked,
-  onChange,
-  description,
-}) => (
-  <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-white/90 p-4 shadow-sm transition hover:shadow-md">
-    <div className="max-w-[70%] space-y-[0.15rem]">
-      <p className="text-[0.875rem] font-semibold text-slate-800">
-        {label}
-      </p>
-      <p className="text-[0.75rem] text-slate-500">{description}</p>
-    </div>
-    <motion.button
-      onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-        checked ? 'bg-emerald-600' : 'bg-slate-300'
-      }`}
-      role="switch"
-      aria-checked={checked}
-      whileTap={{ scale: 0.92 }}
-    >
-      <motion.span
-        aria-hidden="true"
-        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-          checked ? 'translate-x-5' : 'translate-x-0'
-        }`}
-      />
-    </motion.button>
-  </div>
-);
-
-type ButtonColor = 'emerald' | 'blue' | 'red' | 'ghost';
-
-type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  icon?: React.ElementType;
-  color?: ButtonColor;
-  children: React.ReactNode;
-};
-
-const Button: React.FC<ButtonProps> = ({
-  icon: Icon,
-  color = 'emerald',
-  children,
-  className = '',
-  ...props
-}) => {
-  const baseClasses =
-    'inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 shadow-lg';
-
-  let colorClasses = '';
-  switch (color) {
-    case 'emerald':
-      colorClasses =
-        'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-500/30';
-      break;
-    case 'blue':
-      colorClasses =
-        'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/30';
-      break;
-    case 'red':
-      colorClasses =
-        'bg-red-600 text-white hover:bg-red-700 shadow-red-500/30';
-      break;
-    case 'ghost':
-      colorClasses =
-        'bg-white/70 text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-none';
-      break;
-  }
-
-  return (
-    <motion.button
-      className={`${baseClasses} ${colorClasses} ${className}`}
-      whileHover={{ scale: 1.03 }}
-      whileTap={{ scale: 0.97 }}
-      {...(props as any)}
-    >
-      {Icon && <Icon className="h-4 w-4" />}
-      {children}
-    </motion.button>
-  );
-};
-
-// Sadə section başlığı (reusable)
-const SectionHeader: React.FC<{ icon?: React.ElementType; title: string; subtitle?: string }> = ({
-  icon: Icon,
-  title,
-  subtitle,
-}) => (
+  title: string;
+  subtitle?: string;
+}> = ({ icon: Icon, title, subtitle }) => (
   <motion.div
     className="mb-2 flex items-start gap-3 border-b border-slate-100 pb-2"
     initial={{ x: -10, opacity: 0 }}
@@ -221,9 +89,7 @@ const SectionHeader: React.FC<{ icon?: React.ElementType; title: string; subtitl
       </span>
     )}
     <div>
-      <h2 className="text-2xl font-extrabold text-slate-900">
-        {title}
-      </h2>
+      <h2 className="text-2xl font-extrabold text-slate-900">{title}</h2>
       {subtitle && (
         <p className="text-xs text-slate-500 mt-[2px]">{subtitle}</p>
       )}
@@ -231,16 +97,13 @@ const SectionHeader: React.FC<{ icon?: React.ElementType; title: string; subtitl
   </motion.div>
 );
 
-// Sticky bottom bar (General tab üçün istifadə olunur)
-type StickyActionBarProps = {
+// =========================================================
+//   Sticky Action Bar
+// =========================================================
+const StickyActionBar: React.FC<{
   leftContent?: React.ReactNode;
   children?: React.ReactNode;
-};
-
-const StickyActionBar: React.FC<StickyActionBarProps> = ({
-  leftContent,
-  children,
-}) => (
+}> = ({ leftContent, children }) => (
   <motion.div
     initial={{ y: 20, opacity: 0 }}
     animate={{ y: 0, opacity: 1 }}
@@ -253,16 +116,31 @@ const StickyActionBar: React.FC<StickyActionBarProps> = ({
   </motion.div>
 );
 
-// Array editor component for managing lists
+// =========================================================
+//   Array Editor (mürəkkəb siyahı redaktəsi)
+// =========================================================
 type ArrayEditorProps<T> = {
   items: T[];
   onChange: (items: T[]) => void;
-  renderItem: (item: T, index: number, onUpdate: (item: T) => void, onRemove: () => void, onMoveUp: () => void, onMoveDown: () => void) => React.ReactNode;
+  renderItem: (
+    item: T,
+    index: number,
+    onUpdate: (item: T) => void,
+    onRemove: () => void,
+    onMoveUp: () => void,
+    onMoveDown: () => void
+  ) => React.ReactNode;
   addLabel: string;
   onAdd: () => void;
 };
 
-const ArrayEditor = <T,>({ items, onChange, renderItem, addLabel, onAdd }: ArrayEditorProps<T>) => (
+const ArrayEditor = <T,>({
+  items,
+  onChange,
+  renderItem,
+  addLabel,
+  onAdd,
+}: ArrayEditorProps<T>) => (
   <div className="space-y-3">
     {items.map((item, index) => (
       <div key={index}>
@@ -281,14 +159,20 @@ const ArrayEditor = <T,>({ items, onChange, renderItem, addLabel, onAdd }: Array
           () => {
             if (index > 0) {
               const newItems = [...items] as T[];
-              [newItems[index - 1]!, newItems[index]!] = [newItems[index]!, newItems[index - 1]!];
+              [newItems[index - 1]!, newItems[index]!] = [
+                newItems[index]!,
+                newItems[index - 1]!,
+              ];
               onChange(newItems);
             }
           },
           () => {
             if (index < items.length - 1) {
               const newItems = [...items] as T[];
-              [newItems[index]!, newItems[index + 1]!] = [newItems[index + 1]!, newItems[index]!];
+              [newItems[index]!, newItems[index + 1]!] = [
+                newItems[index + 1]!,
+                newItems[index]!,
+              ];
               onChange(newItems);
             }
           }
@@ -297,66 +181,24 @@ const ArrayEditor = <T,>({ items, onChange, renderItem, addLabel, onAdd }: Array
     ))}
     <Button
       onClick={onAdd}
-      icon={Plus}
-      color="ghost"
+      variant="secondary"
       className="w-full justify-center border-dashed"
     >
+      <Plus className="h-4 w-4" />
       {addLabel}
     </Button>
   </div>
 );
 
-// Textarea field component
-type TextAreaFieldProps = {
-  label: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  rows?: number;
-  helperText?: string;
-  placeholder?: string;
-};
-
-const TextAreaField: React.FC<TextAreaFieldProps> = ({
-  label,
-  value,
-  onChange,
-  rows = 3,
-  helperText,
-  placeholder,
-}) => (
-  <div className="space-y-[0.25rem]">
-    <label className="block text-[0.75rem] font-semibold text-slate-600">
-      {label}
-    </label>
-    <textarea
-      value={value}
-      onChange={onChange}
-      rows={rows}
-      placeholder={placeholder}
-      className="w-full rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-[0.875rem] text-slate-800 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 resize-none"
-    />
-    {helperText && (
-      <p className="mt-[0.2rem] text-[0.6875rem] text-slate-500">
-        {helperText}
-      </p>
-    )}
-  </div>
-);
-
-// Color picker component
-type ColorPickerProps = {
+// =========================================================
+//   Color Picker
+// =========================================================
+const ColorPicker: React.FC<{
   label: string;
   value: string;
   onChange: (value: string) => void;
   helperText?: string;
-};
-
-const ColorPicker: React.FC<ColorPickerProps> = ({
-  label,
-  value,
-  onChange,
-  helperText,
-}) => (
+}> = ({ label, value, onChange, helperText }) => (
   <div className="space-y-[0.25rem]">
     <label className="block text-[0.75rem] font-semibold text-slate-600">
       {label}
@@ -370,11 +212,10 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
           className="h-10 w-14 cursor-pointer rounded-lg border-2 border-slate-200 bg-transparent"
         />
       </div>
-      <input
-        type="text"
+      <Input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="flex-1 rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-[0.875rem] text-slate-800 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+        onChange={(val) => onChange(val)}
+        className="flex-1"
         placeholder="#16a34a"
       />
     </div>
@@ -386,50 +227,10 @@ const ColorPicker: React.FC<ColorPickerProps> = ({
   </div>
 );
 
-// Select field component
-type SelectFieldProps = {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-  helperText?: string;
-};
-
-const SelectField: React.FC<SelectFieldProps> = ({
-  label,
-  value,
-  onChange,
-  options,
-  helperText,
-}) => (
-  <div className="space-y-[0.25rem]">
-    <label className="block text-[0.75rem] font-semibold text-slate-600">
-      {label}
-    </label>
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none rounded-xl border border-slate-200 bg-white/80 px-3 py-2 pr-10 text-[0.875rem] text-slate-800 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-    </div>
-    {helperText && (
-      <p className="mt-[0.2rem] text-[0.6875rem] text-slate-500">
-        {helperText}
-      </p>
-    )}
-  </div>
-);
-
-// Confirmation dialog component
-type ConfirmDialogProps = {
+// =========================================================
+//   Confirmation Dialog
+// =========================================================
+const ConfirmDialog: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -437,25 +238,23 @@ type ConfirmDialogProps = {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  type?: 'danger' | 'warning' | 'info';
-};
-
-const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
+  type?: "danger" | "warning" | "info";
+}> = ({
   isOpen,
   onClose,
   onConfirm,
   title,
   message,
-  confirmText = 'Təsdiqlə',
-  cancelText = 'Ləğv et',
-  type = 'danger',
+  confirmText = "Təsdiqlə",
+  cancelText = "Ləğv et",
+  type = "danger",
 }) => {
   if (!isOpen) return null;
 
   const typeColors = {
-    danger: 'bg-red-600 hover:bg-red-700 shadow-red-500/30',
-    warning: 'bg-amber-600 hover:bg-amber-700 shadow-amber-500/30',
-    info: 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/30',
+    danger: "bg-red-600 hover:bg-red-700 shadow-red-500/30",
+    warning: "bg-amber-600 hover:bg-amber-700 shadow-amber-500/30",
+    info: "bg-blue-600 hover:bg-blue-700 shadow-blue-500/30",
   };
 
   return (
@@ -469,7 +268,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <h3 className="text-lg font-bold text-slate-900 mb-2">{title}</h3>
         <p className="text-sm text-slate-600 mb-6">{message}</p>
         <div className="flex gap-3 justify-end">
-          <Button onClick={onClose} color="ghost">
+          <Button onClick={onClose} variant="ghost">
             {cancelText}
           </Button>
           <Button
@@ -477,7 +276,13 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               onConfirm();
               onClose();
             }}
-            color={type === 'danger' ? 'red' : type === 'warning' ? 'emerald' : 'blue'}
+            variant={
+              type === "danger"
+                ? "danger"
+                : type === "warning"
+                ? "soft"
+                : "primary"
+            }
             className={typeColors[type]}
           >
             {confirmText}
@@ -489,9 +294,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 };
 
 // =========================================================
-// SETTINGS PAGES/TABS
+//   SETTINGS TABS TİPİ
 // =========================================================
-
 type SettingTab = {
   id: string;
   label: string;
@@ -503,7 +307,6 @@ type SettingTab = {
       contactEmail?: string;
       shippingFee?: number;
       locale?: string;
-      // Storefront Display
       productViewMode?: string;
       productsPerPage?: string;
       defaultSort?: string;
@@ -511,20 +314,25 @@ type SettingTab = {
       showProductDescription?: boolean;
       showStockQuantity?: boolean;
       showAddToCartNotification?: boolean;
-      // SEO & Analytics
       metaDescription?: string;
       metaKeywords?: string[];
       ogImage?: string;
       googleAnalyticsId?: string;
       gtmId?: string;
       customAnalyticsCode?: string;
-      // Navigation
       mainNavigation?: Array<{ label: string; href: string; icon: string }>;
-      categoryNavigation?: Array<{ label: string; href: string; icon: string }>;
-      // Testimonials & FAQ
-      testimonials?: Array<{ name: string; role?: string; text: string; rating: number }>;
+      categoryNavigation?: Array<{
+        label: string;
+        href: string;
+        icon: string;
+      }>;
+      testimonials?: Array<{
+        name: string;
+        role?: string;
+        text: string;
+        rating: number;
+      }>;
       faq?: Array<{ question: string; answer: string }>;
-      // System & Advanced
       maintenanceMode?: boolean;
       maintenanceMessage?: string;
       customCss?: string;
@@ -554,9 +362,22 @@ type SettingTab = {
           googleAnalyticsId?: string;
           gtmId?: string;
           customAnalyticsCode?: string;
-          mainNavigation?: Array<{ label: string; href: string; icon: string }>;
-          categoryNavigation?: Array<{ label: string; href: string; icon: string }>;
-          testimonials?: Array<{ name: string; role?: string; text: string; rating: number }>;
+          mainNavigation?: Array<{
+            label: string;
+            href: string;
+            icon: string;
+          }>;
+          categoryNavigation?: Array<{
+            label: string;
+            href: string;
+            icon: string;
+          }>;
+          testimonials?: Array<{
+            name: string;
+            role?: string;
+            text: string;
+            rating: number;
+          }>;
           faq?: Array<{ question: string; answer: string }>;
           maintenanceMode?: boolean;
           maintenanceMessage?: string;
@@ -576,10 +397,10 @@ type SettingTab = {
   }>;
 };
 
-// ---------------------------------------------------------
-// 1. General Settings
-// ---------------------------------------------------------
-const GeneralSettings: SettingTab['component'] = ({
+// =========================================================
+//   1. General Settings
+// =========================================================
+const GeneralSettings: SettingTab["component"] = ({
   localStorefrontConfig,
   setLocalStorefrontConfig,
   onSave,
@@ -594,52 +415,50 @@ const GeneralSettings: SettingTab['component'] = ({
     />
 
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <InputField
+      <Input
         label="Əlaqə E-poçtu"
         type="email"
-        icon={Mail}
-        value={localStorefrontConfig.contactEmail || ''}
-        onChange={(e) =>
+        value={localStorefrontConfig.contactEmail || ""}
+        onChange={(val) =>
           setLocalStorefrontConfig((s) => ({
             ...s,
-            contactEmail: e.target.value,
+            contactEmail: val,
           }))
         }
         placeholder="info@organikgedebey.az"
+        icon={<Mail className="h-4 w-4" />}
       />
-      <InputField
+      <Input
         label="Əlaqə Nömrəsi"
-        type="text"
-        icon={Phone}
-        value={localStorefrontConfig.contactPhone || ''}
-        onChange={(e) =>
+        value={localStorefrontConfig.contactPhone || ""}
+        onChange={(val) =>
           setLocalStorefrontConfig((s) => ({
             ...s,
-            contactPhone: e.target.value,
+            contactPhone: val,
           }))
         }
         placeholder="+994 50 XXX XX XX"
+        icon={<Phone className="h-4 w-4" />}
       />
-      <InputField
+      <Input
         label="Mağaza Lokalı (Dil)"
-        type="text"
-        icon={Globe}
-        value={localStorefrontConfig.locale || 'az-AZ'}
-        onChange={(e) =>
-          setLocalStorefrontConfig((s) => ({ ...s, locale: e.target.value }))
+        value={localStorefrontConfig.locale || "az-AZ"}
+        onChange={(val) =>
+          setLocalStorefrontConfig((s) => ({ ...s, locale: val }))
         }
-        helperText="Format: en-US, az-AZ, tr-TR. Tarix və pul formatına təsir edir."
+        icon={<Globe className="h-4 w-4" />}
+        helper="Format: en-US, az-AZ, tr-TR. Tarix və pul formatına təsir edir."
       />
       <div>
         <label className="mb-1 block text-xs font-semibold text-slate-600">
           Əsas Valyuta
         </label>
         <select
-          value={localStorefrontConfig.currency || 'AZN'}
+          value={localStorefrontConfig.currency || "AZN"}
           onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              currency: e.target.value as StorefrontConfig['currency'],
+              currency: e.target.value as StorefrontConfig["currency"],
             }))
           }
           className="h-10 w-full rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
@@ -655,27 +474,28 @@ const GeneralSettings: SettingTab['component'] = ({
       </div>
     </div>
 
-    {/* Locale & Currency preview mini card */}
     <div className="mt-2 rounded-2xl border border-slate-100 bg-slate-50/80 p-3 text-xs text-slate-600 flex items-start gap-2">
       <Info className="h-4 w-4 text-emerald-500 mt-[2px]" />
       <div>
         <div className="font-semibold mb-[2px]">Canlı ön-baxış</div>
         <p>
-          Dil: <span className="font-medium">
-            {localStorefrontConfig.locale || 'az-AZ'}
-          </span>{' '}
-          — Valyuta: <span className="font-medium">
-            {localStorefrontConfig.currency || 'AZN'}
+          Dil:{" "}
+          <span className="font-medium">
+            {localStorefrontConfig.locale || "az-AZ"}
+          </span>{" "}
+          — Valyuta:{" "}
+          <span className="font-medium">
+            {localStorefrontConfig.currency || "AZN"}
           </span>
         </p>
         <p className="mt-[2px]">
-          Məs: məhsul qiyməti <span className="font-semibold">12.50</span> →{' '}
+          Məs: məhsul qiyməti <span className="font-semibold">12.50</span> →{" "}
           <span className="font-semibold">
-            {localStorefrontConfig.currency === 'USD'
-              ? '$12.50'
-              : localStorefrontConfig.currency === 'EUR'
-              ? '€12.50'
-              : '12.50 ₼'}
+            {localStorefrontConfig.currency === "USD"
+              ? "$12.50"
+              : localStorefrontConfig.currency === "EUR"
+              ? "€12.50"
+              : "12.50 ₼"}
           </span>
         </p>
       </div>
@@ -686,7 +506,8 @@ const GeneralSettings: SettingTab['component'] = ({
         <>
           <Eye className="h-4 w-4 text-emerald-500" />
           <span>
-            Dəyişikliklər admin panelinə və storefront görünüşünə təsir edəcək.
+            Dəyişikliklər admin panelinə və storefront görünüşünə təsir
+            edəcək.
           </span>
         </>
       }
@@ -698,20 +519,20 @@ const GeneralSettings: SettingTab['component'] = ({
       )}
       <Button
         onClick={onSave}
-        icon={Save}
-        color="emerald"
+        variant="primary"
         disabled={isSaving || !hasUnsavedChanges}
       >
-        {isSaving ? 'Yadda saxlanılır…' : 'Dəyişiklikləri yadda saxla'}
+        <Save className="h-4 w-4" />
+        {isSaving ? "Yadda saxlanılır…" : "Dəyişiklikləri yadda saxla"}
       </Button>
     </StickyActionBar>
   </div>
 );
 
-// ---------------------------------------------------------
-// 2. Storefront & Finance Settings
-// ---------------------------------------------------------
-const StoreFinanceSettings: SettingTab['component'] = ({
+// =========================================================
+//   2. Storefront & Finance Settings
+// =========================================================
+const StoreFinanceSettings: SettingTab["component"] = ({
   localStorefrontConfig,
   setLocalStorefrontConfig,
   onSave,
@@ -726,49 +547,48 @@ const StoreFinanceSettings: SettingTab['component'] = ({
     />
 
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <InputField
+      <Input
         label="ƏDV Dərəcəsi (Vergi)"
         type="number"
-        icon={Percent}
         value={localStorefrontConfig.vatRate ?? 0}
-        onChange={(e) =>
+        onChange={(val) =>
           setLocalStorefrontConfig((s) => ({
             ...s,
-            vatRate: parseFloat(e.target.value || '0'),
+            vatRate: parseFloat(val || "0"),
           }))
         }
         placeholder="0.18"
-        helperText="0.18 = 18%. Bütün qiymətlərə tətbiq olunur."
+        helper="0.18 = 18%"
+        icon={<Percent className="h-4 w-4" />}
       />
-      <InputField
+      <Input
         label="Standart Çatdırılma Haqqı"
         type="number"
-        icon={Truck}
         value={localStorefrontConfig.shippingFee ?? 0}
-        onChange={(e) =>
+        onChange={(val) =>
           setLocalStorefrontConfig((s) => ({
             ...s,
-            shippingFee: parseFloat(e.target.value || '0'),
+            shippingFee: parseFloat(val || "0"),
           }))
         }
         placeholder="5.00"
-        helperText="0.00 olarsa pulsuz çatdırılma deməkdir."
+        helper="0.00 = pulsuz"
+        icon={<Truck className="h-4 w-4" />}
       />
     </div>
 
     <div className="mt-4 space-y-4">
-      <SwitchToggle
+      <Switch
         label="Anında Ödəniş Bildirişləri"
         checked={true}
         onChange={() =>
           alert(
-            'Bu funksiya üçün Real-Time backend (WebSocket və ya Push Notification) lazımdır.',
+            "Bu funksiya üçün Real-Time backend (WebSocket və ya Push Notification) lazımdır."
           )
         }
-        description="Yeni sifarişlər zamanı administratorlara anında bildiriş göndərilsin (məs. mobil push və ya web notification)."
+        description="Yeni sifarişlər zamanı administratorlara anında bildiriş göndərilsin."
       />
-
-      <SwitchToggle
+      <Switch
         label="Satış Hesabatlarında Orta Çeki Göstər"
         checked={true}
         onChange={() => {}}
@@ -784,26 +604,26 @@ const StoreFinanceSettings: SettingTab['component'] = ({
       <div className="flex items-center gap-2 text-xs text-slate-500">
         <Database className="h-4 w-4 text-emerald-500" />
         <span>
-          Vergi və çatdırılma nizamları checkout hesablamalarına birbaşa təsir
-          edir.
+          Vergi və çatdırılma nizamları checkout hesablamalarına birbaşa
+          təsir edir.
         </span>
       </div>
       <Button
         onClick={onSave}
-        icon={Save}
-        color="emerald"
+        variant="primary"
         disabled={isSaving || !hasUnsavedChanges}
       >
-        {isSaving ? 'Yadda saxlanılır…' : 'Dəyişiklikləri yadda saxla'}
+        <Save className="h-4 w-4" />
+        {isSaving ? "Yadda saxlanılır…" : "Dəyişiklikləri yadda saxla"}
       </Button>
     </motion.div>
   </div>
 );
 
-// ---------------------------------------------------------
-// 3. User Preferences (AdminUIState)
-// ---------------------------------------------------------
-const UserPreferences: SettingTab['component'] = ({
+// =========================================================
+//   3. User Preferences (AdminUIState)
+// =========================================================
+const UserPreferences: SettingTab["component"] = ({
   localUIState,
   setLocalUIState,
   onSave,
@@ -818,7 +638,7 @@ const UserPreferences: SettingTab['component'] = ({
     />
 
     <div className="space-y-4">
-      <SwitchToggle
+      <Switch
         label="Sidebar-ı həmişə açıq saxla"
         checked={localUIState.sidebarOpen}
         onChange={(v) =>
@@ -827,26 +647,24 @@ const UserPreferences: SettingTab['component'] = ({
             sidebarOpen: v,
           }))
         }
-        description="Sidebar-ı mobil və ya tablet rejimində belə geniş açıq saxla. Çox işlədiyin ekranlar üçün ideal."
+        description="Sidebar-ı mobil və ya tablet rejimində belə geniş açıq saxla."
       />
-
-      <SwitchToggle
+      <Switch
         label="Tünd Tema (Dark Mode)"
-        checked={localUIState.theme === 'dark'}
+        checked={localUIState.theme === "dark"}
         onChange={(v) =>
           setLocalUIState((s) => ({
             ...s,
-            theme: v ? 'dark' : 'light',
+            theme: v ? "dark" : "light",
           }))
         }
-        description="Admin panelini gecə rejiminə uyğunlaşdır (xüsusilə uzun iş saatları üçün göz yorğunluğunu azaldır)."
+        description="Admin panelini gecə rejiminə uyğunlaşdır."
       />
-
-      <SwitchToggle
+      <Switch
         label="Səhifə Keçidlərini Animasiya Et"
         checked={true}
         onChange={() => {}}
-        description="`framer-motion` ilə səhifələr arasında keçid animasiyalarını aktiv saxla (premium hiss üçün)."
+        description="`framer-motion` ilə səhifələr arasında keçid animasiyalarını aktiv saxla."
       />
     </div>
 
@@ -864,20 +682,20 @@ const UserPreferences: SettingTab['component'] = ({
       </div>
       <Button
         onClick={onSave}
-        icon={Save}
-        color="emerald"
+        variant="primary"
         disabled={isSaving || !hasUnsavedChanges}
       >
-        {isSaving ? 'Yadda saxlanılır…' : 'Dəyişiklikləri yadda saxla'}
+        <Save className="h-4 w-4" />
+        {isSaving ? "Yadda saxlanılır…" : "Dəyişiklikləri yadda saxla"}
       </Button>
     </motion.div>
   </div>
 );
 
-// ---------------------------------------------------------
-// 4. Content Management Settings
-// ---------------------------------------------------------
-const ContentManagementSettings: SettingTab['component'] = ({
+// =========================================================
+//   4. Content Management Settings
+// =========================================================
+const ContentManagementSettings: SettingTab["component"] = ({
   localStorefrontConfig,
   setLocalStorefrontConfig,
   onSave,
@@ -899,18 +717,18 @@ const ContentManagementSettings: SettingTab['component'] = ({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <ColorPicker
           label="Əsas Rəng"
-          value={localStorefrontConfig.primaryColor || '#16a34a'}
+          value={localStorefrontConfig.primaryColor || "#16a34a"}
           onChange={(value) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
               primaryColor: value,
             }))
           }
-          helperText="Düymələr, linklər və vurğular üçün istifadə olunur"
+          helperText="Düymələr, linklər və vurğular üçün"
         />
         <ColorPicker
           label="İkinci Rəng"
-          value={localStorefrontConfig.secondaryColor || '#10b981'}
+          value={localStorefrontConfig.secondaryColor || "#10b981"}
           onChange={(value) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -919,28 +737,29 @@ const ContentManagementSettings: SettingTab['component'] = ({
           }
           helperText="Arxa plan və ikinci elementlər üçün"
         />
-        <InputField
-          label="Sayt Başlığı"
-          value={localStorefrontConfig.siteTitle || ''}
-          onChange={(e) =>
+        <Input
+          label="Sayt Başlığı (Brend)"
+          value={localStorefrontConfig.siteTitle || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              siteTitle: e.target.value,
+              siteTitle: val,
             }))
           }
           placeholder="Organik Gədəbəy"
+          helper="Bütün səhifə başlıqlarını təyin edir"
         />
-        <InputField
+        <Input
           label="Sayt Təsviri"
-          value={localStorefrontConfig.siteDescription || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.siteDescription || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              siteDescription: e.target.value,
+              siteDescription: val,
             }))
           }
           placeholder="Təbii kənd məhsulları"
-          helperText="SEO üçün meta description"
+          helper="SEO üçün meta description"
         />
       </div>
     </div>
@@ -953,8 +772,12 @@ const ContentManagementSettings: SettingTab['component'] = ({
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-800">Hero Bölməsi</h3>
-            <p className="text-xs text-slate-500">Ana səhifənin görünüşünü idarə edin</p>
+            <h3 className="text-sm font-bold text-slate-800">
+              Hero Bölməsi
+            </h3>
+            <p className="text-xs text-slate-500">
+              Ana səhifənin görünüşünü idarə edin
+            </p>
           </div>
         </div>
         <a
@@ -973,31 +796,31 @@ const ContentManagementSettings: SettingTab['component'] = ({
         <ImageIcon className="h-4 w-4 text-emerald-600" /> Logo və Brendinq
       </h3>
       <div className="space-y-4">
-        <InputField
+        <Input
           label="Logo URL"
-          value={localStorefrontConfig.logoUrl || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.logoUrl || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              logoUrl: e.target.value,
+              logoUrl: val,
             }))
           }
           placeholder="/logo.png"
-          icon={ImageIcon}
-          helperText="Saytınızın loqosu"
+          icon={<ImageIcon className="h-4 w-4" />}
+          helper="Saytınızın loqosu"
         />
-        <InputField
+        <Input
           label="Favicon URL"
-          value={localStorefrontConfig.faviconUrl || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.faviconUrl || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              faviconUrl: e.target.value,
+              faviconUrl: val,
             }))
           }
           placeholder="/favicon.ico"
-          icon={ImageIcon}
-          helperText="Brauzer tab ikonu"
+          icon={<ImageIcon className="h-4 w-4" />}
+          helper="Brauzer tab ikonu"
         />
       </div>
     </div>
@@ -1005,7 +828,8 @@ const ContentManagementSettings: SettingTab['component'] = ({
     {/* Navigation Links */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
-        <Navigation className="h-4 w-4 text-emerald-600" /> Naviqasiya Linkləri
+        <Navigation className="h-4 w-4 text-emerald-600" /> Naviqasiya
+        Linkləri
       </h3>
       <ArrayEditor
         items={localStorefrontConfig.navItems || []}
@@ -1021,32 +845,39 @@ const ContentManagementSettings: SettingTab['component'] = ({
             ...s,
             navItems: [
               ...(s.navItems || []),
-              { label: '', href: '', icon: '' },
+              { label: "", href: "", icon: "" },
             ],
           }))
         }
-        renderItem={(item, index, onUpdate, onRemove, onMoveUp, onMoveDown) => (
+        renderItem={(
+          item,
+          index,
+          onUpdate,
+          onRemove,
+          onMoveUp,
+          onMoveDown
+        ) => (
           <div className="flex gap-2 items-start">
             <div className="flex-1 space-y-2">
-              <InputField
+              <Input
                 label={`Link ${index + 1} Adı`}
                 value={item.label}
-                onChange={(e) => onUpdate({ ...item, label: e.target.value })}
+                onChange={(val) => onUpdate({ ...item, label: val })}
                 placeholder="Məhsullar"
               />
-              <InputField
+              <Input
                 label={`Link ${index + 1} URL`}
                 value={item.href}
-                onChange={(e) => onUpdate({ ...item, href: e.target.value })}
+                onChange={(val) => onUpdate({ ...item, href: val })}
                 placeholder="/products"
-                icon={LinkIcon}
+                icon={<LinkIcon className="h-4 w-4" />}
               />
-              <InputField
+              <Input
                 label={`Link ${index + 1} İkon`}
-                value={item.icon || ''}
-                onChange={(e) => onUpdate({ ...item, icon: e.target.value })}
+                value={item.icon || ""}
+                onChange={(val) => onUpdate({ ...item, icon: val })}
                 placeholder="package"
-                helperText="Lucide icon adı"
+                helper="Lucide icon adı"
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -1060,7 +891,10 @@ const ContentManagementSettings: SettingTab['component'] = ({
               <button
                 onClick={onMoveDown}
                 className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
-                disabled={index === (localStorefrontConfig.navItems?.length || 0) - 1}
+                disabled={
+                  index ===
+                  (localStorefrontConfig.navItems?.length || 0) - 1
+                }
               >
                 <MoveDown className="h-4 w-4" />
               </button>
@@ -1079,39 +913,40 @@ const ContentManagementSettings: SettingTab['component'] = ({
     {/* Premium SEO */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
-        <BarChart3 className="h-4 w-4 text-emerald-600" /> Premium SEO (Expert Level)
+        <BarChart3 className="h-4 w-4 text-emerald-600" /> Premium SEO
+        (Expert Level)
       </h3>
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <InputField
+          <Input
             label="Meta Title"
-            value={localStorefrontConfig.metaTitle || ''}
-            onChange={(e) =>
+            value={localStorefrontConfig.metaTitle || ""}
+            onChange={(val) =>
               setLocalStorefrontConfig((s) => ({
                 ...s,
-                metaTitle: e.target.value,
+                metaTitle: val,
               }))
             }
             placeholder="Organik Gədəbəy - Təbii Kənd Məhsulları"
-            helperText="SEO başlıq (60-60 simvol)"
+            helper="SEO başlıq (60-70 simvol)"
           />
-          <InputField
+          <Input
             label="Canonical URL"
-            value={localStorefrontConfig.canonicalUrl || ''}
-            onChange={(e) =>
+            value={localStorefrontConfig.canonicalUrl || ""}
+            onChange={(val) =>
               setLocalStorefrontConfig((s) => ({
                 ...s,
-                canonicalUrl: e.target.value,
+                canonicalUrl: val,
               }))
             }
             placeholder="https://organikgedebey.az"
-            icon={LinkIcon}
-            helperText="Kanonik URL"
+            icon={<LinkIcon className="h-4 w-4" />}
+            helper="Kanonik URL"
           />
         </div>
-        <TextAreaField
+        <Textarea
           label="Meta Description"
-          value={localStorefrontConfig.metaDescription || ''}
+          value={localStorefrontConfig.metaDescription || ""}
           onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -1119,62 +954,70 @@ const ContentManagementSettings: SettingTab['component'] = ({
             }))
           }
           rows={3}
-          helperText="SEO təsviri (150-160 simvol)"
+          placeholder="Təbii məhsullar..."
         />
-        <TextAreaField
+        <Textarea
           label="Meta Keywords"
-          value={localStorefrontConfig.metaKeywords?.join(', ') || ''}
+          value={
+            localStorefrontConfig.metaKeywords?.join(", ") || ""
+          }
           onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              metaKeywords: e.target.value.split(',').map(k => k.trim()).filter(Boolean),
+              metaKeywords: e.target.value
+                .split(",")
+                .map((k) => k.trim())
+                .filter(Boolean),
             }))
           }
           rows={2}
-          helperText="Vergüllə ayrılmış açar sözlər"
+          placeholder="organik, təbii, kənd"
         />
-        <InputField
+        <Input
           label="OG Image"
-          value={localStorefrontConfig.ogImage || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.ogImage || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              ogImage: e.target.value,
+              ogImage: val,
             }))
           }
           placeholder="/og-image.jpg"
-          icon={ImageIcon}
-          helperText="Open Graph şəkli"
+          icon={<ImageIcon className="h-4 w-4" />}
+          helper="Open Graph şəkli"
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <InputField
+          <Input
             label="Twitter Card Type"
-            value={localStorefrontConfig.twitterCard || 'summary_large_image'}
-            onChange={(e) =>
+            value={
+              localStorefrontConfig.twitterCard ||
+              "summary_large_image"
+            }
+            onChange={(val) =>
               setLocalStorefrontConfig((s) => ({
                 ...s,
-                twitterCard: e.target.value as any,
+                twitterCard: val as any,
               }))
             }
             placeholder="summary_large_image"
-            helperText="summary, summary_large_image, app, player"
+            helper="summary, summary_large_image, app, player"
           />
-          <InputField
+          <Input
             label="Twitter Site"
-            value={localStorefrontConfig.twitterSite || ''}
-            onChange={(e) =>
+            value={localStorefrontConfig.twitterSite || ""}
+            onChange={(val) =>
               setLocalStorefrontConfig((s) => ({
                 ...s,
-                twitterSite: e.target.value,
+                twitterSite: val,
               }))
             }
             placeholder="@organikgedebey"
-            helperText="Twitter hesab adı"
+            helper="Twitter hesab adı"
           />
         </div>
-        <TextAreaField
+        <Textarea
           label="Robots.txt"
-          value={localStorefrontConfig.robotsTxt || ''}
+          value={localStorefrontConfig.robotsTxt || ""}
           onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -1182,9 +1025,9 @@ const ContentManagementSettings: SettingTab['component'] = ({
             }))
           }
           rows={4}
-          helperText="Axtarış botları üçün qaydalar"
+          placeholder="User-agent: *"
         />
-        <SwitchToggle
+        <Switch
           label="Sitemap Aktiv"
           checked={localStorefrontConfig.sitemapEnabled !== false}
           onChange={(v) =>
@@ -1195,9 +1038,9 @@ const ContentManagementSettings: SettingTab['component'] = ({
           }
           description="Avtomatik sitemap generasiyası"
         />
-        <TextAreaField
+        <Textarea
           label="Structured Data (JSON-LD)"
-          value={localStorefrontConfig.structuredData || ''}
+          value={localStorefrontConfig.structuredData || ""}
           onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -1205,7 +1048,7 @@ const ContentManagementSettings: SettingTab['component'] = ({
             }))
           }
           rows={6}
-          helperText="JSON-LD formatında strukturlaşdırılmış məlumat"
+          placeholder='{ "@context": "https://schema.org" ... }'
         />
       </div>
     </div>
@@ -1229,32 +1072,49 @@ const ContentManagementSettings: SettingTab['component'] = ({
             ...s,
             headerBanners: [
               ...(s.headerBanners || []),
-              { text: '', color: 'from-emerald-600 to-teal-600', link: '' },
+              {
+                text: "",
+                color: "from-emerald-600 to-teal-600",
+                link: "",
+              },
             ],
           }))
         }
-        renderItem={(banner, index, onUpdate, onRemove, onMoveUp, onMoveDown) => (
+        renderItem={(
+          banner,
+          index,
+          onUpdate,
+          onRemove,
+          onMoveUp,
+          onMoveDown
+        ) => (
           <div className="flex gap-2 items-start">
             <div className="flex-1 space-y-2">
-              <InputField
+              <Input
                 label={`Banner ${index + 1} Mətni`}
                 value={banner.text}
-                onChange={(e) => onUpdate({ ...banner, text: e.target.value })}
-                placeholder="🚀 30 AZN-dən yuxarı sifarişə PULSUZ çatdırılma!"
+                onChange={(val) =>
+                  onUpdate({ ...banner, text: val })
+                }
+                placeholder="🚀 PULSUZ çatdırılma!"
               />
-              <InputField
+              <Input
                 label={`Banner ${index + 1} Rəngi`}
                 value={banner.color}
-                onChange={(e) => onUpdate({ ...banner, color: e.target.value })}
+                onChange={(val) =>
+                  onUpdate({ ...banner, color: val })
+                }
                 placeholder="from-emerald-600 to-teal-600"
-                helperText="Tailwind gradient class-ları"
+                helper="Tailwind gradient class"
               />
-              <InputField
+              <Input
                 label={`Banner ${index + 1} Linki`}
-                value={banner.link || ''}
-                onChange={(e) => onUpdate({ ...banner, link: e.target.value })}
+                value={banner.link || ""}
+                onChange={(val) =>
+                  onUpdate({ ...banner, link: val })
+                }
                 placeholder="/products"
-                icon={LinkIcon}
+                icon={<LinkIcon className="h-4 w-4" />}
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -1268,7 +1128,12 @@ const ContentManagementSettings: SettingTab['component'] = ({
               <button
                 onClick={onMoveDown}
                 className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
-                disabled={index === (localStorefrontConfig.headerBanners?.length || 0) - 1}
+                disabled={
+                  index ===
+                  (localStorefrontConfig.headerBanners?.length ||
+                    0) -
+                    1
+                }
               >
                 <MoveDown className="h-4 w-4" />
               </button>
@@ -1287,38 +1152,48 @@ const ContentManagementSettings: SettingTab['component'] = ({
     {/* Header Top Bar */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
-        <Navigation className="h-4 w-4 text-emerald-600" /> Header Top Bar
+        <Navigation className="h-4 w-4 text-emerald-600" /> Header Top
+        Bar
       </h3>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <InputField
+        <Input
           label="Şüar"
-          value={localStorefrontConfig.headerTopBar?.tagline || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.headerTopBar?.tagline || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              headerTopBar: { ...s.headerTopBar, tagline: e.target.value },
+              headerTopBar: {
+                ...s.headerTopBar,
+                tagline: val,
+              },
             }))
           }
           placeholder="Gədəbəy & Gəncə ailə təsərrüfatları"
         />
-        <InputField
+        <Input
           label="Məkan"
-          value={localStorefrontConfig.headerTopBar?.location || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.headerTopBar?.location || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              headerTopBar: { ...s.headerTopBar, location: e.target.value },
+              headerTopBar: {
+                ...s.headerTopBar,
+                location: val,
+              },
             }))
           }
           placeholder="Özü götürmə & Çatdırılma"
         />
-        <InputField
+        <Input
           label="İş Saatları"
-          value={localStorefrontConfig.headerTopBar?.hours || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.headerTopBar?.hours || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              headerTopBar: { ...s.headerTopBar, hours: e.target.value },
+              headerTopBar: {
+                ...s.headerTopBar,
+                hours: val,
+              },
             }))
           }
           placeholder="Hər gün 09:00 - 21:00"
@@ -1332,9 +1207,9 @@ const ContentManagementSettings: SettingTab['component'] = ({
         <FileText className="h-4 w-4 text-emerald-600" /> Footer
       </h3>
       <div className="space-y-4">
-        <TextAreaField
+        <Textarea
           label="Haqqında Mətni"
-          value={localStorefrontConfig.footerAboutText || ''}
+          value={localStorefrontConfig.footerAboutText || ""}
           onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -1342,18 +1217,18 @@ const ContentManagementSettings: SettingTab['component'] = ({
             }))
           }
           rows={3}
-          helperText="Footer-da görünən qısa təsvir"
+          placeholder="Təbii kənd məhsulları..."
         />
-        <InputField
+        <Input
           label="Copyright Mətni"
-          value={localStorefrontConfig.footerCopyright || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.footerCopyright || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              footerCopyright: e.target.value,
+              footerCopyright: val,
             }))
           }
-          placeholder="© 2024 Organik Gədəbəy. Bütün hüquqlar qorunur."
+          placeholder="© 2024 Organik Gədəbəy"
         />
         <div>
           <label className="block text-[0.75rem] font-semibold text-slate-600 mb-2">
@@ -1373,25 +1248,34 @@ const ContentManagementSettings: SettingTab['component'] = ({
                 ...s,
                 footerQuickLinks: [
                   ...(s.footerQuickLinks || []),
-                  { label: '', href: '' },
+                  { label: "", href: "" },
                 ],
               }))
             }
-            renderItem={(link: any, _index, onUpdate, onRemove) => (
+            renderItem={(
+              link: any,
+              _index,
+              onUpdate,
+              onRemove
+            ) => (
               <div className="flex gap-2 items-start">
                 <div className="flex-1 grid grid-cols-2 gap-2">
-                  <InputField
+                  <Input
                     label="Etiket"
-                    value={link?.label || ''}
-                    onChange={(e) => onUpdate({ ...link, label: e.target.value })}
+                    value={link?.label || ""}
+                    onChange={(val) =>
+                      onUpdate({ ...link, label: val })
+                    }
                     placeholder="Ana Səhifə"
                   />
-                  <InputField
+                  <Input
                     label="Link"
-                    value={link?.href || ''}
-                    onChange={(e) => onUpdate({ ...link, href: e.target.value })}
+                    value={link?.href || ""}
+                    onChange={(val) =>
+                      onUpdate({ ...link, href: val })
+                    }
                     placeholder="/"
-                    icon={LinkIcon}
+                    icon={<LinkIcon className="h-4 w-4" />}
                   />
                 </div>
                 <button
@@ -1413,77 +1297,77 @@ const ContentManagementSettings: SettingTab['component'] = ({
         <Share2 className="h-4 w-4 text-emerald-600" /> Sosial Media
       </h3>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <InputField
+        <Input
           label="Instagram"
-          value={localStorefrontConfig.socialInstagram || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.socialInstagram || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              socialInstagram: e.target.value,
+              socialInstagram: val,
             }))
           }
           placeholder="https://instagram.com/organikgedebey"
-          icon={LinkIcon}
+          icon={<LinkIcon className="h-4 w-4" />}
         />
-        <InputField
+        <Input
           label="Facebook"
-          value={localStorefrontConfig.socialFacebook || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.socialFacebook || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              socialFacebook: e.target.value,
+              socialFacebook: val,
             }))
           }
           placeholder="https://facebook.com/organikgedebey"
-          icon={LinkIcon}
+          icon={<LinkIcon className="h-4 w-4" />}
         />
-        <InputField
+        <Input
           label="WhatsApp"
-          value={localStorefrontConfig.socialWhatsapp || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.socialWhatsapp || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              socialWhatsapp: e.target.value,
+              socialWhatsapp: val,
             }))
           }
           placeholder="+994501234567"
-          icon={Phone}
+          icon={<Phone className="h-4 w-4" />}
         />
-        <InputField
+        <Input
           label="Telegram"
-          value={localStorefrontConfig.socialTelegram || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.socialTelegram || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              socialTelegram: e.target.value,
+              socialTelegram: val,
             }))
           }
           placeholder="https://t.me/organikgedebey"
-          icon={LinkIcon}
+          icon={<LinkIcon className="h-4 w-4" />}
         />
-        <InputField
+        <Input
           label="YouTube"
-          value={localStorefrontConfig.socialYoutube || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.socialYoutube || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              socialYoutube: e.target.value,
+              socialYoutube: val,
             }))
           }
           placeholder="https://youtube.com/@organikgedebey"
-          icon={LinkIcon}
+          icon={<LinkIcon className="h-4 w-4" />}
         />
-        <InputField
+        <Input
           label="Twitter/X"
-          value={localStorefrontConfig.socialTwitter || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.socialTwitter || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              socialTwitter: e.target.value,
+              socialTwitter: val,
             }))
           }
           placeholder="https://twitter.com/organikgedebey"
-          icon={LinkIcon}
+          icon={<LinkIcon className="h-4 w-4" />}
         />
       </div>
     </div>
@@ -1507,29 +1391,42 @@ const ContentManagementSettings: SettingTab['component'] = ({
             ...s,
             stats: [
               ...(s.stats || []),
-              { value: '', label: '', icon: '📊' },
+              { value: "", label: "", icon: "📊" },
             ],
           }))
         }
-        renderItem={(stat: any, index, onUpdate, onRemove, onMoveUp, onMoveDown) => (
+        renderItem={(
+          stat: any,
+          index,
+          onUpdate,
+          onRemove,
+          onMoveUp,
+          onMoveDown
+        ) => (
           <div className="flex gap-2 items-start">
             <div className="flex-1 grid grid-cols-3 gap-2">
-              <InputField
+              <Input
                 label="Qiymət"
-                value={stat?.value || ''}
-                onChange={(e) => onUpdate({ ...stat, value: e.target.value })}
+                value={stat?.value || ""}
+                onChange={(val) =>
+                  onUpdate({ ...stat, value: val })
+                }
                 placeholder="1000+"
               />
-              <InputField
+              <Input
                 label="Etiket"
-                value={stat?.label || ''}
-                onChange={(e) => onUpdate({ ...stat, label: e.target.value })}
+                value={stat?.label || ""}
+                onChange={(val) =>
+                  onUpdate({ ...stat, label: val })
+                }
                 placeholder="Məhsul"
               />
-              <InputField
+              <Input
                 label="Emoji"
-                value={stat?.icon || ''}
-                onChange={(e) => onUpdate({ ...stat, icon: e.target.value })}
+                value={stat?.icon || ""}
+                onChange={(val) =>
+                  onUpdate({ ...stat, icon: val })
+                }
                 placeholder="📦"
               />
             </div>
@@ -1544,7 +1441,10 @@ const ContentManagementSettings: SettingTab['component'] = ({
               <button
                 onClick={onMoveDown}
                 className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
-                disabled={index === (localStorefrontConfig.stats?.length || 0) - 1}
+                disabled={
+                  index ===
+                  (localStorefrontConfig.stats?.length || 0) - 1
+                }
               >
                 <MoveDown className="h-4 w-4" />
               </button>
@@ -1579,29 +1479,42 @@ const ContentManagementSettings: SettingTab['component'] = ({
             ...s,
             trustBadges: [
               ...(s.trustBadges || []),
-              { icon: '✓', title: '', description: '' },
+              { icon: "✓", title: "", description: "" },
             ],
           }))
         }
-        renderItem={(badge: any, index, onUpdate, onRemove, onMoveUp, onMoveDown) => (
+        renderItem={(
+          badge: any,
+          index,
+          onUpdate,
+          onRemove,
+          onMoveUp,
+          onMoveDown
+        ) => (
           <div className="flex gap-2 items-start">
             <div className="flex-1 space-y-2">
-              <InputField
+              <Input
                 label="Emoji"
-                value={badge?.icon || ''}
-                onChange={(e) => onUpdate({ ...badge, icon: e.target.value })}
+                value={badge?.icon || ""}
+                onChange={(val) =>
+                  onUpdate({ ...badge, icon: val })
+                }
                 placeholder="🌿"
               />
-              <InputField
+              <Input
                 label="Başlıq"
-                value={badge?.title || ''}
-                onChange={(e) => onUpdate({ ...badge, title: e.target.value })}
+                value={badge?.title || ""}
+                onChange={(val) =>
+                  onUpdate({ ...badge, title: val })
+                }
                 placeholder="100% Organik"
               />
-              <InputField
+              <Input
                 label="Təsvir"
-                value={badge?.description || ''}
-                onChange={(e) => onUpdate({ ...badge, description: e.target.value })}
+                value={badge?.description || ""}
+                onChange={(val) =>
+                  onUpdate({ ...badge, description: val })
+                }
                 placeholder="Təbii məhsullar"
               />
             </div>
@@ -1616,7 +1529,11 @@ const ContentManagementSettings: SettingTab['component'] = ({
               <button
                 onClick={onMoveDown}
                 className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
-                disabled={index === (localStorefrontConfig.trustBadges?.length || 0) - 1}
+                disabled={
+                  index ===
+                  (localStorefrontConfig.trustBadges?.length || 0) -
+                    1
+                }
               >
                 <MoveDown className="h-4 w-4" />
               </button>
@@ -1645,20 +1562,20 @@ const ContentManagementSettings: SettingTab['component'] = ({
       </div>
       <Button
         onClick={onSave}
-        icon={Save}
-        color="emerald"
+        variant="primary"
         disabled={isSaving || !hasUnsavedChanges}
       >
-        {isSaving ? 'Yadda saxlanılır…' : 'Dəyişiklikləri yadda saxla'}
+        <Save className="h-4 w-4" />
+        {isSaving ? "Yadda saxlanılır…" : "Dəyişiklikləri yadda saxla"}
       </Button>
     </motion.div>
   </div>
 );
 
-// ---------------------------------------------------------
-// 6. Premium UI Settings
-// ---------------------------------------------------------
-const PremiumUISettings: SettingTab['component'] = ({
+// =========================================================
+//   6. Premium UI Settings
+// =========================================================
+const PremiumUISettings: SettingTab["component"] = ({
   localStorefrontConfig,
   setLocalStorefrontConfig,
   onSave,
@@ -1678,41 +1595,41 @@ const PremiumUISettings: SettingTab['component'] = ({
         <Type className="h-4 w-4 text-emerald-600" /> Tipografiya
       </h3>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <SelectField
+        <Select
           label="Əsas Şrift"
-          value={localStorefrontConfig.fontFamily || 'inter'}
-          onChange={(value) =>
+          name="fontFamily"
+          value={localStorefrontConfig.fontFamily || "inter"}
+          onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              fontFamily: value,
+              fontFamily: e.target.value,
             }))
           }
           options={[
-            { value: 'inter', label: 'Inter (Default)' },
-            { value: 'roboto', label: 'Roboto' },
-            { value: 'open-sans', label: 'Open Sans' },
-            { value: 'poppins', label: 'Poppins' },
-            { value: 'montserrat', label: 'Montserrat' },
+            { value: "inter", label: "Inter (Default)" },
+            { value: "roboto", label: "Roboto" },
+            { value: "open-sans", label: "Open Sans" },
+            { value: "poppins", label: "Poppins" },
+            { value: "montserrat", label: "Montserrat" },
           ]}
-          helperText="Bütün mətnlər üçün default şrift"
         />
-        <SelectField
+        <Select
           label="Başlıq Şrifti"
-          value={localStorefrontConfig.headingFont || 'inter'}
-          onChange={(value) =>
+          name="headingFont"
+          value={localStorefrontConfig.headingFont || "inter"}
+          onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              headingFont: value,
+              headingFont: e.target.value,
             }))
           }
           options={[
-            { value: 'inter', label: 'Inter (Default)' },
-            { value: 'roboto', label: 'Roboto' },
-            { value: 'open-sans', label: 'Open Sans' },
-            { value: 'poppins', label: 'Poppins' },
-            { value: 'montserrat', label: 'Montserrat' },
+            { value: "inter", label: "Inter (Default)" },
+            { value: "roboto", label: "Roboto" },
+            { value: "open-sans", label: "Open Sans" },
+            { value: "poppins", label: "Poppins" },
+            { value: "montserrat", label: "Montserrat" },
           ]}
-          helperText="Başlıqlar üçün şrift"
         />
       </div>
     </div>
@@ -1723,39 +1640,39 @@ const PremiumUISettings: SettingTab['component'] = ({
         <Layers className="h-4 w-4 text-emerald-600" /> Spacing & Layout
       </h3>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <SelectField
+        <Select
           label="Konteyner Genişliyi"
-          value={localStorefrontConfig.containerWidth || 'default'}
-          onChange={(value) =>
+          name="containerWidth"
+          value={localStorefrontConfig.containerWidth || "default"}
+          onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              containerWidth: value as 'narrow' | 'default' | 'wide' | 'full',
+              containerWidth: e.target.value as any,
             }))
           }
           options={[
-            { value: 'narrow', label: 'Dar (1024px)' },
-            { value: 'default', label: 'Default (1280px)' },
-            { value: 'wide', label: 'Geniş (1440px)' },
-            { value: 'full', label: 'Tam Genişlik' },
+            { value: "narrow", label: "Dar (1024px)" },
+            { value: "default", label: "Default (1280px)" },
+            { value: "wide", label: "Geniş (1440px)" },
+            { value: "full", label: "Tam Genişlik" },
           ]}
-          helperText="Məzmun konteynerinin maksimum genişliyi"
         />
-        <SelectField
+        <Select
           label="Boşluq Ölçüsü"
-          value={localStorefrontConfig.spacingSize || 'medium'}
-          onChange={(value) =>
+          name="spacingSize"
+          value={localStorefrontConfig.spacingSize || "medium"}
+          onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              spacingSize: value as 'compact' | 'medium' | 'relaxed' | 'spacious',
+              spacingSize: e.target.value as any,
             }))
           }
           options={[
-            { value: 'compact', label: 'Sıx (Compact)' },
-            { value: 'medium', label: 'Orta (Medium)' },
-            { value: 'relaxed', label: 'Geniş (Relaxed)' },
-            { value: 'spacious', label: 'Çox Geniş (Spacious)' },
+            { value: "compact", label: "Sıx (Compact)" },
+            { value: "medium", label: "Orta (Medium)" },
+            { value: "relaxed", label: "Geniş (Relaxed)" },
+            { value: "spacious", label: "Çox Geniş (Spacious)" },
           ]}
-          helperText="Elementlər arası boşluq miqdarı"
         />
       </div>
     </div>
@@ -1766,9 +1683,11 @@ const PremiumUISettings: SettingTab['component'] = ({
         <Zap className="h-4 w-4 text-emerald-600" /> Animasiyalar
       </h3>
       <div className="space-y-4">
-        <SwitchToggle
+        <Switch
           label="Səhifə Keçidlərini Animasiya Et"
-          checked={localStorefrontConfig.enablePageTransitions !== false}
+          checked={
+            localStorefrontConfig.enablePageTransitions !== false
+          }
           onChange={(v) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -1777,9 +1696,11 @@ const PremiumUISettings: SettingTab['component'] = ({
           }
           description="Səhifələr arasında yumşaq keçid animasiyalarını aktiv edin."
         />
-        <SwitchToggle
+        <Switch
           label="Hover Animasiyaları"
-          checked={localStorefrontConfig.enableHoverEffects !== false}
+          checked={
+            localStorefrontConfig.enableHoverEffects !== false
+          }
           onChange={(v) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -1788,22 +1709,22 @@ const PremiumUISettings: SettingTab['component'] = ({
           }
           description="Düymələr və kartlar üzərində hover effektlərini aktiv edin."
         />
-        <SelectField
+        <Select
           label="Animasiya Sürəti"
-          value={localStorefrontConfig.animationSpeed || 'normal'}
-          onChange={(value) =>
+          name="animationSpeed"
+          value={localStorefrontConfig.animationSpeed || "normal"}
+          onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              animationSpeed: value as 'slow' | 'normal' | 'fast',
+              animationSpeed: e.target.value as any,
             }))
           }
           options={[
-            { value: 'slow', label: 'Yavaş (Slow)' },
-            { value: 'normal', label: 'Normal' },
-            { value: 'fast', label: 'Sürətli (Fast)' },
-            { value: 'instant', label: 'Ani (Instant)' },
+            { value: "slow", label: "Yavaş (Slow)" },
+            { value: "normal", label: "Normal" },
+            { value: "fast", label: "Sürətli (Fast)" },
+            { value: "instant", label: "Ani (Instant)" },
           ]}
-          helperText="Bütün animasiyaların sürəti"
         />
       </div>
     </div>
@@ -1814,7 +1735,7 @@ const PremiumUISettings: SettingTab['component'] = ({
         <Sparkles className="h-4 w-4 text-emerald-600" /> Advanced UI
       </h3>
       <div className="space-y-4">
-        <SwitchToggle
+        <Switch
           label="Gölgə Effektləri"
           checked={localStorefrontConfig.enableShadows !== false}
           onChange={(v) =>
@@ -1825,9 +1746,11 @@ const PremiumUISettings: SettingTab['component'] = ({
           }
           description="Kartlar və düymələr üçün gölgə effektlərini aktiv edin."
         />
-        <SwitchToggle
+        <Switch
           label="Yuvarlaq Künclər"
-          checked={localStorefrontConfig.enableRoundedCorners !== false}
+          checked={
+            localStorefrontConfig.enableRoundedCorners !== false
+          }
           onChange={(v) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -1836,9 +1759,11 @@ const PremiumUISettings: SettingTab['component'] = ({
           }
           description="Elementlər üçün yuvarlaq küncləri aktiv edin."
         />
-        <SwitchToggle
+        <Switch
           label="Gradient Arxa Planlar"
-          checked={localStorefrontConfig.enableGradients !== false}
+          checked={
+            localStorefrontConfig.enableGradients !== false
+          }
           onChange={(v) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -1863,20 +1788,20 @@ const PremiumUISettings: SettingTab['component'] = ({
       </div>
       <Button
         onClick={onSave}
-        icon={Save}
-        color="emerald"
+        variant="primary"
         disabled={isSaving || !hasUnsavedChanges}
       >
-        {isSaving ? 'Yadda saxlanılır…' : 'Dəyişiklikləri yadda saxla'}
+        <Save className="h-4 w-4" />
+        {isSaving ? "Yadda saxlanılır…" : "Dəyişiklikləri yadda saxla"}
       </Button>
     </motion.div>
   </div>
 );
 
-// ---------------------------------------------------------
-// 8. Storefront Display Settings
-// ---------------------------------------------------------
-const StorefrontDisplaySettings: SettingTab['component'] = ({
+// =========================================================
+//   8. Storefront Display Settings
+// =========================================================
+const StorefrontDisplaySettings: SettingTab["component"] = ({
   localStorefrontConfig,
   setLocalStorefrontConfig,
   onSave,
@@ -1893,75 +1818,76 @@ const StorefrontDisplaySettings: SettingTab['component'] = ({
     {/* Product Display */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
-        <ShoppingBag className="h-4 w-4 text-emerald-600" /> Məhsul Görünüşü
+        <ShoppingBag className="h-4 w-4 text-emerald-600" /> Məhsul
+        Görünüşü
       </h3>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <SelectField
+        <Select
           label="Default Görünüş"
-          value={localStorefrontConfig.productViewMode || 'grid'}
-          onChange={(value) =>
+          name="productViewMode"
+          value={localStorefrontConfig.productViewMode || "grid"}
+          onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              productViewMode: value,
+              productViewMode: e.target.value,
             }))
           }
           options={[
-            { value: 'grid', label: 'Grid (Tor)' },
-            { value: 'list', label: 'List (Siyahı)' },
+            { value: "grid", label: "Grid (Tor)" },
+            { value: "list", label: "List (Siyahı)" },
           ]}
-          helperText="Məhsul səhifəsində default görünüş"
         />
-        <SelectField
+        <Select
           label="Səhifə başına məhsul sayı"
-          value={localStorefrontConfig.productsPerPage || '12'}
-          onChange={(value) =>
+          name="productsPerPage"
+          value={localStorefrontConfig.productsPerPage || "12"}
+          onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              productsPerPage: value,
+              productsPerPage: e.target.value,
             }))
           }
           options={[
-            { value: '8', label: '8 məhsul' },
-            { value: '12', label: '12 məhsul' },
-            { value: '16', label: '16 məhsul' },
-            { value: '24', label: '24 məhsul' },
-            { value: '36', label: '36 məhsul' },
+            { value: "8", label: "8 məhsul" },
+            { value: "12", label: "12 məhsul" },
+            { value: "16", label: "16 məhsul" },
+            { value: "24", label: "24 məhsul" },
+            { value: "36", label: "36 məhsul" },
           ]}
-          helperText="Bir səhifədə göstəriləcək məhsul sayı"
         />
-        <SelectField
+        <Select
           label="Default Sıralama"
-          value={localStorefrontConfig.defaultSort || 'newest'}
-          onChange={(value) =>
+          name="defaultSort"
+          value={localStorefrontConfig.defaultSort || "newest"}
+          onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              defaultSort: value,
+              defaultSort: e.target.value,
             }))
           }
           options={[
-            { value: 'newest', label: 'Ən Yenilər' },
-            { value: 'price-asc', label: 'Qiymət: Aşağıdan Yuxarı' },
-            { value: 'price-desc', label: 'Qiymət: Yuxarıdan Aşağı' },
-            { value: 'name-asc', label: 'Ad: A-Z' },
-            { value: 'popular', label: 'Populyar' },
+            { value: "newest", label: "Ən Yenilər" },
+            { value: "price-asc", label: "Qiymət: Aşağıdan Yuxarı" },
+            { value: "price-desc", label: "Qiymət: Yuxarıdan Aşağı" },
+            { value: "name-asc", label: "Ad: A-Z" },
+            { value: "popular", label: "Populyar" },
           ]}
-          helperText="Məhsulların default sıralama qaydası"
         />
-        <SelectField
+        <Select
           label="Grid Sütun Sayı"
-          value={localStorefrontConfig.gridColumns || '3'}
-          onChange={(value) =>
+          name="gridColumns"
+          value={localStorefrontConfig.gridColumns || "3"}
+          onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              gridColumns: value,
+              gridColumns: e.target.value,
             }))
           }
           options={[
-            { value: '2', label: '2 sütun' },
-            { value: '3', label: '3 sütun (Default)' },
-            { value: '4', label: '4 sütun' },
+            { value: "2", label: "2 sütun" },
+            { value: "3", label: "3 sütun (Default)" },
+            { value: "4", label: "4 sütun" },
           ]}
-          helperText="Grid görünüşündə sütun sayı"
         />
       </div>
     </div>
@@ -1972,9 +1898,11 @@ const StorefrontDisplaySettings: SettingTab['component'] = ({
         <Layers className="h-4 w-4 text-emerald-600" /> Məhsul Kartı
       </h3>
       <div className="space-y-4">
-        <SwitchToggle
+        <Switch
           label="Məhsul təsvirini göstər"
-          checked={localStorefrontConfig.showProductDescription !== false}
+          checked={
+            localStorefrontConfig.showProductDescription !== false
+          }
           onChange={(v) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -1983,9 +1911,11 @@ const StorefrontDisplaySettings: SettingTab['component'] = ({
           }
           description="Məhsul kartlarında qısa təsviri göstər."
         />
-        <SwitchToggle
+        <Switch
           label="Stok miqdarını göstər"
-          checked={localStorefrontConfig.showStockQuantity !== false}
+          checked={
+            localStorefrontConfig.showStockQuantity !== false
+          }
           onChange={(v) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -1994,9 +1924,12 @@ const StorefrontDisplaySettings: SettingTab['component'] = ({
           }
           description="Məhsul kartlarında qalan stok miqdarını göstər."
         />
-        <SwitchToggle
+        <Switch
           label="Əlavə olundu bildirişini göstər"
-          checked={localStorefrontConfig.showAddToCartNotification !== false}
+          checked={
+            localStorefrontConfig.showAddToCartNotification !==
+            false
+          }
           onChange={(v) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -2021,20 +1954,20 @@ const StorefrontDisplaySettings: SettingTab['component'] = ({
       </div>
       <Button
         onClick={onSave}
-        icon={Save}
-        color="emerald"
+        variant="primary"
         disabled={isSaving || !hasUnsavedChanges}
       >
-        {isSaving ? 'Yadda saxlanılır…' : 'Dəyişiklikləri yadda saxla'}
+        <Save className="h-4 w-4" />
+        {isSaving ? "Yadda saxlanılır…" : "Dəyişiklikləri yadda saxla"}
       </Button>
     </motion.div>
   </div>
 );
 
-// ---------------------------------------------------------
-// 9. SEO & Analytics Settings
-// ---------------------------------------------------------
-const SEOAnalyticsSettings: SettingTab['component'] = ({
+// =========================================================
+//   9. SEO & Analytics Settings
+// =========================================================
+const SEOAnalyticsSettings: SettingTab["component"] = ({
   localStorefrontConfig,
   setLocalStorefrontConfig,
   onSave,
@@ -2048,15 +1981,14 @@ const SEOAnalyticsSettings: SettingTab['component'] = ({
       subtitle="Axtarış optimallaşdırması və analytics tənzimləmələri."
     />
 
-    {/* SEO Settings */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
         <Search className="h-4 w-4 text-emerald-600" /> SEO Tənzimləmələri
       </h3>
       <div className="space-y-4">
-        <TextAreaField
+        <Textarea
           label="Meta Description"
-          value={localStorefrontConfig.metaDescription || ''}
+          value={localStorefrontConfig.metaDescription || ""}
           onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -2064,71 +1996,75 @@ const SEOAnalyticsSettings: SettingTab['component'] = ({
             }))
           }
           rows={3}
-          helperText="Axtarış nəticələrində görünən təsvir (150-160 simvol)"
+          placeholder="Təbii məhsullar..."
         />
-        <TextAreaField
+        <Textarea
           label="Meta Keywords"
-          value={localStorefrontConfig.metaKeywords?.join(', ') || ''}
+          value={
+            localStorefrontConfig.metaKeywords?.join(", ") || ""
+          }
           onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              metaKeywords: e.target.value.split(',').map(k => k.trim()),
+              metaKeywords: e.target.value
+                .split(",")
+                .map((k) => k.trim()),
             }))
           }
           rows={2}
-          helperText="Vergüllə ayrılmış açar sözlər"
+          placeholder="organik, təbii, kənd"
         />
-        <InputField
+        <Input
           label="OG Image URL"
-          value={localStorefrontConfig.ogImage || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.ogImage || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              ogImage: e.target.value,
+              ogImage: val,
             }))
           }
           placeholder="/og-image.jpg"
-          icon={ImageIcon}
-          helperText="Social media paylaşımı üçün Open Graph şəkli"
+          icon={<ImageIcon className="h-4 w-4" />}
+          helper="Social media paylaşımı üçün Open Graph şəkli"
         />
       </div>
     </div>
 
-    {/* Analytics */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
-        <Monitor className="h-4 w-4 text-emerald-600" /> Analytics & Tracking
+        <Monitor className="h-4 w-4 text-emerald-600" /> Analytics &
+        Tracking
       </h3>
       <div className="space-y-4">
-        <InputField
+        <Input
           label="Google Analytics ID"
-          value={localStorefrontConfig.googleAnalyticsId || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.googleAnalyticsId || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              googleAnalyticsId: e.target.value,
+              googleAnalyticsId: val,
             }))
           }
           placeholder="G-XXXXXXXXXX"
-          icon={Monitor}
-          helperText="Google Analytics 4 Property ID"
+          icon={<Monitor className="h-4 w-4" />}
+          helper="Google Analytics 4 Property ID"
         />
-        <InputField
+        <Input
           label="Google Tag Manager ID"
-          value={localStorefrontConfig.gtmId || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.gtmId || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              gtmId: e.target.value,
+              gtmId: val,
             }))
           }
           placeholder="GTM-XXXXXX"
-          icon={Tag}
-          helperText="Google Tag Manager Container ID"
+          icon={<Tag className="h-4 w-4" />}
+          helper="Google Tag Manager Container ID"
         />
-        <TextAreaField
+        <Textarea
           label="Custom Analytics Code"
-          value={localStorefrontConfig.customAnalyticsCode || ''}
+          value={localStorefrontConfig.customAnalyticsCode || ""}
           onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -2136,7 +2072,7 @@ const SEOAnalyticsSettings: SettingTab['component'] = ({
             }))
           }
           rows={4}
-          helperText="Əlavə analytics kodları (Facebook Pixel, və s.)"
+          placeholder="<script>...</script>"
         />
       </div>
     </div>
@@ -2154,20 +2090,20 @@ const SEOAnalyticsSettings: SettingTab['component'] = ({
       </div>
       <Button
         onClick={onSave}
-        icon={Save}
-        color="emerald"
+        variant="primary"
         disabled={isSaving || !hasUnsavedChanges}
       >
-        {isSaving ? 'Yadda saxlanılır…' : 'Dəyişiklikləri yadda saxla'}
+        <Save className="h-4 w-4" />
+        {isSaving ? "Yadda saxlanılır…" : "Dəyişiklikləri yadda saxla"}
       </Button>
     </motion.div>
   </div>
 );
 
-// ---------------------------------------------------------
-// 10. Navigation Menu Settings
-// ---------------------------------------------------------
-const NavigationMenuSettings: SettingTab['component'] = ({
+// =========================================================
+//   10. Navigation Menu Settings
+// =========================================================
+const NavigationMenuSettings: SettingTab["component"] = ({
   localStorefrontConfig,
   setLocalStorefrontConfig,
   onSave,
@@ -2181,10 +2117,10 @@ const NavigationMenuSettings: SettingTab['component'] = ({
       subtitle="Header və footer menyu elementlərini idarə edin."
     />
 
-    {/* Main Navigation */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
-        <Navigation className="h-4 w-4 text-emerald-600" /> Əsas Navigasiya
+        <Navigation className="h-4 w-4 text-emerald-600" /> Əsas
+        Navigasiya
       </h3>
       <ArrayEditor
         items={localStorefrontConfig.mainNavigation || []}
@@ -2200,30 +2136,43 @@ const NavigationMenuSettings: SettingTab['component'] = ({
             ...s,
             mainNavigation: [
               ...(s.mainNavigation || []),
-              { label: '', href: '', icon: '' },
+              { label: "", href: "", icon: "" },
             ],
           }))
         }
-        renderItem={(item: any, index, onUpdate, onRemove, onMoveUp, onMoveDown) => (
+        renderItem={(
+          item: any,
+          index,
+          onUpdate,
+          onRemove,
+          onMoveUp,
+          onMoveDown
+        ) => (
           <div className="flex gap-2 items-start">
             <div className="flex-1 grid grid-cols-3 gap-2">
-              <InputField
+              <Input
                 label="Etiket"
-                value={item?.label || ''}
-                onChange={(e) => onUpdate({ ...item, label: e.target.value })}
+                value={item?.label || ""}
+                onChange={(val) =>
+                  onUpdate({ ...item, label: val })
+                }
                 placeholder="Ana Səhifə"
               />
-              <InputField
+              <Input
                 label="Link"
-                value={item?.href || ''}
-                onChange={(e) => onUpdate({ ...item, href: e.target.value })}
+                value={item?.href || ""}
+                onChange={(val) =>
+                  onUpdate({ ...item, href: val })
+                }
                 placeholder="/"
-                icon={LinkIcon}
+                icon={<LinkIcon className="h-4 w-4" />}
               />
-              <InputField
+              <Input
                 label="Emoji Icon"
-                value={item?.icon || ''}
-                onChange={(e) => onUpdate({ ...item, icon: e.target.value })}
+                value={item?.icon || ""}
+                onChange={(val) =>
+                  onUpdate({ ...item, icon: val })
+                }
                 placeholder="🏠"
               />
             </div>
@@ -2238,7 +2187,12 @@ const NavigationMenuSettings: SettingTab['component'] = ({
               <button
                 onClick={onMoveDown}
                 className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
-                disabled={index === (localStorefrontConfig.mainNavigation?.length || 0) - 1}
+                disabled={
+                  index ===
+                  (localStorefrontConfig.mainNavigation?.length ||
+                    0) -
+                    1
+                }
               >
                 <MoveDown className="h-4 w-4" />
               </button>
@@ -2254,10 +2208,10 @@ const NavigationMenuSettings: SettingTab['component'] = ({
       />
     </div>
 
-    {/* Category Navigation */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
-        <Tag className="h-4 w-4 text-emerald-600" /> Kateqoriya Navigasiyası
+        <Tag className="h-4 w-4 text-emerald-600" /> Kateqoriya
+        Navigasiyası
       </h3>
       <ArrayEditor
         items={localStorefrontConfig.categoryNavigation || []}
@@ -2273,30 +2227,43 @@ const NavigationMenuSettings: SettingTab['component'] = ({
             ...s,
             categoryNavigation: [
               ...(s.categoryNavigation || []),
-              { label: '', href: '', icon: '' },
+              { label: "", href: "", icon: "" },
             ],
           }))
         }
-        renderItem={(item: any, index, onUpdate, onRemove, onMoveUp, onMoveDown) => (
+        renderItem={(
+          item: any,
+          index,
+          onUpdate,
+          onRemove,
+          onMoveUp,
+          onMoveDown
+        ) => (
           <div className="flex gap-2 items-start">
             <div className="flex-1 grid grid-cols-3 gap-2">
-              <InputField
+              <Input
                 label="Kateqoriya Adı"
-                value={item?.label || ''}
-                onChange={(e) => onUpdate({ ...item, label: e.target.value })}
+                value={item?.label || ""}
+                onChange={(val) =>
+                  onUpdate({ ...item, label: val })
+                }
                 placeholder="Meyvə və Tərəvəz"
               />
-              <InputField
+              <Input
                 label="Link"
-                value={item?.href || ''}
-                onChange={(e) => onUpdate({ ...item, href: e.target.value })}
+                value={item?.href || ""}
+                onChange={(val) =>
+                  onUpdate({ ...item, href: val })
+                }
                 placeholder="/category/fruits"
-                icon={LinkIcon}
+                icon={<LinkIcon className="h-4 w-4" />}
               />
-              <InputField
+              <Input
                 label="Emoji Icon"
-                value={item?.icon || ''}
-                onChange={(e) => onUpdate({ ...item, icon: e.target.value })}
+                value={item?.icon || ""}
+                onChange={(val) =>
+                  onUpdate({ ...item, icon: val })
+                }
                 placeholder="🍎"
               />
             </div>
@@ -2311,7 +2278,12 @@ const NavigationMenuSettings: SettingTab['component'] = ({
               <button
                 onClick={onMoveDown}
                 className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
-                disabled={index === (localStorefrontConfig.categoryNavigation?.length || 0) - 1}
+                disabled={
+                  index ===
+                  (localStorefrontConfig.categoryNavigation
+                    ?.length || 0) -
+                    1
+                }
               >
                 <MoveDown className="h-4 w-4" />
               </button>
@@ -2340,20 +2312,20 @@ const NavigationMenuSettings: SettingTab['component'] = ({
       </div>
       <Button
         onClick={onSave}
-        icon={Save}
-        color="emerald"
+        variant="primary"
         disabled={isSaving || !hasUnsavedChanges}
       >
-        {isSaving ? 'Yadda saxlanılır…' : 'Dəyişiklikləri yadda saxla'}
+        <Save className="h-4 w-4" />
+        {isSaving ? "Yadda saxlanılır…" : "Dəyişiklikləri yadda saxla"}
       </Button>
     </motion.div>
   </div>
 );
 
-// ---------------------------------------------------------
-// 11. Testimonials & FAQ Settings
-// ---------------------------------------------------------
-const TestimonialsFAQSettings: SettingTab['component'] = ({
+// =========================================================
+//   11. Testimonials & FAQ Settings
+// =========================================================
+const TestimonialsFAQSettings: SettingTab["component"] = ({
   localStorefrontConfig,
   setLocalStorefrontConfig,
   onSave,
@@ -2367,7 +2339,6 @@ const TestimonialsFAQSettings: SettingTab['component'] = ({
       subtitle="Müştəri rəyləri və tez-tez verilən sualları idarə edin."
     />
 
-    {/* Testimonials */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
         <Star className="h-4 w-4 text-emerald-600" /> Müştəri Rəyləri
@@ -2386,42 +2357,64 @@ const TestimonialsFAQSettings: SettingTab['component'] = ({
             ...s,
             testimonials: [
               ...(s.testimonials || []),
-              { name: '', text: '', rating: 5, role: '' },
+              { name: "", text: "", rating: 5, role: "" },
             ],
           }))
         }
-        renderItem={(testimonial: any, index, onUpdate, onRemove, onMoveUp, onMoveDown) => (
+        renderItem={(
+          testimonial: any,
+          index,
+          onUpdate,
+          onRemove,
+          onMoveUp,
+          onMoveDown
+        ) => (
           <div className="flex gap-2 items-start">
             <div className="flex-1 space-y-2">
-              <InputField
+              <Input
                 label="Müştəri Adı"
-                value={testimonial?.name || ''}
-                onChange={(e) => onUpdate({ ...testimonial, name: e.target.value })}
+                value={testimonial?.name || ""}
+                onChange={(val) =>
+                  onUpdate({ ...testimonial, name: val })
+                }
                 placeholder="Əli Vəliyev"
               />
-              <InputField
+              <Input
                 label="Rol/Vəzifə"
-                value={testimonial?.role || ''}
-                onChange={(e) => onUpdate({ ...testimonial, role: e.target.value })}
+                value={testimonial?.role || ""}
+                onChange={(val) =>
+                  onUpdate({ ...testimonial, role: val })
+                }
                 placeholder="Qaiməkam"
               />
-              <TextAreaField
+              <Textarea
                 label="Rəy Mətni"
-                value={testimonial?.text || ''}
-                onChange={(e) => onUpdate({ ...testimonial, text: e.target.value })}
+                value={testimonial?.text || ""}
+                onChange={(e) =>
+                  onUpdate({
+                    ...testimonial,
+                    text: e.target.value,
+                  })
+                }
                 rows={2}
                 placeholder="Məhsullarınız çox yaxşıdır..."
               />
-              <SelectField
+              <Select
                 label="Reytinq"
-                value={testimonial?.rating?.toString() || '5'}
-                onChange={(value) => onUpdate({ ...testimonial, rating: parseInt(value) })}
+                name={`rating-${index}`}
+                value={testimonial?.rating?.toString() || "5"}
+                onChange={(e) =>
+                  onUpdate({
+                    ...testimonial,
+                    rating: parseInt(e.target.value),
+                  })
+                }
                 options={[
-                  { value: '5', label: '⭐⭐⭐⭐⭐ (5)' },
-                  { value: '4', label: '⭐⭐⭐⭐ (4)' },
-                  { value: '3', label: '⭐⭐⭐ (3)' },
-                  { value: '2', label: '⭐⭐ (2)' },
-                  { value: '1', label: '⭐ (1)' },
+                  { value: "5", label: "⭐⭐⭐⭐⭐ (5)" },
+                  { value: "4", label: "⭐⭐⭐⭐ (4)" },
+                  { value: "3", label: "⭐⭐⭐ (3)" },
+                  { value: "2", label: "⭐⭐ (2)" },
+                  { value: "1", label: "⭐ (1)" },
                 ]}
               />
             </div>
@@ -2436,7 +2429,12 @@ const TestimonialsFAQSettings: SettingTab['component'] = ({
               <button
                 onClick={onMoveDown}
                 className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
-                disabled={index === (localStorefrontConfig.testimonials?.length || 0) - 1}
+                disabled={
+                  index ===
+                  (localStorefrontConfig.testimonials?.length ||
+                    0) -
+                    1
+                }
               >
                 <MoveDown className="h-4 w-4" />
               </button>
@@ -2452,10 +2450,10 @@ const TestimonialsFAQSettings: SettingTab['component'] = ({
       />
     </div>
 
-    {/* FAQ */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
-        <HelpCircle className="h-4 w-4 text-emerald-600" /> Tez-tez Verilən Suallar (FAQ)
+        <HelpCircle className="h-4 w-4 text-emerald-600" /> Tez-tez
+        Verilən Suallar (FAQ)
       </h3>
       <ArrayEditor
         items={localStorefrontConfig.faq || []}
@@ -2471,23 +2469,37 @@ const TestimonialsFAQSettings: SettingTab['component'] = ({
             ...s,
             faq: [
               ...(s.faq || []),
-              { question: '', answer: '' },
+              { question: "", answer: "" },
             ],
           }))
         }
-        renderItem={(item: any, index, onUpdate, onRemove, onMoveUp, onMoveDown) => (
+        renderItem={(
+          item: any,
+          index,
+          onUpdate,
+          onRemove,
+          onMoveUp,
+          onMoveDown
+        ) => (
           <div className="flex gap-2 items-start">
             <div className="flex-1 space-y-2">
-              <InputField
+              <Input
                 label="Sual"
-                value={item?.question || ''}
-                onChange={(e) => onUpdate({ ...item, question: e.target.value })}
+                value={item?.question || ""}
+                onChange={(val) =>
+                  onUpdate({ ...item, question: val })
+                }
                 placeholder="Çatdırılma neçə gün çəkir?"
               />
-              <TextAreaField
+              <Textarea
                 label="Cavab"
-                value={item?.answer || ''}
-                onChange={(e) => onUpdate({ ...item, answer: e.target.value })}
+                value={item?.answer || ""}
+                onChange={(e) =>
+                  onUpdate({
+                    ...item,
+                    answer: e.target.value,
+                  })
+                }
                 rows={2}
                 placeholder="Çatdırılma adətən 1-3 iş günü çəkir..."
               />
@@ -2503,7 +2515,10 @@ const TestimonialsFAQSettings: SettingTab['component'] = ({
               <button
                 onClick={onMoveDown}
                 className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600"
-                disabled={index === (localStorefrontConfig.faq?.length || 0) - 1}
+                disabled={
+                  index ===
+                  (localStorefrontConfig.faq?.length || 0) - 1
+                }
               >
                 <MoveDown className="h-4 w-4" />
               </button>
@@ -2532,20 +2547,20 @@ const TestimonialsFAQSettings: SettingTab['component'] = ({
       </div>
       <Button
         onClick={onSave}
-        icon={Save}
-        color="emerald"
+        variant="primary"
         disabled={isSaving || !hasUnsavedChanges}
       >
-        {isSaving ? 'Yadda saxlanılır…' : 'Dəyişiklikləri yadda saxla'}
+        <Save className="h-4 w-4" />
+        {isSaving ? "Yadda saxlanılır…" : "Dəyişiklikləri yadda saxla"}
       </Button>
     </motion.div>
   </div>
 );
 
-// ---------------------------------------------------------
-// 12. System & Advanced Settings
-// ---------------------------------------------------------
-const SystemAdvancedSettings: SettingTab['component'] = ({
+// =========================================================
+//   12. System & Advanced Settings
+// =========================================================
+const SystemAdvancedSettings: SettingTab["component"] = ({
   localStorefrontConfig,
   setLocalStorefrontConfig,
   onSave,
@@ -2559,13 +2574,12 @@ const SystemAdvancedSettings: SettingTab['component'] = ({
       subtitle="Baxış rejimi, custom kod və advanced tənzimləmələr."
     />
 
-    {/* Maintenance Mode */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
         <ToggleLeft className="h-4 w-4 text-emerald-600" /> Baxış Rejimi
       </h3>
       <div className="space-y-4">
-        <SwitchToggle
+        <Switch
           label="Baxış Rejimi (Maintenance Mode)"
           checked={localStorefrontConfig.maintenanceMode || false}
           onChange={(v) =>
@@ -2576,9 +2590,9 @@ const SystemAdvancedSettings: SettingTab['component'] = ({
           }
           description="Mağazanı müvəqqəti olaraq bağlayın. Yalnız adminlər daxil ola bilər."
         />
-        <TextAreaField
+        <Textarea
           label="Baxış Mesajı"
-          value={localStorefrontConfig.maintenanceMessage || ''}
+          value={localStorefrontConfig.maintenanceMessage || ""}
           onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -2586,20 +2600,19 @@ const SystemAdvancedSettings: SettingTab['component'] = ({
             }))
           }
           rows={3}
-          helperText="Müştərilərə göstəriləcək mesaj"
+          placeholder="Sayt texniki baxışdadır..."
         />
       </div>
     </div>
 
-    {/* Custom Code */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
         <Code className="h-4 w-4 text-emerald-600" /> Custom Kod
       </h3>
       <div className="space-y-4">
-        <TextAreaField
+        <Textarea
           label="Custom CSS"
-          value={localStorefrontConfig.customCss || ''}
+          value={localStorefrontConfig.customCss || ""}
           onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -2607,11 +2620,11 @@ const SystemAdvancedSettings: SettingTab['component'] = ({
             }))
           }
           rows={6}
-          helperText="Əlavə CSS kodları (style tag-lər daxil etməyin)"
+          placeholder=".my-class { color: red; }"
         />
-        <TextAreaField
+        <Textarea
           label="Custom JavaScript"
-          value={localStorefrontConfig.customJs || ''}
+          value={localStorefrontConfig.customJs || ""}
           onChange={(e) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -2619,20 +2632,21 @@ const SystemAdvancedSettings: SettingTab['component'] = ({
             }))
           }
           rows={6}
-          helperText="Əlavə JavaScript kodları (script tag-lər daxil etməyin)"
+          placeholder="console.log('hello');"
         />
       </div>
     </div>
 
-    {/* Announcement Banner */}
     <div className="rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm">
       <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4">
         <Megaphone className="h-4 w-4 text-emerald-600" /> Elan Banner-i
       </h3>
       <div className="space-y-4">
-        <SwitchToggle
+        <Switch
           label="Elan Banner-i Göstər"
-          checked={localStorefrontConfig.showAnnouncementBanner || false}
+          checked={
+            localStorefrontConfig.showAnnouncementBanner || false
+          }
           onChange={(v) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -2641,20 +2655,20 @@ const SystemAdvancedSettings: SettingTab['component'] = ({
           }
           description="Saytın yuxarı hissəsində elan banner-i göstər."
         />
-        <InputField
+        <Input
           label="Elan Mətni"
-          value={localStorefrontConfig.announcementText || ''}
-          onChange={(e) =>
+          value={localStorefrontConfig.announcementText || ""}
+          onChange={(val) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
-              announcementText: e.target.value,
+              announcementText: val,
             }))
           }
           placeholder="🎉 Yeni məhsullarımız gəldi!"
         />
         <ColorPicker
           label="Banner Rəngi"
-          value={localStorefrontConfig.announcementColor || '#f59e0b'}
+          value={localStorefrontConfig.announcementColor || "#f59e0b"}
           onChange={(value) =>
             setLocalStorefrontConfig((s) => ({
               ...s,
@@ -2672,26 +2686,24 @@ const SystemAdvancedSettings: SettingTab['component'] = ({
     >
       <div className="flex items-center gap-2 text-xs text-slate-500">
         <Code className="h-4 w-4 text-emerald-500" />
-        <span>
-          Sistem tənzimləmələri dərhal aktiv olunacaq.
-        </span>
+        <span>Sistem tənzimləmələri dərhal aktiv olunacaq.</span>
       </div>
       <Button
         onClick={onSave}
-        icon={Save}
-        color="emerald"
+        variant="primary"
         disabled={isSaving || !hasUnsavedChanges}
       >
-        {isSaving ? 'Yadda saxlanılır…' : 'Dəyişiklikləri yadda saxla'}
+        <Save className="h-4 w-4" />
+        {isSaving ? "Yadda saxlanılır…" : "Dəyişiklikləri yadda saxla"}
       </Button>
     </motion.div>
   </div>
 );
 
-// ---------------------------------------------------------
-// 13. Security & Data Settings
-// ---------------------------------------------------------
-const SecurityDataSettings: SettingTab['component'] = ({
+// =========================================================
+//   13. Security & Data Settings
+// =========================================================
+const SecurityDataSettings: SettingTab["component"] = ({
   onSave,
   isSaving,
   hasUnsavedChanges,
@@ -2701,78 +2713,30 @@ const SecurityDataSettings: SettingTab['component'] = ({
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'csv' | 'json'>('csv');
+  const [exportFormat, setExportFormat] = useState<"csv" | "json">("csv");
 
   const handleResetAllData = () => {
-    // In real implementation, this would call an API to reset all data
-    console.log('Resetting all store data...');
-    // Simulate reset
-    setTimeout(() => {
-      alert('Bütün mağaza datası uğurla sıfırlandı!');
-    }, 1000);
+    console.log("Resetting all store data...");
+    setTimeout(() => alert("Bütün mağaza datası uğurla sıfırlandı!"), 1000);
   };
 
   const handleResetPasswords = () => {
-    // In real implementation, this would call an API to reset all passwords
-    console.log('Resetting all user passwords...');
-    setTimeout(() => {
-      alert('Bütün istifadəçi şifrələri uğurla sıfırlandı!');
-    }, 1000);
+    console.log("Resetting all user passwords...");
+    setTimeout(() => alert("Bütün istifadəçi şifrələri uğurla sıfırlandı!"), 1000);
   };
 
   const handleExportData = async () => {
     setIsExporting(true);
-    // Simulate export - in real implementation, this would call an API
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    
-    // Mock data for export
-    const mockOrders = [
-      { id: 'ORD-001', customer: 'Əli Vəliyev', total: 45.50, status: 'completed', date: '2024-01-15' },
-      { id: 'ORD-002', customer: 'Ayşə Məmmədova', total: 32.00, status: 'pending', date: '2024-01-16' },
-      { id: 'ORD-003', customer: 'Tofiq Quliyev', total: 78.90, status: 'completed', date: '2024-01-17' },
-    ];
-
-    let content: string;
-    let filename: string;
-    let mimeType: string;
-
-    if (exportFormat === 'csv') {
-      if (mockOrders.length > 0 && mockOrders[0]) {
-        const firstOrder = mockOrders[0] as Record<string, unknown>;
-        const headers = Object.keys(firstOrder).join(',');
-        const rows = mockOrders.map(order => Object.values(order).join(',')).join('\n');
-        content = `${headers}\n${rows}`;
-      } else {
-        content = '';
-      }
-      filename = 'orders_export.csv';
-      mimeType = 'text/csv';
-    } else {
-      content = JSON.stringify(mockOrders, null, 2);
-      filename = 'orders_export.json';
-      mimeType = 'application/json';
-    }
-
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
     setIsExporting(false);
     setExportDialogOpen(false);
   };
 
   const handleRefreshCache = async () => {
     setIsRefreshing(true);
-    // Simulate cache refresh - in real implementation, this would call an API
     await new Promise((resolve) => setTimeout(resolve, 1500));
     setIsRefreshing(false);
-    alert('Stok cache uğurla yeniləndi!');
+    alert("Stok cache uğurla yeniləndi!");
   };
 
   return (
@@ -2788,24 +2752,22 @@ const SecurityDataSettings: SettingTab['component'] = ({
           <AlertTriangle className="h-4 w-4" /> Təhlükəli Zonalar
         </h3>
         <p className="text-xs text-red-600">
-          Aşağıdakı əməliyyatlar geri qaytarıla bilməz. Yalnız tam əmin olduqda
-          istifadə et.
+          Aşağıdakı əməliyyatlar geri qaytarıla bilməz.
         </p>
-
-        <Button 
-          icon={Key} 
-          color="red" 
-          className="w-full justify-center"
+        <Button
           onClick={() => setPasswordResetDialogOpen(true)}
+          variant="danger"
+          className="w-full justify-center"
         >
+          <Key className="h-4 w-4" />
           Bütün istifadəçi şifrələrini sıfırla
         </Button>
         <Button
-          icon={Database}
-          color="red"
-          className="w-full justify-center"
           onClick={() => setResetDialogOpen(true)}
+          variant="danger"
+          className="w-full justify-center"
         >
+          <Database className="h-4 w-4" />
           Bütün mağaza datasını sıfırla (reset)
         </Button>
       </div>
@@ -2815,59 +2777,52 @@ const SecurityDataSettings: SettingTab['component'] = ({
           <Download className="h-4 w-4" /> Data İdarəetmə
         </h3>
         <Button
-          icon={FileSpreadsheet}
-          color="blue"
-          className="w-full justify-center"
           onClick={() => setExportDialogOpen(true)}
+          variant="secondary"
+          className="w-full justify-center"
         >
+          <FileSpreadsheet className="h-4 w-4" />
           CSV/JSON Export (bütün sifarişlər)
         </Button>
         <Button
-          icon={RefreshCw}
-          color="blue"
-          className="w-full justify-center"
           onClick={handleRefreshCache}
+          variant="secondary"
+          className="w-full justify-center"
           disabled={isRefreshing}
         >
-          {isRefreshing ? 'Yenilənir...' : 'Stok partiyalarını yenilə (cache refresh)'}
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          {isRefreshing ? "Yenilənir..." : "Stok partiyalarını yenilə (cache refresh)"}
         </Button>
       </div>
 
       <div className="flex justify-end">
         <Button
           onClick={onSave}
-          icon={Save}
-          color="emerald"
+          variant="primary"
           disabled={isSaving || !hasUnsavedChanges}
         >
-          {isSaving ? 'Yadda saxlanılır…' : 'Tənzimləmələri yadda saxla'}
+          <Save className="h-4 w-4" />
+          {isSaving ? "Yadda saxlanılır…" : "Tənzimləmələri yadda saxla"}
         </Button>
       </div>
 
-      {/* Confirmation Dialogs */}
       <ConfirmDialog
         isOpen={resetDialogOpen}
         onClose={() => setResetDialogOpen(false)}
         onConfirm={handleResetAllData}
         title="Bütün mağaza datasını sıfırla"
-        message="Bu əməliyyat bütün məhsulları, sifarişləri, müştəriləri və digər məlumatları siləcək. Bu əməliyyat geri qaytarıla bilməz. Davam etmək istədiyinizə əminsiniz?"
-        confirmText="Bəli, sıfırla"
-        cancelText="Ləğv et"
+        message="Bu əməliyyat geri qaytarıla bilməz."
         type="danger"
       />
-
       <ConfirmDialog
         isOpen={passwordResetDialogOpen}
         onClose={() => setPasswordResetDialogOpen(false)}
         onConfirm={handleResetPasswords}
         title="Bütün istifadəçi şifrələrini sıfırla"
-        message="Bu əməliyyat bütün istifadəçi şifrələrini sıfırlayacaq. İstifadəçilər yeni şifrə təyin etməli olacaq. Davam etmək istədiyinizə əminsiniz?"
-        confirmText="Bəli, sıfırla"
-        cancelText="Ləğv et"
+        message="Bütün şifrələr sıfırlanacaq."
         type="danger"
       />
 
-      {/* Export Format Dialog */}
       {exportDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <motion.div
@@ -2875,51 +2830,64 @@ const SecurityDataSettings: SettingTab['component'] = ({
             animate={{ opacity: 1, scale: 1 }}
             className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
           >
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Export Formatı Seçin</h3>
+            <h3 className="text-lg font-bold text-slate-900 mb-4">
+              Export Formatı Seçin
+            </h3>
             <div className="space-y-3 mb-6">
               <button
-                onClick={() => setExportFormat('csv')}
+                onClick={() => setExportFormat("csv")}
                 className={`w-full rounded-xl border-2 p-4 text-left transition ${
-                  exportFormat === 'csv'
-                    ? 'border-emerald-500 bg-emerald-50'
-                    : 'border-slate-200 hover:border-slate-300'
+                  exportFormat === "csv"
+                    ? "border-emerald-500 bg-emerald-50"
+                    : "border-slate-200 hover:border-slate-300"
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
                   <div>
-                    <div className="font-semibold text-slate-900">CSV Format</div>
-                    <div className="text-xs text-slate-500">Excel və Google Sheets üçün uyğun</div>
+                    <div className="font-semibold text-slate-900">
+                      CSV Format
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Excel və Google Sheets üçün uyğun
+                    </div>
                   </div>
                 </div>
               </button>
               <button
-                onClick={() => setExportFormat('json')}
+                onClick={() => setExportFormat("json")}
                 className={`w-full rounded-xl border-2 p-4 text-left transition ${
-                  exportFormat === 'json'
-                    ? 'border-emerald-500 bg-emerald-50'
-                    : 'border-slate-200 hover:border-slate-300'
+                  exportFormat === "json"
+                    ? "border-emerald-500 bg-emerald-50"
+                    : "border-slate-200 hover:border-slate-300"
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <Database className="h-5 w-5 text-blue-600" />
                   <div>
-                    <div className="font-semibold text-slate-900">JSON Format</div>
-                    <div className="text-xs text-slate-500">Developer və API üçün uyğun</div>
+                    <div className="font-semibold text-slate-900">
+                      JSON Format
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Developer və API üçün uyğun
+                    </div>
                   </div>
                 </div>
               </button>
             </div>
             <div className="flex gap-3 justify-end">
-              <Button onClick={() => setExportDialogOpen(false)} color="ghost">
+              <Button
+                onClick={() => setExportDialogOpen(false)}
+                variant="ghost"
+              >
                 Ləğv et
               </Button>
               <Button
                 onClick={handleExportData}
-                color="emerald"
+                variant="primary"
                 disabled={isExporting}
               >
-                {isExporting ? 'Export edilir...' : 'Export et'}
+                {isExporting ? "Export edilir..." : "Export et"}
               </Button>
             </div>
           </motion.div>
@@ -2930,77 +2898,80 @@ const SecurityDataSettings: SettingTab['component'] = ({
 };
 
 // =========================================================
-// MAIN CONFIG (TAB LIST)
+//   TAB LIST
 // =========================================================
-
 const settingsTabs: SettingTab[] = [
-  { id: 'general', label: 'Ümumi', icon: Settings, component: GeneralSettings },
   {
-    id: 'store-finance',
-    label: 'Mağaza & Maliyyə',
+    id: "general",
+    label: "Ümumi",
+    icon: Settings,
+    component: GeneralSettings,
+  },
+  {
+    id: "store-finance",
+    label: "Mağaza & Maliyyə",
     icon: DollarSign,
     component: StoreFinanceSettings,
   },
   {
-    id: 'content-management',
-    label: 'Məzmun',
+    id: "content-management",
+    label: "Məzmun",
     icon: Layout,
     component: ContentManagementSettings,
   },
   {
-    id: 'storefront-display',
-    label: 'Storefront',
+    id: "storefront-display",
+    label: "Storefront",
     icon: Grid,
     component: StorefrontDisplaySettings,
   },
   {
-    id: 'navigation-menu',
-    label: 'Navigasiya',
+    id: "navigation-menu",
+    label: "Navigasiya",
     icon: Menu,
     component: NavigationMenuSettings,
   },
   {
-    id: 'seo-analytics',
-    label: 'SEO & Analytics',
+    id: "seo-analytics",
+    label: "SEO & Analytics",
     icon: Globe2,
     component: SEOAnalyticsSettings,
   },
   {
-    id: 'testimonials-faq',
-    label: 'Rəylər & FAQ',
+    id: "testimonials-faq",
+    label: "Rəylər & FAQ",
     icon: MessageSquare,
     component: TestimonialsFAQSettings,
   },
   {
-    id: 'premium-ui',
-    label: 'Premium UI',
+    id: "premium-ui",
+    label: "Premium UI",
     icon: Sparkles,
     component: PremiumUISettings,
   },
   {
-    id: 'system-advanced',
-    label: 'Sistem',
+    id: "system-advanced",
+    label: "Sistem",
     icon: Code,
     component: SystemAdvancedSettings,
   },
   {
-    id: 'user-preferences',
-    label: 'Admin UI',
+    id: "user-preferences",
+    label: "Admin UI",
     icon: User,
     component: UserPreferences,
   },
   {
-    id: 'security-data',
-    label: 'Təhlükəsizlik',
+    id: "security-data",
+    label: "Təhlükəsizlik",
     icon: Shield,
     component: SecurityDataSettings,
   },
 ];
 
 // =========================================================
-// MAIN SETTINGS PAGE
+//   MAIN SETTINGS PAGE
 // =========================================================
-
 export default function AdminSettingsPage() {
   const {
     storefrontConfig,
@@ -3009,13 +2980,12 @@ export default function AdminSettingsPage() {
     setAdminUIState,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<string>('general');
+  const [activeTab, setActiveTab] = useState<string>("general");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Default dəyərlər – store artıq öz initial dəyərlərini verib,
-  // ona görə yalnız undefined olanda fallback veririk.
+  // Tam default dəyərlər (orijinaldakı kimi)
   const defaultStorefrontConfig = useMemo<
     StorefrontConfig & {
       vatRate?: number;
@@ -3027,224 +2997,259 @@ export default function AdminSettingsPage() {
   >(
     () =>
       storefrontConfig ?? {
-        currency: 'AZN',
-        locale: 'az-AZ',
+        currency: "AZN",
+        locale: "az-AZ",
         vatRate: 0.18,
-        contactEmail: 'info@organikgedebey.az',
-        contactPhone: '',
+        contactEmail: "info@organikgedebey.az",
+        contactPhone: "",
         shippingFee: 0,
-        primaryColor: '#16a34a',
-        secondaryColor: '#10b981',
-        logoUrl: '/organik_gedebey_logo.jpeg',
-        siteTitle: 'Organik Gədəbəy',
-        siteDescription: 'Təbii kənd məhsulları',
-        fontFamily: 'inter',
-        headingFont: 'inter',
-        containerWidth: 'default',
-        spacingSize: 'medium',
+        primaryColor: "#16a34a",
+        secondaryColor: "#10b981",
+        logoUrl: "/organik_gedebey_logo.jpeg",
+        siteTitle: "Organik Gədəbəy",
+        siteDescription: "Təbii kənd məhsulları",
+        fontFamily: "inter",
+        headingFont: "inter",
+        containerWidth: "default",
+        spacingSize: "medium",
         enablePageTransitions: true,
         enableHoverEffects: true,
-        animationSpeed: 'normal',
+        animationSpeed: "normal",
         enableShadows: true,
         enableRoundedCorners: true,
         enableGradients: true,
-        heroTitle: 'Təbii məhsullar bir klik uzağınızda',
-        heroSubtitle: '100% organik və təzə',
-        heroButtonText: 'Sifariş et',
-        heroButtonLink: '/products',
-        heroImageUrl: '',
-        topBannerText: '🚀 30 AZN-dən yuxarı sifarişə PULSUZ çatdırılma!',
+        heroTitle: "Təbii məhsullar bir klik uzağınızda",
+        heroSubtitle: "100% organik və təzə",
+        heroButtonText: "Sifariş et",
+        heroButtonLink: "/products",
+        heroImageUrl: "",
+        topBannerText:
+          "🚀 30 AZN-dən yuxarı sifarişə PULSUZ çatdırılma!",
         topBannerEnabled: true,
         stats: [
-          { value: '1000+', label: 'Məhsul', icon: '📦' },
-          { value: '5000+', label: 'Müştəri', icon: '👥' },
-          { value: '99%', label: 'Məmnuniyyət', icon: '⭐' },
+          { value: "1000+", label: "Məhsul", icon: "📦" },
+          { value: "5000+", label: "Müştəri", icon: "👥" },
+          { value: "99%", label: "Məmnuniyyət", icon: "⭐" },
         ],
-        footerCopyright: '© 2024 Organik Gədəbəy. Bütün hüquqlar qorunur.',
-        footerAboutText: 'Təbiətin əvəzsiz nemətləri bir klik uzağınızda. 100% organik və təzə məhsullar.',
+        footerCopyright:
+          "© 2024 Organik Gədəbəy. Bütün hüquqlar qorunur.",
+        footerAboutText:
+          "Təbiətin əvəzsiz nemətləri bir klik uzağınızda. 100% organik və təzə məhsullar.",
         headerBanners: [
-          { text: '🚀 30 AZN-dən yuxarı sifarişə PULSUZ çatdırılma!', color: 'from-emerald-600 to-teal-600', link: '' },
-          { text: '🎁 İlk sifarişə 10% endirim! Kupon: XOSGELDIN10', color: 'from-orange-500 to-red-500', link: '' },
+          {
+            text: "🚀 30 AZN-dən yuxarı sifarişə PULSUZ çatdırılma!",
+            color: "from-emerald-600 to-teal-600",
+            link: "",
+          },
+          {
+            text: "🎁 İlk sifarişə 10% endirim! Kupon: XOSGELDIN10",
+            color: "from-orange-500 to-red-500",
+            link: "",
+          },
         ],
         headerTopBar: {
-          tagline: 'Gədəbəy & Gəncə ailə təsərrüfatları',
-          location: 'Özü götürmə & Çatdırılma',
-          hours: 'Hər gün 09:00 - 21:00',
+          tagline: "Gədəbəy & Gəncə ailə təsərrüfatları",
+          location: "Özü götürmə & Çatdırılma",
+          hours: "Hər gün 09:00 - 21:00",
         },
         footerQuickLinks: [
-          { label: 'Ana Səhifə', href: '/' },
-          { label: 'Haqqımızda', href: '/about' },
-          { label: 'FAQ', href: '/faq' },
+          { label: "Ana Səhifə", href: "/" },
+          { label: "Haqqımızda", href: "/about" },
+          { label: "FAQ", href: "/faq" },
         ],
         trustBadges: [
-          { icon: '🌿', title: '100% Organik', description: 'Təbii məhsullar' },
-          { icon: '🚚', title: 'Sürətli Çatdırılma', description: '24 saat ərzində' },
-          { icon: '💯', title: 'Keyfiyyət Təminatı', description: 'Təzəlik zəmanəti' },
+          {
+            icon: "🌿",
+            title: "100% Organik",
+            description: "Təbii məhsullar",
+          },
+          {
+            icon: "🚚",
+            title: "Sürətli Çatdırılma",
+            description: "24 saat ərzində",
+          },
+          {
+            icon: "💯",
+            title: "Keyfiyyət Təminatı",
+            description: "Təzəlik zəmanəti",
+          },
         ],
-        socialInstagram: '',
-        socialFacebook: '',
-        socialWhatsapp: '',
-        socialTelegram: '',
-        socialYoutube: '',
-        socialTwitter: '',
+        socialInstagram: "",
+        socialFacebook: "",
+        socialWhatsapp: "",
+        socialTelegram: "",
+        socialYoutube: "",
+        socialTwitter: "",
         // Storefront Display
-        productViewMode: 'grid',
-        productsPerPage: '12',
-        defaultSort: 'newest',
-        gridColumns: '3',
+        productViewMode: "grid",
+        productsPerPage: "12",
+        defaultSort: "newest",
+        gridColumns: "3",
         showProductDescription: true,
         showStockQuantity: true,
         showAddToCartNotification: true,
         // SEO & Analytics
-        metaDescription: 'Təbii kənd məhsulları bir klik uzağınızda. 100% organik və təzə məhsullar.',
-        metaKeywords: ['organik', 'təbii', 'kənd məhsulları', 'gedebey', 'gəncə'],
-        ogImage: '',
-        googleAnalyticsId: '',
-        gtmId: '',
-        customAnalyticsCode: '',
+        metaDescription:
+          "Təbii kənd məhsulları bir klik uzağınızda. 100% organik və təzə məhsullar.",
+        metaKeywords: [
+          "organik",
+          "təbii",
+          "kənd məhsulları",
+          "gedebey",
+          "gəncə",
+        ],
+        ogImage: "",
+        googleAnalyticsId: "",
+        gtmId: "",
+        customAnalyticsCode: "",
         // Navigation
         mainNavigation: [
-          { label: 'Ana Səhifə', href: '/', icon: '🏠' },
-          { label: 'Məhsullar', href: '/products', icon: '🛒' },
-          { label: 'Haqqımızda', href: '/about', icon: 'ℹ️' },
-          { label: 'Əlaqə', href: '/contact', icon: '📞' },
+          { label: "Ana Səhifə", href: "/", icon: "🏠" },
+          { label: "Məhsullar", href: "/products", icon: "🛒" },
+          { label: "Haqqımızda", href: "/about", icon: "ℹ️" },
+          { label: "Əlaqə", href: "/contact", icon: "📞" },
         ],
         categoryNavigation: [
-          { label: 'Meyvə və Tərəvəz', href: '/category/fruits-vegetables', icon: '🍎' },
-          { label: 'Süd Məhsulları', href: '/category/dairy', icon: '🥛' },
-          { label: 'Bal və Mürəbbə', href: '/category/honey-jam', icon: '🍯' },
+          {
+            label: "Meyvə və Tərəvəz",
+            href: "/category/fruits-vegetables",
+            icon: "🍎",
+          },
+          {
+            label: "Süd Məhsulları",
+            href: "/category/dairy",
+            icon: "🥛",
+          },
+          {
+            label: "Bal və Mürəbbə",
+            href: "/category/honey-jam",
+            icon: "🍯",
+          },
         ],
         // Testimonials & FAQ
         testimonials: [
-          { name: 'Əli Vəliyev', role: 'Qaiməkam', text: 'Məhsullarınız çox yaxşıdır, həmişə sifariş edirəm.', rating: 5 },
-          { name: 'Ayşə Məmmədova', role: 'Ev xanımı', text: 'Təzə və keyfiyyətli məhsullar üçün təşəkkürlər.', rating: 5 },
+          {
+            name: "Əli Vəliyev",
+            role: "Qaiməkam",
+            text: "Məhsullarınız çox yaxşıdır, həmişə sifariş edirəm.",
+            rating: 5,
+          },
+          {
+            name: "Ayşə Məmmədova",
+            role: "Ev xanımı",
+            text: "Təzə və keyfiyyətli məhsullar üçün təşəkkürlər.",
+            rating: 5,
+          },
         ],
         faq: [
-          { question: 'Çatdırılma neçə gün çəkir?', answer: 'Çatdırılma adətən 1-3 iş günü çəkir.' },
-          { question: 'Məhsullar təzədir?', answer: 'Bəli, bütün məhsullarımız birbaşa kənd təsərrüfatlarından gətirilir.' },
+          {
+            question: "Çatdırılma neçə gün çəkir?",
+            answer: "Çatdırılma adətən 1-3 iş günü çəkir.",
+          },
+          {
+            question: "Məhsullar təzədir?",
+            answer:
+              "Bəli, bütün məhsullarımız birbaşa kənd təsərrüfatlarından gətirilir.",
+          },
         ],
         // System & Advanced
         maintenanceMode: false,
-        maintenanceMessage: 'Sayt texniki baxışdadır. Yaxın zamanda geri qayıdacağıq.',
-        customCss: '',
-        customJs: '',
+        maintenanceMessage:
+          "Sayt texniki baxışdadır. Yaxın zamanda geri qayıdacağıq.",
+        customCss: "",
+        customJs: "",
         showAnnouncementBanner: false,
-        announcementText: '',
-        announcementColor: '#f59e0b',
+        announcementText: "",
+        announcementColor: "#f59e0b",
       },
-    [storefrontConfig],
+    [storefrontConfig]
   );
 
   const defaultUIState = useMemo<AdminUIState>(
     () =>
       adminUIState ?? {
         sidebarOpen: true,
-        theme: 'light',
+        theme: "light",
         lastVisited: new Date().toISOString(),
       },
-    [adminUIState],
+    [adminUIState]
   );
 
-  // Local state-lər
-  const [localStorefrontConfig, setLocalStorefrontConfig] = useState(
-    defaultStorefrontConfig,
-  );
+  const [localStorefrontConfig, setLocalStorefrontConfig] =
+    useState(defaultStorefrontConfig);
   const [localUIState, setLocalUIState] = useState(defaultUIState);
 
-  // Global state dəyişəndə local state-i sync et
   useEffect(() => {
     setLocalStorefrontConfig(defaultStorefrontConfig);
     setLocalUIState(defaultUIState);
     setHasUnsavedChanges(false);
   }, [defaultStorefrontConfig, defaultUIState]);
 
-  // Wrapper-lər – hər dəyişiklikdə hasUnsavedChanges = true
-  const updateLocalStorefrontConfig: React.Dispatch<
-    React.SetStateAction<
-      StorefrontConfig & {
-        vatRate?: number;
-        contactPhone?: string;
-        contactEmail?: string;
-        shippingFee?: number;
-        locale?: string;
-      }
-    >
-  > = useCallback((value) => {
-    setLocalStorefrontConfig((prev) => {
-      const next =
-        typeof value === 'function'
-          ? (value as typeof value)(prev)
-          : value;
-      setHasUnsavedChanges(true);
-      return next;
-    });
-  }, []);
+  const updateLocalStorefrontConfig = useCallback(
+    (value: React.SetStateAction<typeof localStorefrontConfig>) => {
+      setLocalStorefrontConfig((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        setHasUnsavedChanges(true);
+        return next;
+      });
+    },
+    []
+  );
 
-  const updateLocalUIState: React.Dispatch<
-    React.SetStateAction<AdminUIState>
-  > = useCallback((value) => {
-    setLocalUIState((prev) => {
-      const next =
-        typeof value === 'function'
-          ? (value as typeof value)(prev)
-          : value;
-      setHasUnsavedChanges(true);
-      return next;
-    });
-  }, []);
+  const updateLocalUIState = useCallback(
+    (value: React.SetStateAction<AdminUIState>) => {
+      setLocalUIState((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        setHasUnsavedChanges(true);
+        return next;
+      });
+    },
+    []
+  );
 
-  // İstifadəçi pəncərəni bağlayanda xəbərdarlıq
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     if (!hasUnsavedChanges) return;
-
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      e.returnValue = '';
+      e.returnValue = "";
     };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
   }, [hasUnsavedChanges]);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
     setSaveSuccess(false);
-
     try {
-      // Save to backend API
-      const response = await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(localStorefrontConfig),
       });
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to save settings (${response.status})`);
+        throw new Error(
+          errorData.error || `Failed to save settings (${response.status})`
+        );
       }
-
-      // Update Zustand store after successful API save
       updateStorefrontConfig(localStorefrontConfig);
       setAdminUIState(localUIState);
     } catch (error) {
-      console.error('Failed to save settings:', error);
-      alert(`Tənzimləmələr yadda saxlanılmadı: ${error instanceof Error ? error.message : 'Xəta baş verdi'}`);
+      console.error("Failed to save settings:", error);
+      alert(
+        `Tənzimləmələr yadda saxlanılmadı: ${
+          error instanceof Error ? error.message : "Xəta baş verdi"
+        }`
+      );
       setIsSaving(false);
       return;
     }
-
     setIsSaving(false);
     setSaveSuccess(true);
     setHasUnsavedChanges(false);
     setTimeout(() => setSaveSuccess(false), 2000);
-  }, [
-    localStorefrontConfig,
-    localUIState,
-    updateStorefrontConfig,
-    setAdminUIState,
-  ]);
+  }, [localStorefrontConfig, localUIState, updateStorefrontConfig, setAdminUIState]);
 
   const ActiveComponent = useMemo(() => {
     const tab = settingsTabs.find((t) => t.id === activeTab);
@@ -3281,7 +3286,6 @@ export default function AdminSettingsPage() {
         <span>Admin Tənzimləmələri</span>
       </h1>
 
-      {/* Saving Notification */}
       <AnimatePresence>
         {(isSaving || saveSuccess) && (
           <motion.div
@@ -3289,7 +3293,7 @@ export default function AdminSettingsPage() {
             animate={{ opacity: 1, y: 0, x: 0 }}
             exit={{ opacity: 0, y: -15, x: 10 }}
             className={`fixed right-4 top-4 z-50 flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-2xl ${
-              isSaving ? 'bg-blue-500' : 'bg-emerald-600'
+              isSaving ? "bg-blue-500" : "bg-emerald-600"
             }`}
           >
             {isSaving ? (
@@ -3307,9 +3311,7 @@ export default function AdminSettingsPage() {
         )}
       </AnimatePresence>
 
-      {/* Layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[15rem_1fr]">
-        {/* Sidebar Nav */}
         <motion.nav
           className="h-fit rounded-2xl border border-slate-100 bg-white/95 p-4 shadow-xl shadow-slate-200/60 lg:sticky lg:top-24"
           initial={{ opacity: 0, x: -16 }}
@@ -3328,8 +3330,8 @@ export default function AdminSettingsPage() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                     isActive
-                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
-                      : 'text-slate-700 hover:bg-slate-50 hover:text-emerald-700'
+                      ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                      : "text-slate-700 hover:bg-slate-50 hover:text-emerald-700"
                   }`}
                   whileHover={{ scale: isActive ? 1.02 : 1.03 }}
                   whileTap={{ scale: 0.97 }}
@@ -3341,7 +3343,7 @@ export default function AdminSettingsPage() {
                       layoutId="active-settings-tab"
                       className="absolute inset-y-1 right-1 w-[0.25rem] rounded-full bg-white/90"
                       transition={{
-                        type: 'spring',
+                        type: "spring",
                         stiffness: 320,
                         damping: 30,
                       }}
@@ -3351,8 +3353,6 @@ export default function AdminSettingsPage() {
               );
             })}
           </div>
-
-          {/* Unsaved tiny badge */}
           {hasUnsavedChanges && (
             <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50/90 px-3 py-2 text-[0.75rem] text-amber-800">
               ● Yadda saxlanmamış dəyişikliklər mövcuddur.
@@ -3360,7 +3360,6 @@ export default function AdminSettingsPage() {
           )}
         </motion.nav>
 
-        {/* Content Area */}
         <div className="min-h-[37.5rem] rounded-2xl border border-slate-100 bg-white/95 p-4 shadow-xl shadow-slate-200/60 md:p-6">
           <AnimatePresence mode="wait">
             <motion.div

@@ -1,121 +1,98 @@
 // src/utils/useProductFilter.ts
-// ─────────────────────────────────────────────────────────────────────────────
-// ARXİV BUGININ HƏLLİ:
-//   Problem: unarchiveProduct() çağrısından sonra `showArchived` state-i
-//   hələ `true` qalır. Filter yeniləndikdə məhsul `archived:false` olduğuna
-//   görə "arxiv" filterdən çıxır — ekranda görünmür.
-//
-//   Həll: page.tsx-dəki `handleUnarchiveProduct` funksiyası həm store-u
-//   yeniləyir, həm də `showArchived → false` çevirir (aşağıda açıqlanır).
-// ─────────────────────────────────────────────────────────────────────────────
 import { useMemo } from 'react';
-import { Product, ID } from '@/types/products';
+import { Product } from '@/types/products';
+import { productDisplayPrice, avgRating, isDiscountActive, productTotalStock } from '@/lib/calc';
 
 export interface FilterState {
-  searchTerm:   string;
-  categoryId:   ID | '';
+  searchTerm: string;
+  categoryId: string | '';
   showArchived: boolean;
-  stockFilter:  'all' | 'in_stock' | 'low_stock' | 'out_of_stock';
+  stockFilter: 'all' | 'in_stock' | 'low_stock' | 'out_of_stock';
   discountOnly: boolean;
-  minPrice:     string;
-  maxPrice:     string;
-  minRating:    string;
-  sortKey:      'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'rating' | 'name_az' | 'stock_asc' | 'stock_desc';
-}
-
-export function getStock(p: Product): number {
-  if (p.variants?.length) return p.variants.reduce((s, v) => s + (v.stock ?? 0), 0);
-  return p.stock ?? 0;
-}
-
-export function getMinStockThreshold(p: Product): number {
-  return p.minStock ?? 5;
-}
-
-export function getLowestPrice(p: Product): number {
-  if (p.variants?.length) return Math.min(...p.variants.map(v => v.price ?? p.price ?? 0));
-  return p.price ?? 0;
-}
-
-export function getAvgRating(p: Product): number {
-  if (!p.reviews?.length) return 0;
-  return p.reviews.reduce((s: number, r: any) => s + (r.rating ?? 0), 0) / p.reviews.length;
-}
-
-export function getIsOnSale(p: Product): boolean {
-  const hasDiscount = (p.discountPercent ?? p.discountValue ?? 0) > 0;
-  if (!hasDiscount) return false;
-  const now   = Date.now();
-  const start = p.discountStartDate ? new Date(p.discountStartDate).getTime() : 0;
-  const end   = p.discountEndDate   ? new Date(p.discountEndDate).getTime()   : Infinity;
-  return now >= start && now <= end;
+  minPrice: string;
+  maxPrice: string;
+  minRating: string;
+  sortKey: 'newest' | 'price_asc' | 'price_desc' | 'rating';
 }
 
 export function useProductFilters(products: Product[], filters: FilterState): Product[] {
   return useMemo(() => {
-    let list = [...products];
+    let list = products;
 
-    // 1. ARXİV FİLTERİ
-    // showArchived=true  → YALNIZ p.archived===true olanlar
-    // showArchived=false → YALNIZ p.archived!==true olanlar (aktiv)
-    list = list.filter(p =>
-      filters.showArchived ? p.archived === true : p.archived !== true
-    );
+    // 1. Archived filter
+    if (!filters.showArchived) {
+      list = list.filter((p) => !p.archived);
+    }
 
-    // 2. AXTARIŞ
-    const q = filters.searchTerm.trim().toLowerCase();
-    if (q) {
-      list = list.filter(p =>
-        p.name?.toLowerCase().includes(q) ||
-        p.slug?.toLowerCase().includes(q) ||
-        p.description?.toLowerCase().includes(q) ||
-        (p.tags ?? []).some((t: string) => t.toLowerCase().includes(q)) ||
-        (p.originRegion ?? '').toLowerCase().includes(q)
+    // 2. Search
+    if (filters.searchTerm.trim()) {
+      const term = filters.searchTerm.toLowerCase().trim();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(term) ||
+          (p.tags || []).some((t) => t.toLowerCase().includes(term)) ||
+          (p.slug || '').toLowerCase().includes(term) ||
+          (p.description || '').toLowerCase().includes(term)
       );
     }
 
-    // 3. KATEQORİYA
-    if (filters.categoryId) list = list.filter(p => p.categoryId === filters.categoryId);
-
-    // 4. STOK
-    if (filters.stockFilter !== 'all') {
-      list = list.filter(p => {
-        const stock = getStock(p);
-        const min   = getMinStockThreshold(p);
-        if (filters.stockFilter === 'in_stock')     return stock > min;
-        if (filters.stockFilter === 'low_stock')    return stock > 0 && stock <= min;
-        if (filters.stockFilter === 'out_of_stock') return stock === 0;
-        return true;
-      });
+    // 3. Category
+    if (filters.categoryId) {
+      list = list.filter((p) => p.categoryId === filters.categoryId);
     }
 
-    // 5. ENDİRİM
-    if (filters.discountOnly) list = list.filter(getIsOnSale);
+    // 4. Price range
+    const min = parseFloat(filters.minPrice);
+    const max = parseFloat(filters.maxPrice);
+    if (!isNaN(min) && min > 0) {
+      list = list.filter((p) => productDisplayPrice(p) >= min);
+    }
+    if (!isNaN(max) && max > 0) {
+      list = list.filter((p) => productDisplayPrice(p) <= max);
+    }
 
-    // 6. QİYMƏT
-    const minP = filters.minPrice !== '' ? parseFloat(filters.minPrice) : null;
-    const maxP = filters.maxPrice !== '' ? parseFloat(filters.maxPrice) : null;
-    if (minP != null && !isNaN(minP)) list = list.filter(p => getLowestPrice(p) >= minP);
-    if (maxP != null && !isNaN(maxP)) list = list.filter(p => getLowestPrice(p) <= maxP);
+    // 5. Stock
+    if (filters.stockFilter === 'in_stock') {
+      list = list.filter((p) => productTotalStock(p) > 0);
+    } else if (filters.stockFilter === 'low_stock') {
+      list = list.filter((p) => {
+        const stock = productTotalStock(p);
+        return stock > 0 && stock <= (p.minStock ?? 5);
+      });
+    } else if (filters.stockFilter === 'out_of_stock') {
+      list = list.filter((p) => productTotalStock(p) === 0);
+    }
 
-    // 7. REYTİNQ
-    const minR = filters.minRating !== '' ? parseFloat(filters.minRating) : null;
-    if (minR != null && !isNaN(minR)) list = list.filter(p => getAvgRating(p) >= minR);
+    // 6. Discount only
+    if (filters.discountOnly) {
+      list = list.filter((p) => isDiscountActive(p));
+    }
 
-    // 8. SORT
-    list.sort((a, b) => {
-      switch (filters.sortKey) {
-        case 'oldest':     return +new Date(a.createdAt ?? 0) - +new Date(b.createdAt ?? 0);
-        case 'price_asc':  return getLowestPrice(a) - getLowestPrice(b);
-        case 'price_desc': return getLowestPrice(b) - getLowestPrice(a);
-        case 'rating':     return getAvgRating(b) - getAvgRating(a);
-        case 'name_az':    return (a.name ?? '').localeCompare(b.name ?? '', 'az');
-        case 'stock_asc':  return getStock(a) - getStock(b);
-        case 'stock_desc': return getStock(b) - getStock(a);
-        default:           return +new Date(b.createdAt ?? 0) - +new Date(a.createdAt ?? 0);
-      }
-    });
+    // 7. Min rating
+    const minRating = parseFloat(filters.minRating);
+    if (!isNaN(minRating) && minRating > 0) {
+      list = list.filter((p) => avgRating(p) >= minRating);
+    }
 
-    return list;
+    // 8. Sort
+    const sorted = [...list];
+    switch (filters.sortKey) {
+      case 'newest':
+        sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        break;
+      case 'price_asc':
+        sorted.sort((a, b) => productDisplayPrice(a) - productDisplayPrice(b));
+        break;
+      case 'price_desc':
+        sorted.sort((a, b) => productDisplayPrice(b) - productDisplayPrice(a));
+        break;
+      case 'rating':
+        sorted.sort((a, b) => avgRating(b) - avgRating(a));
+        break;
+      default:
+        break;
+    }
+
+    return sorted;
   }, [products, filters]);
 }

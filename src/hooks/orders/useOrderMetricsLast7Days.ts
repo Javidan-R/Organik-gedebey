@@ -3,7 +3,7 @@
 
 import { useMemo } from "react";
 import { OrderWithTotal } from "@/types/orders";
-
+ 
 export function useOrderMetricsLast7Days(orders: OrderWithTotal[]) {
   return useMemo(() => {
     const now = new Date();

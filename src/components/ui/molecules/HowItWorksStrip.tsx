@@ -10,7 +10,7 @@ const STEPS = [
   { icon: CreditCard, emoji: "💬", title: "WhatsApp ilə tamamla", short: "Sürətli sifariş" },
   { icon: CheckCircle2, emoji: "✅", title: "Zövq al!", short: "Təzə məhsullar" },
 ];
-
+ 
 export function HowItWorksStrip({ onLearnMore }: { onLearnMore?: () => void }) {
   return (
     <section className="rounded-3xl border border-slate-100 bg-white/98 shadow-sm overflow-hidden relative">

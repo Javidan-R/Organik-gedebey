@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import {
   motion,
   AnimatePresence,
@@ -11,22 +11,20 @@ import {
   PanInfo,
 } from "framer-motion";
 import {
-  Leaf, ShieldCheck, Truck, Star,
-  ShoppingBag, ArrowRight, HeartHandshake,
-  Sparkles, Clock, Award, Droplets,
-  Eye, Heart, Sparkle, Compass, Play,
-  Cherry, Carrot, Milk, Egg, Wheat,
-  MapPin, Users, Flame, Plus, ChevronLeft, ChevronRight,
-  Sun, Moon, Wind, Thermometer, CloudRain, Check, Bell,
-  TrendingUp, Package, Zap, RefreshCw
+  Leaf, 
+  ShoppingBag, ArrowRight, Clock, Award, Droplets,
+ Heart, Sparkle, Play,
+  Cherry, Milk, Egg, Wheat,
+  MapPin, Users, Flame, Plus, ChevronLeft, ChevronRight, Check
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useApp } from "@/lib/store";
-import { getFirstImageUrl, getProductBasePrice, formatCurrency } from "@/utils/storefront_home";
+import { getFirstImageUrl, getProductBasePrice, formatCurrency } from "@/utils/product";
 import { finalPrice } from "@/lib/calc";
 import { Product } from "@/types/products";
 import type { Product as ProductType } from "@/types/products";
+import type { StorefrontConfig } from "@/lib/types"; // ⚠️ tipi idxal edin (əgər fərqli yerdədirsə, uyğunlaşdırın)
 
 /* ══════════════════════════════════════════════════════════════════
    AUDIO ENGINE
@@ -75,7 +73,20 @@ const playOrganicSynth = (type: "drop" | "breeze" | "click" | "success") => {
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   EMOJI UTILITY
+   TƏHLÜKƏSİZ ŞƏKİL URL-I
+══════════════════════════════════════════════════════════════════ */
+const safeImageUrl = (url: string | undefined | null): string => {
+  if (!url) return '/placeholder.jpg';
+  try {
+    new URL(url);
+    return url;
+  } catch {
+    return url.startsWith('/') ? url : '/placeholder.jpg';
+  }
+};
+
+/* ══════════════════════════════════════════════════════════════════
+   EMOJI UTILITY (category.name istifadə)
 ══════════════════════════════════════════════════════════════════ */
 const EMOJI_PATTERNS: Array<{ patterns: string[]; emoji: string; priority?: number }> = [
   { patterns: ["bal", "honey", "arı", "bee"], emoji: "🍯", priority: 10 },
@@ -112,20 +123,32 @@ const CATEGORY_FALLBACK: Record<string, string> = {
 };
 
 export function getProductEmoji(product: ProductType): string {
-  const name = product.name.toLowerCase();
-  const category = product.category?.toLowerCase() || "";
+  const name = product.name?.toLowerCase() ?? "";
+  // category obyekt olduğu üçün .name ilə işləyirik
+  const categoryName = product.category?.name?.toLowerCase() || "";
   const matches: { emoji: string; priority: number }[] = [];
   for (const rule of EMOJI_PATTERNS) {
     const priority = rule.priority ?? 10;
     for (const pattern of rule.patterns) {
-      if (name.includes(pattern.toLowerCase())) { matches.push({ emoji: rule.emoji, priority }); break; }
+      if (name.includes(pattern.toLowerCase())) {
+        matches.push({ emoji: rule.emoji, priority });
+        break;
+      }
     }
   }
-  if (matches.length > 0) { matches.sort((a, b) => b.priority - a.priority); return matches[0].emoji; }
-  for (const [catKey, emoji] of Object.entries(CATEGORY_FALLBACK)) { if (category.includes(catKey)) return emoji; }
+  if (matches.length > 0) {
+    matches.sort((a, b) => b.priority - a.priority);
+    return matches[0]?.emoji ?? "🥬";
+  }
+  for (const [catKey, emoji] of Object.entries(CATEGORY_FALLBACK)) {
+    if (categoryName.includes(catKey)) return emoji;
+  }
   return "🥬";
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   BENEFIT MAP
+══════════════════════════════════════════════════════════════════ */
 const BENEFIT_MAP: Record<string, string> = {
   "🍯": "Antioksidant zəngini", "🥛": "Kalsium mənbəyi", "🧀": "Probiotik zəngin",
   "🧈": "A,D,E vitaminləri", "🥣": "Bağırsaq dostu", "🥚": "Yüksək protein",
@@ -137,11 +160,11 @@ const BENEFIT_MAP: Record<string, string> = {
 };
 
 function getBenefit(emoji: string): string {
-  return BENEFIT_MAP[emoji] || BENEFIT_MAP.default;
+  return BENEFIT_MAP[emoji] ?? BENEFIT_MAP.default;
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   TABLE ITEMS (animative, not static product images)
+   TABLE ITEMS (vizual animasiyalı süfrə)
 ══════════════════════════════════════════════════════════════════ */
 const TABLE_ITEMS = [
   { id: "honey",  name: "Gədəbəy Balı",   icon: "🍯", desc: "1500m yüksəklikdə saf süzmə bal",      benefit: "Antioksidant zəngini", x: "42%", y: "38%", delay: 0 },
@@ -156,7 +179,7 @@ const TABLE_ITEMS = [
 ];
 
 /* ══════════════════════════════════════════════════════════════════
-   STEAM ANIMATION (for hot food items)
+   STEAM, BEES, DUST, MOUNTAIN, TIMELINE
 ══════════════════════════════════════════════════════════════════ */
 const SteamParticle = ({ x, delay }: { x: string; delay: number }) => (
   <motion.div
@@ -170,9 +193,6 @@ const SteamParticle = ({ x, delay }: { x: string; delay: number }) => (
   </motion.div>
 );
 
-/* ══════════════════════════════════════════════════════════════════
-   FLYING BEES
-══════════════════════════════════════════════════════════════════ */
 const FlyingBee = ({ startX, startY, idx }: { startX: string; startY: string; idx: number }) => (
   <motion.div
     className="absolute z-30 pointer-events-none select-none text-xl"
@@ -188,9 +208,6 @@ const FlyingBee = ({ startX, startY, idx }: { startX: string; startY: string; id
   </motion.div>
 );
 
-/* ══════════════════════════════════════════════════════════════════
-   DUST PARTICLES
-══════════════════════════════════════════════════════════════════ */
 const DustParticles = () => (
   <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
     {Array.from({ length: 18 }).map((_, i) => (
@@ -216,9 +233,6 @@ const DustParticles = () => (
   </div>
 );
 
-/* ══════════════════════════════════════════════════════════════════
-   MOUNTAIN PARALLAX BACKGROUND
-══════════════════════════════════════════════════════════════════ */
 const MountainBg = ({ scrollY }: { scrollY: any }) => {
   const y1 = useTransform(scrollY, [0, 1], ["0%", "8%"]);
   const y2 = useTransform(scrollY, [0, 1], ["0%", "14%"]);
@@ -237,9 +251,6 @@ const MountainBg = ({ scrollY }: { scrollY: any }) => {
   );
 };
 
-/* ══════════════════════════════════════════════════════════════════
-   HARVEST TIMELINE (new functionality #1)
-══════════════════════════════════════════════════════════════════ */
 const TIMELINE = [
   { time: "05:30", label: "Arı yuvası", icon: "🐝", color: "amber" },
   { time: "06:15", label: "Sağım", icon: "🐄", color: "sky" },
@@ -254,6 +265,9 @@ const HarvestTimeline = () => {
     const id = setInterval(() => setActiveStep(s => (s + 1) % TIMELINE.length), 1800);
     return () => clearInterval(id);
   }, []);
+
+  const currentStep = TIMELINE[activeStep] ?? TIMELINE[0];
+
   return (
     <div className="mt-6 w-full bg-white/80 backdrop-blur-md rounded-2xl border border-emerald-100 p-3 shadow-md">
       <p className="text-[9px] font-black uppercase tracking-widest text-emerald-700 mb-2.5 flex items-center gap-1.5">
@@ -287,7 +301,7 @@ const HarvestTimeline = () => {
       <AnimatePresence mode="wait">
         <motion.p key={activeStep} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
           className="text-[9px] text-center text-slate-500 font-bold mt-2">
-          {TIMELINE[activeStep].icon} {TIMELINE[activeStep].label} — {TIMELINE[activeStep].time}
+          {currentStep?.icon} {currentStep?.label} — {currentStep?.time}
         </motion.p>
       </AnimatePresence>
     </div>
@@ -295,7 +309,7 @@ const HarvestTimeline = () => {
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   DAY/NIGHT MODE TOGGLE (new functionality #2)
+   DAY/NIGHT, WEATHER, LIVE BAR
 ══════════════════════════════════════════════════════════════════ */
 const DayNightToggle = ({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) => (
   <motion.button
@@ -314,9 +328,6 @@ const DayNightToggle = ({ isDark, onToggle }: { isDark: boolean; onToggle: () =>
   </motion.button>
 );
 
-/* ══════════════════════════════════════════════════════════════════
-   WEATHER WIDGET (new functionality #3)
-══════════════════════════════════════════════════════════════════ */
 const WeatherWidget = () => {
   const [tempC] = useState(18);
   const [humidity] = useState(72);
@@ -331,9 +342,6 @@ const WeatherWidget = () => {
   );
 };
 
-/* ══════════════════════════════════════════════════════════════════
-   LIVE ACTIVITY BAR
-══════════════════════════════════════════════════════════════════ */
 const LiveActivityBar = () => {
   const [count] = useState(() => Math.floor(Math.random() * 20) + 12);
   const [orders] = useState(() => Math.floor(Math.random() * 8) + 3);
@@ -357,7 +365,7 @@ const LiveActivityBar = () => {
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   ORGANIC TABLE (ULTRA-ENHANCED)
+   ORGANIC TABLE
 ══════════════════════════════════════════════════════════════════ */
 const OrganicTable = ({ isDark }: { isDark: boolean }) => {
   const [activeItem, setActiveItem] = useState<typeof TABLE_ITEMS[0] | null>(null);
@@ -373,7 +381,6 @@ const OrganicTable = ({ isDark }: { isDark: boolean }) => {
   const shadowTX = useTransform(springX, [-200, 200], [22, -22]);
   const shadowTY = useTransform(springY, [-200, 200], [22, -22]);
 
-  // Mobile gyroscope
   useEffect(() => {
     const handler = (e: DeviceOrientationEvent) => {
       setGyroX((e.gamma || 0) * 1.2);
@@ -401,34 +408,23 @@ const OrganicTable = ({ isDark }: { isDark: boolean }) => {
       onMouseLeave={handleMouseLeave}
       className={`relative w-full aspect-square md:aspect-[4/3] flex items-center justify-center rounded-[3.5rem] overflow-hidden p-4 shadow-inner border cursor-none transition-colors duration-700 ${isDark ? "bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 border-emerald-900/40" : "bg-gradient-to-br from-emerald-50/70 via-lime-50/40 to-amber-50/50 border-emerald-100/40"} group/table`}
     >
-      {/* Backgrounds */}
       <DustParticles />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(253,250,230,0.85),transparent_75%)] pointer-events-none" />
       <motion.div className="absolute top-1/4 left-1/3 w-80 h-80 rounded-full blur-[90px] animate-pulse pointer-events-none"
         style={{ background: isDark ? "rgba(16,83,50,0.35)" : "rgba(167,243,208,0.25)" }} />
-
-      {/* Flying bees */}
       <FlyingBee startX="12%" startY="20%" idx={0} />
       <FlyingBee startX="75%" startY="35%" idx={1} />
       <FlyingBee startX="55%" startY="8%" idx={2} />
-
-      {/* 3D shadow */}
       <motion.div style={{ x: shadowTX, y: shadowTY }}
         className="absolute w-[80%] h-[80%] bg-emerald-950/5 rounded-[4rem] blur-2xl pointer-events-none" />
-
-      {/* 3D plate */}
       <motion.div style={{ rotateX: plateRotateX, rotateY: plateRotateY, transformStyle: "preserve-3d" }}
         className="relative w-full h-full flex items-center justify-center">
-
-        {/* Table surface */}
         <div className={`absolute w-[88%] h-[88%] rounded-[3.5rem] border overflow-hidden flex items-center justify-center transition-colors duration-700 ${isDark ? "bg-slate-800/90 border-emerald-800/30 shadow-[0_30px_70px_-15px_rgba(0,0,0,0.4)]" : "bg-white shadow-[0_30px_70px_-15px_rgba(16,83,19,0.12)] border-emerald-50/80"}`}>
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(240,245,230,0.4)_1px,transparent_1px),linear-gradient(to_bottom,rgba(240,245,230,0.4)_1px,transparent_1px)] bg-[size:32px_32px] opacity-50" />
           <div className="w-[75%] h-[75%] rounded-full border border-dashed border-emerald-200/50 flex items-center justify-center opacity-80">
             <div className="w-[65%] h-[65%] rounded-full border border-dashed border-emerald-100/40" />
           </div>
         </div>
-
-        {/* Animated product items on table */}
         {TABLE_ITEMS.map((item) => {
           const isActive = activeItem?.id === item.id;
           const isHot = ["🍯", "🧈", "🥣", "🌾"].includes(item.icon);
@@ -442,10 +438,7 @@ const OrganicTable = ({ isDark }: { isDark: boolean }) => {
               transition={{ duration: 4 + item.delay * 0.5, repeat: Infinity, delay: item.delay, ease: "easeInOut" }}
               whileHover={{ scale: 1.3, z: 70, filter: "drop-shadow(0 25px 30px rgba(16,83,19,0.25))" }}
             >
-              {/* Shadow */}
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-10 h-3 bg-black/8 rounded-full blur-sm" />
-
-              {/* Steam for hot items */}
               {isHot && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 flex justify-around">
                   <SteamParticle x="20%" delay={0} />
@@ -453,16 +446,12 @@ const OrganicTable = ({ isDark }: { isDark: boolean }) => {
                   <SteamParticle x="80%" delay={0.8} />
                 </div>
               )}
-
-              {/* Product circle */}
               <div className={`relative w-16 h-16 md:w-20 md:h-20 rounded-full border flex items-center justify-center group/item transition-colors duration-300 hover:border-emerald-300 shadow-md ${isDark ? "bg-slate-700 border-slate-600" : "bg-white border-emerald-50/80"}`}>
                 <div className="absolute inset-1 rounded-full border border-dashed border-emerald-100/60 group-hover/item:border-emerald-400/60 transition-colors" />
                 <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white via-transparent to-emerald-50/20 opacity-0 group-hover/item:opacity-100 transition-opacity" />
                 <span className="text-3xl md:text-4xl select-none drop-shadow-md z-10 transition-transform duration-300 group-hover/item:scale-110 group-hover/item:rotate-6">
                   {item.icon}
                 </span>
-
-                {/* Pulse ring on active */}
                 {isActive && (
                   <>
                     <motion.div layoutId="ring"
@@ -481,8 +470,6 @@ const OrganicTable = ({ isDark }: { isDark: boolean }) => {
             </motion.div>
           );
         })}
-
-        {/* Tooltip */}
         <AnimatePresence>
           {activeItem && (
             <motion.div
@@ -509,8 +496,6 @@ const OrganicTable = ({ isDark }: { isDark: boolean }) => {
           )}
         </AnimatePresence>
       </motion.div>
-
-      {/* Hint */}
       <AnimatePresence>
         {!activeItem && (
           <motion.div
@@ -532,9 +517,9 @@ const OrganicTable = ({ isDark }: { isDark: boolean }) => {
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   PREMIUM SWIPE SLIDER (ENHANCED)
+   PREMIUM SWIPE SLIDER (regionlar və harvest times dinamik)
 ══════════════════════════════════════════════════════════════════ */
-function PremiumSwipeSlider({ products, isDark }: { products: Product[]; isDark: boolean }) {
+function PremiumSwipeSlider({ products, isDark, config }: { products: Product[]; isDark: boolean; config: StorefrontConfig }) {
   const [idx, setIdx] = useState(0);
   const [addedId, setAddedId] = useState<string | null>(null);
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
@@ -547,13 +532,16 @@ function PremiumSwipeSlider({ products, isDark }: { products: Product[]; isDark:
 
   if (!activeDeals.length) return null;
   const cur = activeDeals[idx];
+  if (!cur) return null;
+
   const emoji = getProductEmoji(cur);
   const benefit = getBenefit(emoji);
   const curPrice = finalPrice(getProductBasePrice(cur), cur.discountType, cur.discountValue);
   const basePrice = getProductBasePrice(cur);
   const discountPct = Math.round(Math.max(0, (1 - curPrice / basePrice) * 100));
-  const HARVEST_TIMES = ["Sübh 05:30", "Səhər 06:15", "Günorta 07:00", "Axşamüstü 14:00", "Sübh 04:45", "Səhər 07:30", "Günorta 08:00", "Axşam 16:00"];
-  const REGIONS = ["Söyüdlü, Gədəbəy", "Qarı, Gədəbəy", "Şəmkir Dağları", "Gəncə Düzənliyi", "Kəpəz Yamacı", "Murovdağ", "Ağstafa", "Tovuz"];
+
+  const HARVEST_TIMES = config.heroHarvestTimes || ["Sübh 05:30", "Səhər 06:15", "Günorta 07:00", "Axşamüstü 14:00", "Sübh 04:45", "Səhər 07:30", "Günorta 08:00", "Axşam 16:00"];
+  const REGIONS = config.heroRegions || ["Söyüdlü, Gədəbəy", "Qarı, Gədəbəy", "Şəmkir Dağları", "Gəncə Düzənliyi", "Kəpəz Yamacı", "Murovdağ", "Ağstafa", "Tovuz"];
   const harvestTime = HARVEST_TIMES[idx % HARVEST_TIMES.length];
   const region = REGIONS[idx % REGIONS.length];
 
@@ -577,10 +565,9 @@ function PremiumSwipeSlider({ products, isDark }: { products: Product[]; isDark:
 
   return (
     <div className="w-full max-w-sm mx-auto mt-6 relative px-1">
-      {/* Header */}
       <div className="flex items-center justify-between mb-3 px-1">
         <span className="flex items-center gap-1.5 text-xs font-black text-emerald-800 uppercase tracking-wider">
-          <Flame className="w-3.5 h-3.5 text-red-500 animate-bounce" /> Günün Dağ Sürprizi
+          <Flame className="w-3.5 h-3.5 text-red-500 animate-bounce" /> {config?.heroSliderTitle || "Günün Dağ Sürprizi"}
         </span>
         <div className="flex gap-1">
           <button onClick={prevSlide} className="w-7 h-7 rounded-full bg-white border border-slate-100 flex items-center justify-center hover:bg-slate-50 text-slate-700 shadow-sm transition-colors">
@@ -591,8 +578,6 @@ function PremiumSwipeSlider({ products, isDark }: { products: Product[]; isDark:
           </button>
         </div>
       </div>
-
-      {/* Card */}
       <AnimatePresence mode="wait">
         <motion.div
           key={idx}
@@ -602,13 +587,11 @@ function PremiumSwipeSlider({ products, isDark }: { products: Product[]; isDark:
           transition={{ duration: 0.3, ease: "easeOut" }}
           className={`relative overflow-hidden rounded-3xl border p-4 shadow-xl transition-colors ${isDark ? "bg-slate-800 border-emerald-900/50" : "bg-white border-emerald-100"}`}
         >
-          {/* Top ribbon */}
           {discountPct > 0 && (
             <div className="absolute top-0 left-0 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[9px] font-black px-3 py-1 rounded-br-2xl shadow-sm">
               -{discountPct}% ENDİRİM
             </div>
           )}
-
           <motion.div
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
@@ -617,12 +600,9 @@ function PremiumSwipeSlider({ products, isDark }: { products: Product[]; isDark:
             className="flex gap-4 cursor-grab active:cursor-grabbing"
             whileTap={{ scale: 0.98 }}
           >
-            {/* Product image */}
             <div className="relative w-[90px] h-[90px] rounded-2xl overflow-hidden bg-slate-50 shrink-0 border border-slate-100 shadow-inner">
-              <Image src={getFirstImageUrl(cur)} alt={cur.name} fill className="object-cover pointer-events-none" />
+              <Image src={safeImageUrl(getFirstImageUrl(cur))} alt={cur.name} fill className="object-cover pointer-events-none" />
             </div>
-
-            {/* Info */}
             <div className="flex-1 min-w-0 flex flex-col justify-between text-left">
               <div>
                 <p className={`text-sm font-black leading-snug truncate ${isDark ? "text-white" : "text-slate-800"}`}>{cur.name}</p>
@@ -631,19 +611,16 @@ function PremiumSwipeSlider({ products, isDark }: { products: Product[]; isDark:
                   <span className="w-1 h-1 rounded-full bg-slate-300" />
                   <MapPin className="w-3 h-3 text-lime-500" /> <span>{region}</span>
                 </div>
-                {/* Benefit pill */}
                 <span className="inline-block mt-1.5 bg-emerald-100 text-emerald-800 text-[8px] font-black px-2 py-0.5 rounded-full">
                   {emoji} {benefit}
                 </span>
               </div>
-
               <div className="flex items-end justify-between mt-1.5">
                 <div>
                   {discountPct > 0 && <p className="text-xs line-through text-slate-400 font-bold leading-none">{formatCurrency(basePrice)}</p>}
                   <p className="text-lg font-black text-emerald-700 leading-none">{formatCurrency(curPrice)}</p>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {/* Wishlist */}
                   <motion.button
                     whileHover={{ scale: 1.15 }}
                     whileTap={{ scale: 0.85 }}
@@ -652,8 +629,6 @@ function PremiumSwipeSlider({ products, isDark }: { products: Product[]; isDark:
                   >
                     <Heart className="w-4 h-4" fill={wishlist.has(cur.id) ? "currentColor" : "none"} />
                   </motion.button>
-
-                  {/* Add to cart */}
                   <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
@@ -671,8 +646,6 @@ function PremiumSwipeSlider({ products, isDark }: { products: Product[]; isDark:
               </div>
             </div>
           </motion.div>
-
-          {/* Organic index bar */}
           <div className="mt-3 pt-3 border-t border-slate-50">
             <div className="flex items-center justify-between text-[9px] font-bold text-slate-500 mb-1">
               <span>Orqanik Saf İndeks</span>
@@ -689,17 +662,13 @@ function PremiumSwipeSlider({ products, isDark }: { products: Product[]; isDark:
           </div>
         </motion.div>
       </AnimatePresence>
-
-      {/* Dots */}
       <div className="flex justify-center gap-1.5 mt-3">
         {activeDeals.map((_, i) => (
           <button key={i} onClick={() => setIdx(i)}
             className={`h-1.5 rounded-full transition-all ${i === idx ? "w-6 bg-emerald-600" : "w-1.5 bg-slate-200"}`} />
         ))}
       </div>
-
-      {/* Harvest timeline */}
-      <HarvestTimeline />
+      {config.heroTimelineEnabled !== false && <HarvestTimeline />}
     </div>
   );
 }
@@ -721,9 +690,9 @@ const OrganicBadge = ({ icon: Icon, label, color, index }: { icon: any; label: s
 );
 
 /* ══════════════════════════════════════════════════════════════════
-   HERO CONTENT
+   HERO CONTENT — TAM DİNAMİK
 ══════════════════════════════════════════════════════════════════ */
-const HeroContent = ({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: () => void }) => {
+const HeroContent = ({ isDark, onToggleDark, config }: { isDark: boolean; onToggleDark: () => void; config: StorefrontConfig }) => {
   const [mounted, setMounted] = useState(false);
   const [greeting, setGreeting] = useState({ emoji: "☀️", text: "Xoş gördük!" });
 
@@ -735,45 +704,78 @@ const HeroContent = ({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: 
     else setGreeting({ emoji: "🌙", text: "Axşamınız xeyir!" });
   }, []);
 
+  // Dinamik mətnlər
+  const siteTitle = config.siteTitle || "Organik Gədəbəy";
+  const heroTitle = config.heroTitle || "Hər Süfrədə Dağ Nəfəsi";
+  const heroSubtitle = config.heroSubtitle || "Gədəbəyin zəngin bulaqlarından bəhrələnən, heç bir sənaye qatqısı olmadan hazırlanan";
+  const heroSubtitleHighlight = config.heroSubtitleHighlight || "100% təbii nemətlər";
+  const heroButtonText = config.heroButtonText || "MAĞAZAYA KEÇ";
+  const heroButtonLink = config.heroButtonLink || "/products";
+  const heroSecondaryText = config.heroSecondaryText || "Ferma Hekayəmiz";
+  const heroSecondaryLink = config.heroSecondaryLink || "/fresh-today";
+  const brandTagline = config.headerTopBar?.tagline || "Gədəbəy & Gəncə ailə təsərrüfatları";
+  const trustBadges = config.trustBadges || [
+    { icon: "🌿", title: "100% Bio", description: "Laboratoriya təsdiqli" },
+    { icon: "🚚", title: "Təzə Çatdırılma", description: "Soyuduculu avtomobillə" },
+    { icon: "🏆", title: "Mükafatlı", description: "Ən Yaxşı Kənd Məhsulu 2024" },
+    { icon: "🔄", title: "Qaytarma Zəmanəti", description: "Razı deyilsinizsə, 100% geri" },
+  ];
+
+  // Başlığın iki hissəyə ayrılması
+  const words = heroTitle.trim().split(/\s+/);
+  let mainPart = "";
+  let highlightPart = "";
+  if (words.length >= 3) {
+    mainPart = words.slice(0, -2).join(" ");
+    highlightPart = words.slice(-2).join(" ");
+  } else if (words.length === 2) {
+    mainPart = words[0];
+    highlightPart = words[1];
+  } else {
+    highlightPart = words[0] || "";
+  }
+
   return (
     <div className="flex flex-col gap-6 md:gap-7 max-w-xl text-left">
-      {/* Top row: live bar + day/night */}
+      {/* Top row */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         {mounted && <LiveActivityBar />}
         <DayNightToggle isDark={isDark} onToggle={onToggleDark} />
       </div>
-
-      {/* Weather */}
-      {mounted && <WeatherWidget />}
+      {mounted && config.heroWeatherEnabled !== false && <WeatherWidget />}
 
       {/* Brand badge */}
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 200 }}
         className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-2xl px-4 py-2 shadow-md shadow-emerald-900/10 w-fit">
         <Leaf className="w-4 h-4 text-lime-300 animate-pulse" />
-        <span className="text-[10px] font-black tracking-widest uppercase">Gədəbəy & Gəncə Təsərrüfatı</span>
+        <span className="text-[10px] font-black tracking-widest uppercase">{brandTagline}</span>
         <Award className="w-4 h-4 text-amber-300" />
       </motion.div>
 
       {/* Title */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-2">
         <h1 className={`text-5xl md:text-6xl lg:text-7xl font-black leading-[1.05] tracking-tighter ${isDark ? "text-white" : "text-slate-900"}`}>
-          Hər Süfrədə{" "}
-          <span className="relative inline-block text-emerald-500 italic">
-            Dağ Nəfəsi
-            <motion.svg viewBox="0 0 300 20" className="absolute -bottom-2 left-0 w-full h-3 text-lime-400/80"
-              initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ delay: 0.8, duration: 1.2 }}>
-              <path d="M5 15 Q 150 5 295 15" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
-            </motion.svg>
-          </span>
+          {mainPart}{" "}
+          {highlightPart && (
+            <span className="relative inline-block text-emerald-500 italic">
+              {highlightPart}
+              <motion.svg viewBox="0 0 300 20" className="absolute -bottom-2 left-0 w-full h-3 text-lime-400/80"
+                initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ delay: 0.8, duration: 1.2 }}>
+                <path d="M5 15 Q 150 5 295 15" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
+              </motion.svg>
+            </span>
+          )}
         </h1>
-        <p className="text-lg font-bold text-emerald-600">Organik Gədəbəy</p>
+        <p className="text-lg font-bold text-emerald-600">{siteTitle}</p>
       </motion.div>
 
       {/* Body text */}
       <motion.p initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
         className={`text-base md:text-lg leading-relaxed font-medium ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-        Gədəbəyin zəngin bulaqlarından bəhrələnən, heç bir sənaye qatqısı olmadan hazırlanan{" "}
-        <span className={`font-bold border-b-2 border-lime-300 pb-0.5 ${isDark ? "text-white" : "text-slate-900"}`}>100% təbii nemətlər</span>{" "}
+        {heroSubtitle}{" "}
+        <span className={`font-bold border-b-2 border-lime-300 pb-0.5 ${isDark ? "text-white" : "text-slate-900"}`}>
+          {heroSubtitleHighlight}
+        </span>{" "}
         indi birbaşa kənd həyətindən süfrənizə gəlir.
       </motion.p>
 
@@ -781,13 +783,13 @@ const HeroContent = ({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: 
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
         className="flex flex-wrap items-center gap-4">
         <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
-          <Link href="/products" className="group inline-flex items-center gap-3 bg-slate-900 text-white font-black text-sm rounded-[1.75rem] px-8 py-5 shadow-xl shadow-slate-900/15 hover:bg-emerald-600 hover:shadow-emerald-600/20 transition-all duration-300">
-            <ShoppingBag className="w-4 h-4" /> MAĞAZAYA KEÇ <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform" />
+          <Link href={heroButtonLink} className="group inline-flex items-center gap-3 bg-slate-900 text-white font-black text-sm rounded-[1.75rem] px-8 py-5 shadow-xl shadow-slate-900/15 hover:bg-emerald-600 hover:shadow-emerald-600/20 transition-all duration-300">
+            <ShoppingBag className="w-4 h-4" /> {heroButtonText} <ArrowRight className="w-4 h-4 group-hover:translate-x-1.5 transition-transform" />
           </Link>
         </motion.div>
         <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
-          <Link href="/fresh-today" className="inline-flex items-center gap-2.5 bg-white border-2 border-slate-100 text-slate-800 font-black text-sm rounded-[1.75rem] px-7 py-5 hover:bg-slate-50 transition-all shadow-sm">
-            <Play size={16} className="text-emerald-500" fill="currentColor" /> Ferma Hekayəmiz
+          <Link href={heroSecondaryLink} className="inline-flex items-center gap-2.5 bg-white border-2 border-slate-100 text-slate-800 font-black text-sm rounded-[1.75rem] px-7 py-5 hover:bg-slate-50 transition-all shadow-sm">
+            <Play size={16} className="text-emerald-500" fill="currentColor" /> {heroSecondaryText}
           </Link>
         </motion.div>
       </motion.div>
@@ -811,19 +813,14 @@ const HeroContent = ({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: 
 
       {/* Trust badges */}
       <div className={`grid grid-cols-2 gap-4 pt-6 border-t ${isDark ? "border-slate-700" : "border-slate-100"}`}>
-        {[
-          { icon: ShieldCheck, title: "100% Bio", text: "Laboratoriya təsdiqli" },
-          { icon: Truck, title: "Təzə Çatdırılma", text: "Soyuduculu avtomobillə" },
-          { icon: Award, title: "Mükafatlı", text: "Ən Yaxşı Kənd Məhsulu 2024" },
-          { icon: RefreshCw, title: "Qaytarma Zəmanəti", text: "Razı deyilsinizsə, 100% geri" },
-        ].map((item, i) => (
+        {trustBadges.map((badge, i) => (
           <div key={i} className="flex gap-3 items-start">
             <div className="p-2.5 bg-emerald-50 rounded-2xl text-emerald-600 shrink-0">
-              <item.icon size={18} />
+              <span className="text-xl">{badge.icon}</span>
             </div>
             <div>
-              <p className={`text-sm font-black ${isDark ? "text-white" : "text-slate-800"}`}>{item.title}</p>
-              <p className="text-xs text-slate-400 font-bold leading-none mt-0.5">{item.text}</p>
+              <p className={`text-sm font-black ${isDark ? "text-white" : "text-slate-800"}`}>{badge.title}</p>
+              <p className="text-xs text-slate-400 font-bold leading-none mt-0.5">{badge.description}</p>
             </div>
           </div>
         ))}
@@ -833,7 +830,7 @@ const HeroContent = ({ isDark, onToggleDark }: { isDark: boolean; onToggleDark: 
 };
 
 /* ══════════════════════════════════════════════════════════════════
-   FLOATING LEAVES (parallax + animated)
+   FLOATING LEAVES
 ══════════════════════════════════════════════════════════════════ */
 const FloatingLeaves = ({ backgroundY }: { backgroundY: any }) => (
   <motion.div style={{ y: backgroundY }} className="absolute inset-0 overflow-hidden pointer-events-none z-1">
@@ -858,10 +855,35 @@ const FloatingLeaves = ({ backgroundY }: { backgroundY: any }) => (
 export function HeroSection() {
   const heroRef = useRef<HTMLDivElement>(null);
   const products = useApp((s) => s.products) || [];
+  const storefrontConfig = useApp((s) => s.storefrontConfig);
   const [isDark, setIsDark] = useState(false);
 
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "15%"]);
+
+  // Default config fallback
+  const config = useMemo(() => storefrontConfig || {
+    heroTableEnabled: true,
+    heroSliderEnabled: true,
+    heroTimelineEnabled: true,
+    heroLiveActivityEnabled: true,
+    heroWeatherEnabled: true,
+    heroTitle: "Hər Süfrədə Dağ Nəfəsi",
+    heroSubtitle: "Gədəbəyin zəngin bulaqlarından bəhrələnən, heç bir sənaye qatqısı olmadan hazırlanan",
+    heroSubtitleHighlight: "100% təbii nemətlər",
+    heroButtonText: "MAĞAZAYA KEÇ",
+    heroButtonLink: "/products",
+    heroSecondaryText: "Ferma Hekayəmiz",
+    heroSecondaryLink: "/fresh-today",
+    siteTitle: "Organik Gədəbəy",
+    headerTopBar: { tagline: "Gədəbəy & Gəncə ailə təsərrüfatları", location: "", hours: "" },
+    trustBadges: [
+      { icon: "🌿", title: "100% Bio", description: "Laboratoriya təsdiqli" },
+      { icon: "🚚", title: "Təzə Çatdırılma", description: "Soyuduculu avtomobillə" },
+      { icon: "🏆", title: "Mükafatlı", description: "Ən Yaxşı Kənd Məhsulu 2024" },
+      { icon: "🔄", title: "Qaytarma Zəmanəti", description: "Razı deyilsinizsə, 100% geri" },
+    ],
+  } as StorefrontConfig, [storefrontConfig]);
 
   return (
     <section
@@ -871,30 +893,22 @@ export function HeroSection() {
         : "bg-gradient-to-br from-[#FAF9F5] via-white to-[#F2FAF4]"
       }`}
     >
-      {/* Mountain parallax */}
       <MountainBg scrollY={scrollYProgress} />
-
-      {/* Floating leaves */}
       <FloatingLeaves backgroundY={backgroundY} />
-
-      {/* Main grid */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-6 lg:px-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
-
-          {/* LEFT: content */}
           <div className="lg:col-span-6 z-20">
-            <HeroContent isDark={isDark} onToggleDark={() => setIsDark((d) => !d)} />
+            <HeroContent isDark={isDark} onToggleDark={() => setIsDark((d) => !d)} config={config} />
           </div>
-
-          {/* RIGHT: table + slider */}
           <div className="lg:col-span-6 flex flex-col items-center z-10 w-full">
-            <div className="relative w-full max-w-lg md:max-w-xl">
-              <div className="absolute -inset-4 bg-gradient-to-br from-emerald-200/20 via-lime-200/10 to-amber-200/20 rounded-[4rem] blur-3xl -z-10 animate-pulse pointer-events-none" />
-              <OrganicTable isDark={isDark} />
-            </div>
-            <PremiumSwipeSlider products={products} isDark={isDark} />
+            {config.heroTableEnabled !== false && (
+              <div className="relative w-full max-w-lg md:max-w-xl">
+                <div className="absolute -inset-4 bg-gradient-to-br from-emerald-200/20 via-lime-200/10 to-amber-200/20 rounded-[4rem] blur-3xl -z-10 animate-pulse pointer-events-none" />
+                <OrganicTable isDark={isDark} />
+              </div>
+            )}
+            {config.heroSliderEnabled !== false && <PremiumSwipeSlider products={products} isDark={isDark} config={config} />}
           </div>
-
         </div>
       </div>
     </section>

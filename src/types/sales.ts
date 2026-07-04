@@ -1,6 +1,6 @@
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'mixed';
 export type LineMode = 'piece' | 'weight' | 'amount';
-
+ 
 export type PosLine = {
   id: string;
   productId: string;

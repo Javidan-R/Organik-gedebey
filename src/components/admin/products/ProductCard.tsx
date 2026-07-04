@@ -1,7 +1,8 @@
+// src/components/admin/products/ProductCard.tsx
 'use client';
 
 import Image from 'next/image';
-import { memo, useMemo, useState, useCallback } from 'react';
+import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   XCircle,
@@ -38,16 +39,27 @@ import {
 } from '@/lib/calc';
 import { Button } from '@/components/atoms/button';
 import { ProductCardProps, ProductImage } from '@/types/products';
-import { safeImageUrl, currency } from '@/helpers';
+import { currency } from '@/helpers';
 import { DeleteConfirmToast } from '../molecules/Deleteconfirmtoast';
+
+// ─── TƏHLÜKƏSİZ ŞƏKİL URL-I ──────────────────────────────────
+const safeImageUrl = (url: string | undefined | null): string => {
+  if (!url) return '/placeholder.png';
+  try {
+    new URL(url);
+    return url;
+  } catch {
+    return url.startsWith('/') ? url : '/placeholder.png';
+  }
+};
 
 // ─── COLOUR PALETTE ──────────────────────────────────────────────
 const PROFIT_COLORS = {
   positive: { bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', line: 'bg-emerald-500' },
-  negative:  { bg: 'bg-red-50 border-red-200',        text: 'text-red-700',     line: 'bg-red-500'     },
-  stockLow:  { bg: 'bg-amber-50 border-amber-200',    text: 'text-amber-700',   line: 'bg-amber-500'   },
-  stockOut:  { bg: 'bg-red-50 border-red-200',        text: 'text-red-700',     line: 'bg-red-500'     },
-  neutral:   { bg: 'bg-slate-50 border-slate-200',    text: 'text-slate-600',   line: 'bg-slate-300'   },
+  negative: { bg: 'bg-red-50 border-red-200', text: 'text-red-700', line: 'bg-red-500' },
+  stockLow: { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700', line: 'bg-amber-500' },
+  stockOut: { bg: 'bg-red-50 border-red-200', text: 'text-red-700', line: 'bg-red-500' },
+  neutral: { bg: 'bg-slate-50 border-slate-200', text: 'text-slate-600', line: 'bg-slate-300' },
 };
 
 // ─── METRIC BADGE ────────────────────────────────────────────────
@@ -60,7 +72,14 @@ interface MetricBadgeProps {
   isLargeValue?: boolean;
 }
 
-const MetricBadge = memo<MetricBadgeProps>(({ label, value, icon: Icon, colorClass, iconColorClass, isLargeValue = false }) => (
+const MetricBadge = memo<MetricBadgeProps>(({
+  label,
+  value,
+  icon: Icon,
+  colorClass,
+  iconColorClass,
+  isLargeValue = false,
+}) => (
   <div className={`rounded-xl p-2.5 border transition-all duration-200 ${colorClass} hover:shadow-md`}>
     <p className={`text-[10px] font-semibold flex items-center gap-1 mb-1 ${iconColorClass}`}>
       <Icon className="h-3 w-3" />
@@ -114,14 +133,23 @@ interface MobileMenuProps {
 }
 
 const MobileActionMenu = memo<MobileMenuProps>(({
-  isOpen, onClose, isArchived, hasSlug, slug, onEdit, onArchive, onDelete,
+  isOpen,
+  onClose,
+  isArchived,
+  hasSlug,
+  slug,
+  onEdit,
+  onArchive,
+  onDelete,
 }) => (
   <AnimatePresence>
     {isOpen && (
       <>
         <motion.div
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-40"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
           onClick={onClose}
         />
         <motion.div
@@ -183,20 +211,19 @@ const EnhancedProductCardBase = ({
   deleteProduct,
   viewMode = 'grid',
 }: ProductCardProps) => {
-
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [justDeleted, setJustDeleted] = useState(false);
 
   // ── Calculations ─────────────────────────────────────────────
-  const stock        = productTotalStock(p);
-  const lowStock     = stock < (p.minStock ?? 5);
-  const discount     = isDiscountActive(p);
-  const price        = productDisplayPrice(p);
+  const stock = productTotalStock(p);
+  const lowStock = stock < (p.minStock ?? 5);
+  const discount = isDiscountActive(p);
+  const price = productDisplayPrice(p);
   const regularPrice = minPrice(p);
-  const rating       = avgRating(p);
-  const isArchived   = p.archived ?? false;
-  const hasSlug      = !!p.slug;
+  const rating = avgRating(p);
+  const isArchived = p.archived ?? false;
+  const hasSlug = !!p.slug;
 
   const productAgeDays = useMemo(() => {
     const days = Math.floor((Date.now() - new Date(p.createdAt).getTime()) / 86_400_000);
@@ -204,27 +231,39 @@ const EnhancedProductCardBase = ({
   }, [p.createdAt]);
 
   const financialMetrics = useMemo(() => {
-    let totalCost = 0, potentialRevenue = 0, totalStockQty = 0;
+    let totalCost = 0;
+    let potentialRevenue = 0;
+    let totalStockQty = 0;
+
     for (const v of p.variants ?? []) {
       const qty = v.stock ?? 0;
-      totalStockQty   += qty;
-      totalCost       += (v.costPrice ?? p.costPrice ?? 0) * qty;
+      totalStockQty += qty;
+      totalCost += (v.costPrice ?? p.costPrice ?? 0) * qty;
       potentialRevenue += variantFinalPrice(p, v) * qty;
     }
+
     const potentialProfit = potentialRevenue - totalCost;
     const profitMargin = potentialRevenue > 0
       ? ((potentialProfit / potentialRevenue) * 100).toFixed(1)
       : '0.0';
-    return { totalStockQty, totalCost, potentialRevenue, potentialProfit, profitMargin, isProfitable: potentialProfit >= 0 };
+
+    return {
+      totalStockQty,
+      totalCost,
+      potentialRevenue,
+      potentialProfit,
+      profitMargin,
+      isProfitable: potentialProfit >= 0,
+    };
   }, [p]);
 
   const primaryImage = (Array.isArray(p.images) ? p.images[0] : null) as ProductImage | null;
-  const imageUrl     = safeImageUrl(primaryImage);
+  const imageUrl = safeImageUrl(primaryImage?.url || primaryImage?.src || null);
   const categoryName = categoryMap[p.categoryId] || 'Naməlum';
 
   let stockColorSet = PROFIT_COLORS.neutral;
   if (lowStock && stock > 0) stockColorSet = PROFIT_COLORS.stockLow;
-  if (stock === 0)            stockColorSet = PROFIT_COLORS.stockOut;
+  if (stock === 0) stockColorSet = PROFIT_COLORS.stockOut;
 
   // ── Delete handlers ──────────────────────────────────────────
   const requestDelete = useCallback(() => setShowDeleteConfirm(true), []);
@@ -232,7 +271,6 @@ const EnhancedProductCardBase = ({
   const confirmDelete = useCallback(() => {
     setShowDeleteConfirm(false);
     setJustDeleted(true);
-    // Small delay so the exit animation plays
     setTimeout(() => deleteProduct?.(p.id), 350);
   }, [deleteProduct, p.id]);
 
@@ -283,7 +321,10 @@ const EnhancedProductCardBase = ({
           </span>
         )}
         {tags.map((t, index) => (
-          <span key={index} className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600">
+          <span
+            key={index}
+            className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600"
+          >
             <Tag className="h-2.5 w-2.5" /> {t}
           </span>
         ))}
@@ -367,12 +408,18 @@ const EnhancedProductCardBase = ({
         <motion.article
           layout
           initial={{ opacity: 0, y: 10 }}
-          animate={justDeleted ? { opacity: 0, x: -40, scale: 0.95 } : { opacity: 1, y: 0 }}
+          animate={
+            justDeleted
+              ? { opacity: 0, x: -40, scale: 0.95 }
+              : { opacity: 1, y: 0 }
+          }
           exit={{ opacity: 0, y: -10 }}
           whileHover={{ boxShadow: '0 10px 30px rgba(0,0,0,0.09)' }}
           transition={{ type: 'spring', stiffness: 300, damping: 25 }}
           className={`group relative overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300 ${
-            isArchived ? 'border-slate-300 opacity-60' : 'border-slate-200 hover:border-emerald-300'
+            isArchived
+              ? 'border-slate-300 opacity-60'
+              : 'border-slate-200 hover:border-emerald-300'
           }`}
         >
           {renderArchivedOverlay()}
@@ -383,8 +430,12 @@ const EnhancedProductCardBase = ({
               {/* Thumbnail */}
               <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-slate-50">
                 <Image
-                  src={imageUrl} alt={p.name ?? 'Məhsul'} fill quality={70}
-                  sizes="80px" className="object-cover"
+                  src={imageUrl}
+                  alt={p.name ?? 'Məhsul'}
+                  fill
+                  quality={70}
+                  sizes="80px"
+                  className="object-cover"
                 />
                 {renderBadges()}
               </div>
@@ -398,7 +449,7 @@ const EnhancedProductCardBase = ({
                   {/* Mobile ⋮ menu */}
                   <div className="relative flex-shrink-0">
                     <button
-                      onClick={() => setMobileMenuOpen(v => !v)}
+                      onClick={() => setMobileMenuOpen((v) => !v)}
                       className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
                     >
                       <MoreVertical className="h-4 w-4" />
@@ -410,7 +461,9 @@ const EnhancedProductCardBase = ({
                       hasSlug={hasSlug}
                       slug={p.slug ?? ''}
                       onEdit={() => setEditingProduct(p)}
-                      onArchive={() => isArchived ? unarchiveProduct(p.id) : archiveProduct(p.id)}
+                      onArchive={() =>
+                        isArchived ? unarchiveProduct(p.id) : archiveProduct(p.id)
+                      }
                       onDelete={requestDelete}
                     />
                   </div>
@@ -450,8 +503,12 @@ const EnhancedProductCardBase = ({
             {/* Image */}
             <div className="relative w-36 flex-shrink-0 overflow-hidden rounded-l-2xl bg-slate-50">
               <Image
-                src={imageUrl} alt={p.name ?? 'Məhsul'} fill quality={70}
-                sizes="144px" className="object-cover transition-transform duration-300 group-hover:scale-105"
+                src={imageUrl}
+                alt={p.name ?? 'Məhsul'}
+                fill
+                quality={70}
+                sizes="144px"
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
               />
               {renderBadges()}
             </div>
@@ -460,7 +517,9 @@ const EnhancedProductCardBase = ({
             <div className="flex flex-1 flex-col p-4 min-w-0">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-base font-bold text-slate-900 truncate mb-1">{p.name}</h3>
+                  <h3 className="text-base font-bold text-slate-900 truncate mb-1">
+                    {p.name}
+                  </h3>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500">
                     <span className="flex items-center gap-1 text-emerald-600 font-medium">
                       <List className="h-3 w-3" /> {categoryName}
@@ -487,7 +546,10 @@ const EnhancedProductCardBase = ({
                   <span className="text-blue-700">{financialMetrics.totalStockQty} vahid</span>
                 </div>
                 <div className="w-32">
-                  <ProfitLine margin={financialMetrics.profitMargin} isProfitable={financialMetrics.isProfitable} />
+                  <ProfitLine
+                    margin={financialMetrics.profitMargin}
+                    isProfitable={financialMetrics.isProfitable}
+                  />
                 </div>
               </div>
             </div>
@@ -513,7 +575,9 @@ const EnhancedProductCardBase = ({
                 <Edit3 className="h-4 w-4" />
               </button>
               <button
-                onClick={() => isArchived ? unarchiveProduct(p.id) : archiveProduct(p.id)}
+                onClick={() =>
+                  isArchived ? unarchiveProduct(p.id) : archiveProduct(p.id)
+                }
                 className={`flex h-9 w-9 items-center justify-center rounded-xl border transition shadow-sm ${
                   isArchived
                     ? 'border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white'
@@ -523,7 +587,6 @@ const EnhancedProductCardBase = ({
               >
                 {isArchived ? <RotateCcw className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
               </button>
-              {/* ── DELETE BUTTON ── */}
               <motion.button
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.92 }}
@@ -555,12 +618,18 @@ const EnhancedProductCardBase = ({
       <motion.article
         layout
         initial={{ opacity: 0, scale: 0.9, y: 15 }}
-        animate={justDeleted ? { opacity: 0, scale: 0.85, y: -20 } : { opacity: 1, scale: 1, y: 0 }}
+        animate={
+          justDeleted
+            ? { opacity: 0, scale: 0.85, y: -20 }
+            : { opacity: 1, scale: 1, y: 0 }
+        }
         exit={{ opacity: 0, scale: 0.9, y: 15 }}
         whileHover={{ y: -6, boxShadow: '0 22px 50px rgba(0,0,0,0.13)' }}
         transition={{ type: 'spring', stiffness: 280, damping: 20 }}
         className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-white shadow-lg transition-all duration-300 ${
-          isArchived ? 'border-slate-300 opacity-60' : 'border-slate-200 hover:border-emerald-300'
+          isArchived
+            ? 'border-slate-300 opacity-60'
+            : 'border-slate-200 hover:border-emerald-300'
         }`}
       >
         {renderArchivedOverlay()}
@@ -568,7 +637,10 @@ const EnhancedProductCardBase = ({
         {/* Image */}
         <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-50">
           <Image
-            src={imageUrl} alt={p.name ?? 'Məhsul'} fill quality={85}
+            src={imageUrl}
+            alt={p.name ?? 'Məhsul'}
+            fill
+            quality={85}
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
@@ -579,7 +651,7 @@ const EnhancedProductCardBase = ({
           <div className="absolute top-2.5 left-2.5 sm:hidden">
             <div className="relative">
               <button
-                onClick={() => setMobileMenuOpen(v => !v)}
+                onClick={() => setMobileMenuOpen((v) => !v)}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-white/80 backdrop-blur-sm text-slate-600 shadow-sm"
               >
                 <MoreVertical className="h-4 w-4" />
@@ -591,7 +663,9 @@ const EnhancedProductCardBase = ({
                 hasSlug={hasSlug}
                 slug={p.slug ?? ''}
                 onEdit={() => setEditingProduct(p)}
-                onArchive={() => isArchived ? unarchiveProduct(p.id) : archiveProduct(p.id)}
+                onArchive={() =>
+                  isArchived ? unarchiveProduct(p.id) : archiveProduct(p.id)
+                }
                 onDelete={requestDelete}
               />
             </div>
@@ -632,12 +706,14 @@ const EnhancedProductCardBase = ({
           {/* Financials */}
           <div className="mt-auto pt-3">
             {renderFinancialMetrics()}
-            <ProfitLine margin={financialMetrics.profitMargin} isProfitable={financialMetrics.isProfitable} />
+            <ProfitLine
+              margin={financialMetrics.profitMargin}
+              isProfitable={financialMetrics.isProfitable}
+            />
           </div>
 
           {/* ── Action buttons (desktop) ── */}
           <div className="mt-4 hidden sm:flex gap-2 border-t border-slate-100 pt-3">
-            {/* Edit */}
             <Button
               type="button"
               variant="secondary"
@@ -647,7 +723,6 @@ const EnhancedProductCardBase = ({
               <Edit3 className="h-3.5 w-3.5" /> Redaktə
             </Button>
 
-            {/* View in storefront */}
             {hasSlug && (
               <a
                 href={`/products/${p.slug}`}
@@ -660,9 +735,10 @@ const EnhancedProductCardBase = ({
               </a>
             )}
 
-            {/* Archive / Unarchive */}
             <button
-              onClick={() => isArchived ? unarchiveProduct(p.id) : archiveProduct(p.id)}
+              onClick={() =>
+                isArchived ? unarchiveProduct(p.id) : archiveProduct(p.id)
+              }
               className={`flex h-9 w-9 items-center justify-center rounded-xl border transition shadow-sm ${
                 isArchived
                   ? 'border-indigo-200 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white'
@@ -673,7 +749,6 @@ const EnhancedProductCardBase = ({
               {isArchived ? <RotateCcw className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
             </button>
 
-            {/* ── DELETE ── */}
             <motion.button
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}

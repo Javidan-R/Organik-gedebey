@@ -3,9 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, AuthError } from '@/lib/auth'
-import { db } from '@/lib/db'
 import { z } from 'zod'
-
+ 
 const updatePurchaseSchema = z.object({
   supplierName: z.string().optional(),
   totalAmount: z.string().optional(),

@@ -2,12 +2,12 @@
 
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ArrowRight, Sprout, LayoutGrid, Grid3X3, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowRight, Sprout, Grid3X3, Zap } from 'lucide-react';
 import { Category } from '@/lib/types';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { getCategoryMeta } from '@/lib/category-metadata';
 import { CategoryCard } from './CategoryCard';
-
+ 
 export type CategoryViewMode = 'scroll' | 'grid';
 
 export interface CategoryStripProps {

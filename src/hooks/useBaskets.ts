@@ -1,87 +1,126 @@
 // src/hooks/useBaskets.ts
-import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { Basket } from '@/types/basket';
 
-export interface BasketVariant {
-  id: string;
-  variant: 'econom' | 'standard' | 'premium';
-  price: string;
-  originalPrice?: string;
-  stock: number;
-  contents?: Array<{
-    id: string;
-    content: string;
-    displayOrder: number;
-  }>;
-  extras?: Array<{
-    id: string;
-    extra: string;
-    displayOrder: number;
-  }>;
-}
+const BASKETS_QUERY_KEY = ['baskets'];
 
-export interface BasketMedia {
-  id: string;
-  type: 'image' | 'video';
-  url: string;
-  altText?: string;
-  displayOrder: number;
-}
-
-export interface Basket {
-  id: string;
-  name: string;
-  slug: string;
-  tagline?: string;
-  description: string;
-  type: 'gence' | 'gedebey' | 'sheki' | 'lenkaran' | 'ramazan' | 'custom';
-  servings?: string;
-  unit?: string;
-  origin?: string;
-  freshness?: string;
-  nutrition?: string[];
-  bestseller?: boolean;
-  trending?: boolean;
-  new?: boolean;
-  lowStock?: boolean;
-  stock?: number;
-  discount?: number;
-  highlights?: string[];
-  displayOrder?: number;
-  isActive?: boolean;
-  archived?: boolean;
-  metaTitle?: string;
-  metaDescription?: string;
-  viewCount?: number;
-  soldCount?: number;
-  createdAt: string;
-  updatedAt: string;
-  media?: BasketMedia[];
-  variants?: BasketVariant[];
+// ─── Public fetch – istifadəçi tərəfində ────────────────────────────────
+async function fetchBaskets(): Promise<Basket[]> {
+  const res = await fetch('/api/baskets');
+  if (!res.ok) throw new Error('Səbətlər yüklənərkən xəta');
+  const data = await res.json();
+  return data.baskets || data;
 }
 
 export function useBaskets() {
-  const [baskets, setBaskets] = useState<Basket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  return useQuery({
+    queryKey: BASKETS_QUERY_KEY,
+    queryFn: fetchBaskets,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+}
 
-  useEffect(() => {
-    async function fetchBaskets() {
-      try {
-        setLoading(true);
-        const res = await fetch('/api/baskets');
-        const data = await res.json();
-        setBaskets(data.baskets || []);
-        setError(null);
-      } catch (err) {
-        console.error('Failed to fetch baskets:', err);
-        setError('Failed to load baskets');
-      } finally {
-        setLoading(false);
-      }
-    }
+export function useBasketBySlug(slug: string) {
+  return useQuery({
+    queryKey: [...BASKETS_QUERY_KEY, slug],
+    queryFn: async () => {
+      const res = await fetch(`/api/baskets/${slug}`);
+      if (!res.ok) throw new Error('Səbət tapılmadı');
+      return res.json();
+    },
+    enabled: !!slug,
+  });
+}
 
-    fetchBaskets();
-  }, []);
+// ─── Admin mutations ──────────────────────────────────────────────────────
+async function createBasket(data: Partial<Basket>): Promise<Basket> {
+  const res = await fetch('/api/admin/baskets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Səbət yaradılmadı');
+  }
+  return res.json();
+}
 
-  return { baskets, loading, error, refetch: () => fetch('/api/baskets').then(res => res.json()).then(data => setBaskets(data.baskets || [])) };
+export function useCreateBasket() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createBasket,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: BASKETS_QUERY_KEY });
+    },
+  });
+}
+
+async function updateBasket({ id, data }: { id: string; data: Partial<Basket> }): Promise<Basket> {
+  const res = await fetch(`/api/admin/baskets/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Səbət yenilənmədi');
+  }
+  return res.json();
+}
+
+export function useUpdateBasket() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateBasket,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: BASKETS_QUERY_KEY });
+    },
+  });
+}
+
+async function archiveBasket(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/baskets/${id}/archive`, { method: 'POST' });
+  if (!res.ok) throw new Error('Arxivləşdirmə alınmadı');
+}
+
+export function useArchiveBasket() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: archiveBasket,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: BASKETS_QUERY_KEY });
+    },
+  });
+}
+
+async function unarchiveBasket(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/baskets/${id}/unarchive`, { method: 'POST' });
+  if (!res.ok) throw new Error('Arxivdən çıxarma alınmadı');
+}
+
+export function useUnarchiveBasket() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: unarchiveBasket,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: BASKETS_QUERY_KEY });
+    },
+  });
+}
+
+async function deleteBasket(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/baskets/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Silinmə alınmadı');
+}
+
+export function useDeleteBasket() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteBasket,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: BASKETS_QUERY_KEY });
+    },
+  });
 }

@@ -9,7 +9,7 @@ export type ProductFilter = {
   onlyDiscounted?: boolean;
   sort?: 'new' | 'price-asc' | 'price-desc';
 };
-
+ 
 export const applyProductFilter = (list: Product[], f: ProductFilter) => {
   let items = [...list].filter((p) => !p.archived);
 

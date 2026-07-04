@@ -22,7 +22,7 @@ export const UserForm: React.FC<UserFormProps> = ({ user, onSubmit, onCancel }) 
     isActive: user?.isActive ?? true,
   })
   const [loading, setLoading] = useState(false)
-
+ 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)

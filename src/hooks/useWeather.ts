@@ -6,7 +6,12 @@ export function useWeather(): WeatherData {
   const [weather] = useState<WeatherData>(() => {
     const conditions = Object.keys(WEATHER_SUGGESTIONS) as (keyof typeof WEATHER_SUGGESTIONS)[]
     const key = conditions[Math.floor(Math.random() * conditions.length)]
+    if (!key) {
+      // Fallback to first condition if somehow empty
+      const firstKey = conditions[0] as keyof typeof WEATHER_SUGGESTIONS;
+      return WEATHER_SUGGESTIONS[firstKey];
+    }
     return WEATHER_SUGGESTIONS[key]
   })
   return weather
-}
+} 

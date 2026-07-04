@@ -6,7 +6,7 @@ export interface BasketContentItem {
   content: string;
   displayOrder: number;
 }
-
+ 
 export interface BasketExtraItem {
   id: string;
   extra: string;

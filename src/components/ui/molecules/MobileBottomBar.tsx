@@ -8,7 +8,7 @@ export function MobileBottomBar({
   cartCount?: number
   wishlistCount?: number
   activePath?: string
-}) {
+}) { 
   const tabs = [
     { href: "/", icon: "🏠", label: "Ana", emoji: true },
     { href: "/products", icon: "🛍️", label: "Məhsullar", emoji: true },

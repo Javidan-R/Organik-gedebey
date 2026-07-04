@@ -1,7 +1,7 @@
 // 2. components/admin/finance/BudgetVsActual.tsx
 'use client';
 
-import { formatCurrency } from '@/utils/storefront_home';
+import { formatCurrency } from '@/utils';
 import { motion } from 'framer-motion';
 import { Target, TrendingUp, TrendingDown, Edit } from 'lucide-react';
 

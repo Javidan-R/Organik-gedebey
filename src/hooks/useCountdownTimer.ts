@@ -10,7 +10,7 @@ export function useCountdownTimer(): [number | null, (sec: number | null) => str
     end.setHours(23, 59, 59, 999)
     return Math.max(0, Math.floor((end.getTime() - now.getTime()) / 1000))
   }, [])
-
+ 
   const formatTimer = useCallback((sec: number | null): string => {
     if (sec === null || sec < 0) return '—'
     const h = Math.floor(sec / 3600)

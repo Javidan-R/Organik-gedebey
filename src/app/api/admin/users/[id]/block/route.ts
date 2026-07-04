@@ -12,7 +12,7 @@ const blockUserSchema = z.object({
   isBlocked: z.boolean(),
   reason: z.string().optional(),
 })
-
+ 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -74,7 +74,7 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: error.status })
     }
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validasiya xətası', details: error.errors }, { status: 400 })
+      return NextResponse.json({ error: 'Validasiya xətası', details: error.issues }, { status: 400 })
     }
     if (error instanceof Error && error.message === 'İstifadəçi tapılmadı') {
       return NextResponse.json({ error: 'İstifadəçi tapılmadı' }, { status: 404 })

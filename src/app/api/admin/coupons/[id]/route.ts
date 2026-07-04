@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 import { coupons, couponUsage } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
-
+ 
 const updateCouponSchema = z.object({
   code: z.string().min(3).optional(),
   discountType: z.enum(['PERCENTAGE', 'FIXED']).optional(),

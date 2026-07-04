@@ -8,14 +8,14 @@ import {
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { useApp } from "@/lib/store";
-import { getFirstImageUrl, getProductBasePrice, formatCurrency } from "@/utils/storefront_home";
+import { getFirstImageUrl, getProductBasePrice, formatCurrency } from "@/utils/product";
 import { finalPrice } from "@/lib/calc";
 import type { Product } from "@/types/products";
-
+ 
 /* ────────────────────────────────────────────────────────────────── */
 /* PROGRESS BAR (unchanged)                                          */
 /* ────────────────────────────────────────────────────────────────── */
-function StoryProgress({ total, current, progress, paused }: {
+function StoryProgress({ total, current, progress }: {
   total: number; current: number; progress: number; paused: boolean;
 }) {
   return (

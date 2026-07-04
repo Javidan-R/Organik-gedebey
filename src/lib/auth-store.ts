@@ -5,7 +5,7 @@
 // Yalnız user metadata localStorage-da persist edilir (token deyil — token cookie-dədir).
 
 'use client'
-
+ 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
@@ -40,6 +40,8 @@ export type Address = {
 }
 
 export type AuthUser = {
+  firstName: string
+  lastName: string
   id: string
   email: string
   name: string

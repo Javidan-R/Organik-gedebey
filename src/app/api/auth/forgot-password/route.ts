@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     )
     return NextResponse.json(body, { status, headers })
   }
-
+ 
   const body = await req.json().catch(() => null)
   if (!body?.email) {
     return NextResponse.json({ error: 'Email tələb olunur' }, { status: 400 })

@@ -1,6 +1,6 @@
 // app/(storefront)/signup/page.tsx
 'use client'
-
+ 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-store'
 import { motion } from 'framer-motion'

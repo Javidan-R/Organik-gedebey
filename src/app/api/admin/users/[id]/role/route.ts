@@ -12,7 +12,7 @@ const updateRoleSchema = z.object({
   role: z.enum(['CUSTOMER', 'COURIER', 'WAREHOUSE_STAFF', 'MANAGER', 'ADMIN', 'SUPERADMIN']),
   reason: z.string().optional(),
 })
-
+ 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }

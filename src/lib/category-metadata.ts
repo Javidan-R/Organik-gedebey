@@ -3,9 +3,9 @@ import {
   Droplets, Flower2, Beef, Fish, Milk, Egg, Carrot,
   Apple, Grape, Citrus, Banana, Cherry, Wheat, Cookie,
   Coffee, Leaf, Sprout, Sun, Flame, ScrollText, Mountain,
-  Gem, Crown, ShoppingBag,
+  Gem, ShoppingBag,
 } from "lucide-react";
-
+ 
 export type BadgeType = 'premium' | 'seasonal' | 'halal' | 'fresh' | 'select' | 'best' | 'local' | 'import' | 'natural' | 'organic' | 'handmade' | 'special' | 'mountain' | 'gedebey';
 export type SeasonType = 'spring' | 'summer' | 'autumn' | 'winter';
 

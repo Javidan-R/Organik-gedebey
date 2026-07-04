@@ -4,7 +4,7 @@
  * Multi-layer caching strategy with memory cache, Redis cache,
  * and HTTP cache headers for optimal performance.
  */
-
+ 
 import { logger } from './logger';
 
 // ============================================
@@ -59,7 +59,9 @@ class MemoryCache<T = any> {
     // Evict oldest entry if at capacity
     if (this.cache.size >= this.maxSize) {
       const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+      }
     }
 
     this.cache.set(key, entry);
@@ -247,15 +249,15 @@ class CacheManager {
     }
   }
 
-  async get<T>(key: string): Promise<T | null> {
+  async get(key: string): Promise<any | null> {
     // Try memory cache first
-    const memoryValue = this.memoryCache.get<T>(key);
+    const memoryValue = this.memoryCache.get(key);
     if (memoryValue !== null) {
       return memoryValue;
     }
 
     // Try Redis cache
-    const redisValue = await this.redisCache.get<T>(key);
+    const redisValue = await this.redisCache.get(key);
     if (redisValue !== null) {
       // Populate memory cache
       this.memoryCache.set(key, redisValue, 300, []); // Default 5 min TTL

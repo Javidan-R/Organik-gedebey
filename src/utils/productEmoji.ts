@@ -1,6 +1,6 @@
 // utils/productEmoji.ts (or inside the component, but exportable)
 import type { Product } from '@/types/products';
-
+ 
 // Configuration for keyword-based emoji mapping
 // Order matters: more specific patterns should come first
 const EMOJI_PATTERNS: Array<{

@@ -7,6 +7,7 @@ import { db } from '@/lib/db'
 import { reviews } from '@/lib/db/schema'
 import { eq, desc, and } from 'drizzle-orm'
 import { z } from 'zod'
+import { sql } from 'drizzle-orm'
 
 const updateReviewSchema = z.object({
   isApproved: z.boolean().optional(),

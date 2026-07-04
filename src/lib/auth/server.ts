@@ -10,7 +10,7 @@ export class AuthError extends Error {
     this.status = status
   }
 }
-
+ 
 const isProd = process.env.NODE_ENV === 'production'
 
 export const adminCookieOptions: Partial<ResponseCookie> = {
@@ -45,7 +45,9 @@ export function getCustomerFromRequest(req: NextRequest): { sub: string; email: 
     // Real routes-da requireAuth() istifadə edin
     const parts = token.split('.')
     if (parts.length !== 3) return null
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'))
+    const payloadPart = parts[1]
+    if (!payloadPart) return null
+    const payload = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8'))
     if (!payload?.sub) return null
     return { sub: payload.sub, email: payload.email ?? '', role: payload.role ?? 'CUSTOMER' }
   } catch {

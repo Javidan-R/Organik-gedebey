@@ -1,16 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, PanInfo } from "framer-motion";
 import Image from "next/image";
-import {
-  Leaf, Heart, Share2, Eye, X, ChevronLeft, ChevronRight,
-  ShoppingBag, Clock, Award, Sparkles, Droplets, Milk, Cherry,
+import {Heart, Share2, Eye, X, ShoppingBag, Sparkles,
   Plus, Minus, Volume2, VolumeX, Flower2, TrendingUp, Calendar,
-  HeartHandshake, Truck, ShieldCheck, Star, MapPin, Users, Flame
 } from "lucide-react";
 import { useApp } from "@/lib/store";
-import { getFirstImageUrl, getProductBasePrice, formatCurrency } from "@/utils/storefront_home";
+import { getFirstImageUrl, getProductBasePrice, formatCurrency } from "@/utils/product";
 import { finalPrice } from "@/lib/calc";
 import { Product } from "@/types/products";
 
@@ -20,7 +17,7 @@ const getDiscountPct = (p: Product): number => {
   const price = finalPrice(base, p.discountType, p.discountValue);
   if (base <= 0 || price >= base) return 0;
   return Math.round((1 - price / base) * 100);
-};
+}; 
 
 const getIconForProduct = (p: Product): string => {
   const name = p.name.toLowerCase();
@@ -192,7 +189,7 @@ const QuickViewModal = ({ product, onClose }: { product: Product | null; onClose
 };
 
 // ========== TƏKMİLLƏŞDİRİLMİŞ ORQANİK SÜFRƏ (3D tilt, 10+ məhsul) ==========
-const EnhancedOrganicTable = ({ products, onQuickView, wishlist, toggleWishlist }: any) => {
+const EnhancedOrganicTable = ({ products, onQuickView, wishlist }: any) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);

@@ -5,7 +5,7 @@ export interface PromoBanner {
   text: string;
   color: string; // Tailwind gradient class, məs: "from-emerald-600 to-teal-600"
   enabled: boolean;
-}
+} 
 
 export interface SocialLinks {
   facebook?: string;

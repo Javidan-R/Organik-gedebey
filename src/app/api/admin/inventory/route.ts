@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 import { inventoryLogs, products, productVariants } from '@/lib/db/schema'
 import { eq, desc, and, gte, lte } from 'drizzle-orm'
 import { z } from 'zod'
-
+ import {sql} from 'drizzle-orm'
 const createInventoryLogSchema = z.object({
   productId: z.string().uuid(),
   variantId: z.string().uuid().optional(),

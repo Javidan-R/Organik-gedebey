@@ -12,4 +12,4 @@ export function useGyroscope() {
     return () => window.removeEventListener('deviceorientation', handler);
   }, []);
   return gyro;
-}
+} 

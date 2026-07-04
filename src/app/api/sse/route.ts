@@ -1,10 +1,12 @@
+import { NextRequest } from "next/server";
+
 export const dynamic = 'force-dynamic';
 
 interface SSEEvent {
   type: 'ping' | 'order' | 'notification' | 'system';
   timestamp: number;
   data?: any;
-}
+} 
 
 export async function GET(req: NextRequest) {
   const encoder = new TextEncoder();

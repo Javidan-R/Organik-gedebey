@@ -2,7 +2,7 @@ import { Order, Product } from './types';
 import { productTotalStock } from './calc';
 
 type DemandPoint = { date: string; qty: number };
-
+ 
 export function demandSeries(productId: string, orders: Order[], days = 30): DemandPoint[] {
   // Son `days` gün üçün tarix xətləri
   const end = new Date();

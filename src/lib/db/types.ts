@@ -2,7 +2,7 @@
 import { type InferSelectModel, type InferInsertModel } from 'drizzle-orm'
 import * as schema from './schema'
 import { ProductImage } from '@/types/products'
-
+ 
 // SELECT types (database-dən oxumaq)
 export type User = InferSelectModel<typeof schema.users>
 export type Product = InferSelectModel<typeof schema.products>

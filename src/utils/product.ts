@@ -3,7 +3,7 @@
  * Consolidates all product-related calculations and helpers
  * to prevent code duplication across components
  */
-
+ 
 import { Product, ProductImage } from '@/types/products';
 import { finalPrice } from '@/lib/calc';
 import { DEFAULT_CURRENCY } from '@/const';

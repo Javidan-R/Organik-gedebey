@@ -3,7 +3,7 @@ export interface ProductBadge {
   label: string
   tone: 'green' | 'amber' | 'rose' | 'blue' | 'purple'
 }
-
+ 
 export type TimeOfDay = 'morning' | 'day' | 'evening' | 'night'
 
 export interface NotificationItem {

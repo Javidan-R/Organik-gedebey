@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { categories } from '@/lib/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { generateUniqueSlug } from '@/lib/slug'
-
+import { logger } from '@/lib/logger'
 export async function GET() {
   try {
     const cats = await db.query.categories.findMany({

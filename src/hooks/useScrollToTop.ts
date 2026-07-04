@@ -10,4 +10,4 @@ export function useScrollToTop(): [boolean, () => void] {
   }, [])
   const scrollToTop = useCallback(() => window.scrollTo({ top: 0, behavior: 'smooth' }), [])
   return [visible, scrollToTop]
-}
+} 

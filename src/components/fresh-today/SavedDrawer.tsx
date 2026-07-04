@@ -15,7 +15,7 @@ import {
 } from './utils/productHelpers';
 import { finalPrice } from '@/lib/calc';
 import { formatCurrency } from '@/utils/formatting';
-
+ 
 const SavedDrawer = memo(({ open, onClose, savedIds, products, onRemove }: SavedDrawerProps) => {
   const saved = products.filter((p: Product) => savedIds.includes(p.id));
 

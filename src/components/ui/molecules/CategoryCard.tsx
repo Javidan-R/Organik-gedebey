@@ -7,7 +7,7 @@ import Image from "next/image";
 import { memo } from "react";
 import type { Category } from "@/lib/types";
 import type { CategoryMeta, BadgeType } from "@/lib/category-metadata";
-
+ 
 /* ================================================================
    Alt komponentlər
    ================================================================ */

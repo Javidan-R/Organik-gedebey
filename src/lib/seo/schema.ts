@@ -14,4 +14,4 @@ export const productJsonLd = (p: any, price: number) => ({
     availability: (p.variants?.[0]?.stock ?? 0) > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
   },
 })
- 
+  

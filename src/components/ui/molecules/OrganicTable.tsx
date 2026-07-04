@@ -11,21 +11,20 @@ import {
   PanInfo
 } from "framer-motion";
 import { 
-  Leaf, ShieldCheck, Truck, Star, 
-  ShoppingBag, ArrowRight, HeartHandshake, 
-  Sparkles, Clock, Award, Droplets,
-  Eye, Heart, Sparkle, Compass, Play,
-  Cherry, Carrot, Milk, Egg, Wheat,
-  MapPin, Users, Flame, Plus, ChevronLeft, ChevronRight
+  Leaf, ShieldCheck, Truck,
+  ShoppingBag, ArrowRight, Clock, Award, Droplets,
+ Sparkle, Play, Milk,
+  MapPin, Users, Flame, Plus, ChevronLeft, ChevronRight,
+  Cherry
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useApp } from "@/lib/store";
-import { getFirstImageUrl, getProductBasePrice, formatCurrency } from "@/utils/storefront_home";
+import { getFirstImageUrl, getProductBasePrice, formatCurrency } from "@/utils/product";
 import { finalPrice } from "@/lib/calc";
 import { Product } from "@/types/products";
 
-
+ 
 // Təmiz Web Audio API vasitəsilə orqanik dağ və təbiət səslərinin sintezi
 const playOrganicSynth = (type: 'drop' | 'breeze' | 'click') => {
   try {
@@ -284,162 +283,6 @@ const OrganicTable = () => {
   );
 };
 
-
-/* ══════════════════════════════════════════════════════════════════
-   PREMIUM DRAGGABLE SLIDER (Günün Təzə Dağ Fırsatları)
-══════════════════════════════════════════════════════════════════ */
-function PremiumSwipeSlider({ products }: { products: Product[] }) {
-  const [idx, setIdx] = useState(0);
-  const addToCart = useApp((s) => s.addToCart);
-  
-  // Yalnız arxivdə olmayan və real stokda olan endirimli kənd məhsulları
-  const activeDeals = products.filter(p => !p.archived).slice(0, 5);
-
-  const nextSlide = () => {
-    playOrganicSynth('click');
-    setIdx((p) => (p + 1) % activeDeals.length);
-  };
-
-  const prevSlide = () => {
-    playOrganicSynth('click');
-    setIdx((p) => (p - 1 + activeDeals.length) % activeDeals.length);
-  };
-
-  const handleDragEnd = (event: any, info: PanInfo) => {
-    if (info.offset.x < -50) {
-      nextSlide();
-    } else if (info.offset.x > 50) {
-      prevSlide();
-    }
-  };
-
-  if (!activeDeals.length) return null;
-  const cur = activeDeals[idx];
-  const curPrice = finalPrice(getProductBasePrice(cur), cur.discountType, cur.discountValue);
-  const basePrice = getProductBasePrice(cur);
-  const discountPct = getDiscountPct(cur);
-
-  // Süni şəkildə yığım vaxtı və real kəndli hekayəsi
-  const harvestTime = idx === 0 ? "Sübh 05:30" : idx === 1 ? "Səhər 06:15" : "Günorta 07:00";
-  const region = idx % 2 === 0 ? "Söyüdlü kəndi, Gədəbəy" : "Qarı kəndi, Gədəbəy";
-
-  return (
-    <div className="w-full max-w-sm mx-auto mt-8 relative px-2">
-      {/* Üst Başlıq və Sayaç */}
-      <div className="flex items-center justify-between mb-3 px-1">
-        <span className="flex items-center gap-1.5 text-xs font-black text-emerald-800 uppercase tracking-wider">
-          <Flame className="w-3.5 h-3.5 text-red-500 animate-bounce" /> Günün Dağ Sürprizi
-        </span>
-        <div className="flex gap-1">
-          <button onClick={prevSlide} className="w-6 h-6 rounded-full bg-white border border-slate-100 flex items-center justify-center hover:bg-slate-50 text-slate-700 shadow-sm transition-colors">
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-          <button onClick={nextSlide} className="w-6 h-6 rounded-full bg-white border border-slate-100 flex items-center justify-center hover:bg-slate-50 text-slate-700 shadow-sm transition-colors">
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Sürüşdürülə bilən Premium Deal Kartı */}
-      <div className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-white p-4 shadow-xl">
-        <motion.div
-          drag="x"
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.2}
-          onDragEnd={handleDragEnd}
-          className="flex gap-4 cursor-grab active:cursor-grabbing"
-          whileTap={{ scale: 0.98 }}
-        >
-          {/* Məhsul şəkli */}
-          <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-slate-50 shrink-0 border border-slate-100 shadow-inner">
-            <Image 
-              src={getFirstImageUrl(cur)} 
-              alt={cur.name} 
-              fill 
-              className="object-cover pointer-events-none" 
-            />
-            {discountPct > 0 && (
-              <span className="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
-                -{discountPct}%
-              </span>
-            )}
-          </div>
-
-          {/* Məhsul məlumatları */}
-          <div className="flex-1 min-w-0 flex flex-col justify-between text-left">
-            <div>
-              <p className="text-sm font-black text-slate-800 leading-snug truncate">
-                {cur.name}
-              </p>
-              
-              {/* Yığım Təzəliyi və Lokasiya */}
-              <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 uppercase tracking-wider mt-1">
-                <Clock className="w-3 h-3 text-emerald-500" /> <span>{harvestTime}</span>
-                <span className="w-1 h-1 rounded-full bg-slate-300" />
-                <MapPin className="w-3 h-3 text-lime-500" /> <span>{region.split(',')[0]}</span>
-              </div>
-            </div>
-
-            {/* Qiymətlər və Səbətə at düyməsi */}
-            <div className="flex items-end justify-between mt-2">
-              <div className="space-y-0.5">
-                {discountPct > 0 && (
-                  <p className="text-xs line-through text-slate-400 font-bold leading-none">
-                    {formatCurrency(basePrice)}
-                  </p>
-                )}
-                <p className="text-lg font-black text-emerald-700 leading-none">
-                  {formatCurrency(curPrice)}
-                </p>
-              </div>
-
-              {/* Sürətli Səbətə Əlavə */}
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addToCart(cur.id, cur.variants?.[0]?.id, 1);
-                  playOrganicSynth('drop');
-                }}
-                className="w-10 h-10 rounded-2xl bg-slate-900 text-white hover:bg-emerald-600 flex items-center justify-center shadow-lg hover:shadow-emerald-500/20 transition-colors shrink-0"
-              >
-                <Plus className="w-5 h-5" />
-              </motion.button>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Real-vaxt Günün Tələbi Şkalası */}
-        <div className="mt-4 pt-3 border-t border-slate-50 text-left">
-          <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
-            <span>Orqanik Saf İndeks</span>
-            <span className="text-emerald-700 font-extrabold">99.8% Təmiz</span>
-          </div>
-          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: "95%" }}
-              transition={{ duration: 1.2, ease: "easeOut" }}
-              className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-lime-500"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Naviqasiya nöqtələri */}
-      <div className="flex justify-center gap-1.5 mt-3">
-        {activeDeals.map((_, i) => (
-          <button 
-            key={i} 
-            onClick={() => setIdx(i)} 
-            className={`h-1.5 rounded-full transition-all ${i === idx ? "w-6 bg-emerald-600" : "w-1.5 bg-slate-200"}`} 
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 
 /* ══════════════════════════════════════════════════════════════════

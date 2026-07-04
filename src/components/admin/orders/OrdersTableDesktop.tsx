@@ -12,7 +12,6 @@ import {
   MoreVertical,
 } from "lucide-react";
 
-import StatusBadge from "@/components/admin/orders/StatusBadge";
 import { Button } from "@/components/atoms/button";
 import Tooltip from "@/components/atoms/tooltip";
 import { copyToClipboard } from "@/helpers";
@@ -20,11 +19,12 @@ import {
   OrderWithTotal,
   ColumnVisibility,
   SortKey,
-  SortDirection,
+  SortDirection, 
   OrderStatus,
 } from "@/types/orders";
 import { ID } from "@/lib/store";
 import RowCheckbox from "@/components/admin/molecules/RowCheckbox";
+import { StatusBadge } from "./StatusBadge";
 
 export type OrdersTableDesktopProps = {
   orders: OrderWithTotal[];

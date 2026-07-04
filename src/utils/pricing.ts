@@ -2,7 +2,7 @@
 
 import { Product } from "@/types/products";
 
-
+ 
 /**
  * Məhsulun endirimli son qiymətini hesablayır.
  */

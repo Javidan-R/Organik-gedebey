@@ -1,14 +1,11 @@
 // src/app/api/orders/[id]/status/route.ts
-// Order status update endpoint with validation and stock management
-
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { orders, orderItems, productVariants, inventoryLogs } from '@/lib/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { verifyAdminToken, COOKIE_ADMIN } from '@/lib/auth/jwt';
 
-// Status transition validation
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   'PENDING': ['CONFIRMED', 'CANCELLED'],
   'CONFIRMED': ['PREPARING', 'CANCELLED'],
@@ -21,7 +18,6 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
   'FAILED': ['OUT_FOR_DELIVERY', 'CANCELLED'],
 };
 
-// Timeline timestamp mapping
 const STATUS_TIMESTAMPS: Record<string, string> = {
   'CONFIRMED': 'confirmedAt',
   'PREPARING': 'preparingAt',
@@ -45,7 +41,6 @@ export async function PATCH(
     if (!cookie?.value) {
       return NextResponse.json({ error: 'Auth required' }, { status: 401 });
     }
-
     const payload = await verifyAdminToken(cookie.value);
     if (!payload || !['ADMIN', 'MANAGER'].includes(payload.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
@@ -54,7 +49,6 @@ export async function PATCH(
     const body = await req.json();
     const { status, cancellationReason } = updateStatusSchema.parse(body);
 
-    // Fetch current order with items
     const order = await db.query.orders.findFirst({
       where: eq(orders.id, params.id),
       with: {
@@ -71,56 +65,33 @@ export async function PATCH(
     }
 
     const currentStatus = order.status;
-
-    // Validate status transition
     const allowedTransitions = STATUS_TRANSITIONS[currentStatus] || [];
     if (!allowedTransitions.includes(status)) {
       return NextResponse.json(
-        { 
-          error: `Cannot transition from ${currentStatus} to ${status}`,
-          allowedTransitions,
-        },
+        { error: `Cannot transition from ${currentStatus} to ${status}`, allowedTransitions },
         { status: 400 }
       );
     }
 
-    // Prepare update data
     const updateData: any = { status };
     const timestampField = STATUS_TIMESTAMPS[status];
-    if (timestampField) {
-      updateData[timestampField] = new Date();
-    }
+    if (timestampField) updateData[timestampField] = new Date();
+    if (status === 'CANCELLED' && cancellationReason) updateData.cancellationReason = cancellationReason;
 
-    if (status === 'CANCELLED' && cancellationReason) {
-      updateData.cancellationReason = cancellationReason;
-    }
-
-    // Transaction: update order and manage stock
     await db.transaction(async (tx) => {
-      // Update order status
-      await tx
-        .update(orders)
-        .set({ 
-          ...updateData, 
-          updatedAt: new Date(),
-        })
+      await tx.update(orders)
+        .set({ ...updateData, updatedAt: new Date() })
         .where(eq(orders.id, params.id));
 
-      // Handle stock restoration on cancellation
       if (status === 'CANCELLED' && currentStatus !== 'CANCELLED') {
         for (const item of order.items) {
           if (item.variantId && item.variant) {
             const currentStock = item.variant.stock;
             const qtyToRestore = item.qty;
             const newStock = currentStock + qtyToRestore;
-
-            // Update variant stock
-            await tx
-              .update(productVariants)
+            await tx.update(productVariants)
               .set({ stock: newStock, updatedAt: new Date() })
               .where(eq(productVariants.id, item.variantId));
-
-            // Create inventory log
             await tx.insert(inventoryLogs).values({
               productId: item.productId || null,
               variantId: item.variantId,
@@ -140,14 +111,11 @@ export async function PATCH(
       }
     });
 
-    // Fetch updated order
     const updatedOrder = await db.query.orders.findFirst({
       where: eq(orders.id, params.id),
       with: {
         items: {
-          with: {
-            variant: true,
-          },
+          with: { variant: true },
         },
       },
     });
@@ -156,7 +124,7 @@ export async function PATCH(
   } catch (error) {
     console.error('[orders/[id]/status] error:', error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid request data', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid request data', details: error.issues }, { status: 400 });
     }
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }

@@ -1,6 +1,4 @@
 // src/app/api/account/orders/route.ts
-// İstifadəçinin sifarişləri
-
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyCustomerToken, COOKIE_CUSTOMER } from '@/lib/auth/jwt'
 import { db } from '@/lib/db'
@@ -13,7 +11,6 @@ export async function GET(req: NextRequest) {
     if (!cookie?.value) {
       return NextResponse.json({ error: 'Auth required' }, { status: 401 })
     }
-
     const payload = await verifyCustomerToken(cookie.value)
     if (!payload) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })

@@ -12,7 +12,7 @@ export interface SeasonConfig {
   gradientFrom: string;
   gradientTo: string;
   borderColor: string;
-}
+} 
 
 export interface SeasonBannerProps {
   /** İstəyə bağlı olaraq mövsümü kənardan təyin etmək (əgər verilməzsə, avtomatik) */

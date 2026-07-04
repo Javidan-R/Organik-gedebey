@@ -11,7 +11,7 @@ export const mediaItemSchema = z.object({
   altText: z.string().optional(),
   displayOrder: z.number().int().min(0).default(0),
 });
-
+ 
 export const basketVariantSchema = z.object({
   id: z.string().optional(),
   variant: basketVariantEnum,

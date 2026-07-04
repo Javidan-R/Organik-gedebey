@@ -19,7 +19,7 @@ export function MobileHeaderActions({ config }: MobileActionsProps) {
       opacity: 0,
       transition: { repeat: Infinity, duration: 1.8, ease: "easeOut" as const },
     },
-  };
+  }; 
 
   return (
     <div className="flex items-center gap-1.5">

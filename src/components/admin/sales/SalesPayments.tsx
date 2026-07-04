@@ -25,7 +25,7 @@ import {
   Scale,
 } from "lucide-react";
 import React, { ChangeEvent } from "react";
-
+ 
 const SalesPayments: React.FC<SalesPaymentsProps> = ({
   lines,
   subtotal,

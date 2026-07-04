@@ -1,6 +1,6 @@
 // src/app/admin/inventory/page.tsx
 'use client';
-
+ 
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {

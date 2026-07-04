@@ -4,7 +4,7 @@
  */
 
 'use client';
-
+ 
 import { memo, useState, useCallback, useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { ShoppingBag, Heart, Share2, Flame, Leaf, MapPin, Minus, Plus, Ban, Check } from 'lucide-react';

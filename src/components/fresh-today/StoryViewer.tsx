@@ -24,7 +24,7 @@ import {
   generateShareText,
   generateWhatsAppMessage
 } from './utils/productHelpers';
-
+ 
 const StoryViewer = memo(({ products, startIndex, open, onClose }: StoryViewerProps) => {
   const addToCart = useApp((s) => s.addToCart);
   const [current, setCurrent] = useState(startIndex);

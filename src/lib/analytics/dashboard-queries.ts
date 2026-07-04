@@ -3,7 +3,7 @@ import { orders, orderItems, users } from '@/lib/db/schema'
 import { and, count, desc, eq, gte, notInArray, sql } from 'drizzle-orm'
 
 const EXCLUDED_STATUSES = ['CANCELLED', 'REFUNDED'] as const
-
+ 
 function startOfDay(d = new Date()) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate())
 }

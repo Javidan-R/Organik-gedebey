@@ -12,7 +12,7 @@ export type DayClosingForm = {
   realBank: number;
   note: string;
 };
-
+ 
 
 export type CashBucket = {
   id: string;

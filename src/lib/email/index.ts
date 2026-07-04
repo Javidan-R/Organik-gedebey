@@ -8,7 +8,7 @@ interface EmailParams {
   subject: string
   html: string
 }
-
+ 
 /**
  * Send email using Resend
  */

@@ -6,7 +6,7 @@ import { verifyCustomerToken, COOKIE_CUSTOMER } from '@/lib/auth/jwt'
 import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-
+ 
 export async function GET(req: NextRequest) {
   try {
     const cookie = req.cookies.get(COOKIE_CUSTOMER)

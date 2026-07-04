@@ -1,6 +1,4 @@
 // src/app/api/orders/[id]/route.ts
-// Tək sifariş əməliyyatları
-
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { orders, orderItems } from '@/lib/db/schema'
@@ -13,7 +11,6 @@ export async function GET(
 ) {
   try {
     await requireAuth(req, ['ADMIN', 'MANAGER', 'COURIER', 'CUSTOMER'])
-    
     const order = await (db.query as any).orders.findFirst({
       where: eq(orders.id, params.id),
       with: {
@@ -26,11 +23,9 @@ export async function GET(
         }
       }
     })
-
     if (!order) {
       return NextResponse.json({ error: 'Sifariş tapılmadı' }, { status: 404 })
     }
-
     return NextResponse.json({ order })
   } catch (error) {
     if (error instanceof AuthError) {
@@ -47,9 +42,7 @@ export async function PUT(
 ) {
   try {
     await requireAuth(req, ['ADMIN', 'MANAGER'])
-    
     const body = await req.json()
-    
     const [updatedOrder] = await db.update(orders)
       .set({
         status: body.status,
@@ -83,7 +76,6 @@ export async function PUT(
         }
       }
     })
-
     return NextResponse.json({ order: completeOrder })
   } catch (error) {
     if (error instanceof AuthError) {
@@ -100,10 +92,8 @@ export async function DELETE(
 ) {
   try {
     await requireAuth(req, ['ADMIN'])
-    
     await db.delete(orderItems).where(eq(orderItems.orderId, params.id))
     await db.delete(orders).where(eq(orders.id, params.id))
-    
     return NextResponse.json({ success: true })
   } catch (error) {
     if (error instanceof AuthError) {

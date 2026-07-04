@@ -11,7 +11,7 @@ export const CacheKeys = {
   popularProducts: () => 'products:popular',
   searchResults: (query: string) => `search:${query}`,
 };
-
+ 
 // Cache TTL in seconds
 export const CacheTTL = {
   SHORT: 300,      // 5 minutes

@@ -7,7 +7,7 @@ import { useEffect, useState, useRef } from 'react';
  * @returns The throttled value
  */
 export function useThrottle<T>(value: T, limit: number): T {
-  const [throttledValue, setThrottledValue] = useState<T>(value);
+  const [throttledValue, setThrottledValue] = useState<T>(value, () => value);
   const lastRan = useRef<number>(Date.now());
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export function useThrottle<T>(value: T, limit: number): T {
       }, limit - timeSinceLastRun);
 
       return () => clearTimeout(timeout);
-    }
+    } 
   }, [value, limit]);
 
   return throttledValue;
@@ -41,7 +41,7 @@ export function useThrottledCallback<T extends (...args: unknown[]) => unknown>(
   limit: number
 ): (...args: Parameters<T>) => void {
   const lastRun = useRef<number>(Date.now());
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const callbackRef = useRef(callback);
 
   // Keep callback ref updated

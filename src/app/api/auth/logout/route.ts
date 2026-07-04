@@ -9,3 +9,4 @@ export async function POST() {
   response.cookies.delete(COOKIE_CUSTOMER)
   return response
 }
+ 

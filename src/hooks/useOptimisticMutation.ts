@@ -3,7 +3,7 @@ import { useMutation, useQueryClient, MutationFunction, UseMutationOptions } fro
 /**
  * Optimistic mutation hook with automatic rollback on error
  * This provides instant UI feedback while the mutation is in progress
- */
+ */ 
 export function useOptimisticMutation<TData, TError, TVariables, TContext = unknown>(
   mutationFn: MutationFunction<TData, TVariables>,
   options: {

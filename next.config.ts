@@ -1,3 +1,4 @@
+// next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -10,40 +11,65 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    minimumCacheTTL: 60,
+    minimumCacheTTL: 60 * 60 * 24, // 24 hours
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    qualities: [70, 70, 70, 70, 70, 75, 85],
   },
-  // ✅ Next.js 16: serverComponentsExternalPackages -> serverExternalPackages
   serverExternalPackages: ['postgres', 'pg'],
-    reactCompiler: true,
-
+  reactCompiler: false,
   experimental: {
     serverActions: {
+      bodySizeLimit: "2mb",
       allowedOrigins: ['localhost:3000', 'organikgedebey.com'],
     },
-    optimizePackageImports: ['lucide-react', 'framer-motion', '@tanstack/react-query'],
-    // Enable React Compiler for automatic optimizations
+    optimizePackageImports: ['lucide-react', '@tanstack/react-query', 'framer-motion'],
   },
-  // Performance optimizations
   compress: true,
   poweredByHeader: false,
   generateEtags: true,
-  
-  // Build optimizations
   productionBrowserSourceMaps: false,
-  
-  // Compiler optimizations
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
+    reactRemoveProperties: process.env.NODE_ENV === 'production',
   },
-  
-  // Bundle analyzer (uncomment when needed)
-  // webpack: (config, { isServer }) => {
-  //   if (!isServer) {
-  //     config.resolve.fallback = { ...config.resolve.fallback, fs: false };
-  //   }
-  //   return config;
-  // },
+  // ✅ JSDoc ilə tip təyin edildi
+  /**
+   * @param {import('webpack').Configuration} config
+   * @param {import('next/dist/server/config-shared').WebpackConfigContext} context
+   * @returns {import('webpack').Configuration}
+   */
+  webpack: (config: import('webpack').Configuration, { isServer: _isServer }: import('next/dist/server/config-shared').WebpackConfigContext): import('webpack').Configuration => {
+    config.optimization = {
+      ...config.optimization,
+      splitChunks: {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            priority: 10,
+            reuseExistingChunk: true,
+          },
+          react: {
+            test: /[\\/]node_modules[\\/](react|react-dom|react-query)[\\/]/,
+            name: 'react-vendors',
+            priority: 20,
+            reuseExistingChunk: true,
+          },
+          common: {
+            minChunks: 2,
+            priority: 5,
+            reuseExistingChunk: true,
+          },
+        },
+      },
+    };
+    return config;
+  },
   async headers() {
+    if (process.env.NODE_ENV !== 'production') return [];
+
     return [
       {
         source: '/(.*)',
@@ -53,50 +79,30 @@ const nextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' },
-          // Cache control for static assets
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://res.cloudinary.com",
-              "style-src 'self' 'unsafe-inline' https://res.cloudinary.com https://fonts.googleapis.com",
-              "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: https: https://res.cloudinary.com https://images.unsplash.com https://qadin.net https://encrypted-tbn0.gstatic.com",
-              "font-src 'self' data:",
-              "connect-src 'self' https://res.cloudinary.com",
-              "frame-src 'self'",
-              "object-src 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
-              "frame-ancestors 'none'",
-              "block-all-mixed-content",
-              "upgrade-insecure-requests",
-            ].join('; ')
-          },
+          { key: 'Content-Encoding', value: 'gzip, deflate, br' },
         ],
       },
-      // Cache control for images
       {
-        source: '/images/:path*',
+        source: '/_next/static/:path*',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },
-      // Cache control for API routes
+      {
+        source: '/images/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'CDN-Cache-Control', value: 'max-age=31536000' },
+        ],
+      },
       {
         source: '/api/:path*',
         headers: [
-          { key: 'Cache-Control', value: 'public, max-age=60, s-maxage=300, stale-while-revalidate' },
+          { key: 'Cache-Control', value: 'public, max-age=60, s-maxage=300, stale-while-revalidate=600' },
         ],
       },
     ];
   },
-  
-  // Redirects for SEO
   async redirects() {
     return [
       {
@@ -109,4 +115,3 @@ const nextConfig = {
 };
 
 export default nextConfig;
-

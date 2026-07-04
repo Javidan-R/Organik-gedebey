@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { whatsappMessages } from '@/lib/db/schema';
 import { desc, eq, and } from 'drizzle-orm';
-
+ 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);

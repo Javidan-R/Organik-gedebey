@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     )
     return NextResponse.json(body, { status, headers })
   }
-
+ 
   const body = await req.json().catch(() => null)
   if (!body?.token || !body?.password) {
     return NextResponse.json({ error: 'Token və şifrə tələb olunur' }, { status: 400 })

@@ -1,11 +1,10 @@
 // src/app/admin/categories/page.tsx
 'use client';
-
+ 
 import React, {
   useCallback,
   useMemo,
   useState,
-  Fragment,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {

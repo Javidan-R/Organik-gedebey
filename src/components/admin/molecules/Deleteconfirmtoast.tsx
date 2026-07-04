@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, Trash2, X, ShieldAlert } from 'lucide-react';
-
+ 
 interface DeleteConfirmToastProps {
   isOpen: boolean;
   productName: string;

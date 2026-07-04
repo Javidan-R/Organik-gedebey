@@ -5,7 +5,7 @@ interface UseIntersectionObserverProps {
   rootMargin?: string;
   triggerOnce?: boolean;
 }
-
+ 
 export function useIntersectionObserver({
   threshold = 0.1,
   rootMargin = '0px',

@@ -1,12 +1,9 @@
-// app/admin/baskets/page.tsx
+// src/app/admin/baskets/page.tsx
 'use client';
 
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Plus, Search, LayoutGrid, Rows3, SlidersHorizontal, X,
-  Archive, PackageSearch, BarChart3,
-} from 'lucide-react';
+import { Plus, Search, LayoutGrid, Rows3, SlidersHorizontal, PackageSearch, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/atoms/button';
 import { Input } from '@/components/atoms/input';
 import { Select } from '@/components/atoms/select';
@@ -15,8 +12,11 @@ import BasketEditModal from '@/components/admin/baskets/BasketEditModal';
 import { SkeletonGrid } from '@/components/admin/molecules/SkeletonGrid';
 import type { Basket, FilterState } from '@/types/basket';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 export default function AdminBaskets() {
+  const { user } = useAdminAuth(); // sadəcə token üçün deyil, istifadəçi varsa panel yüklənir
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [editingBasket, setEditingBasket] = useState<Basket | null>(null);
@@ -40,11 +40,16 @@ export default function AdminBaskets() {
         type: filters.type,
         showArchived: String(filters.showArchived),
       });
-      const res = await fetch(`/api/baskets?${params}`);
+      // Cookie avtomatik göndərilir, amma biz yenə də credentials əlavə edirik
+      const res = await fetch(`/api/admin/baskets?${params}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Məlumat yüklənə bilmədi');
       const data = await res.json();
       setBaskets(data.baskets || []);
     } catch (error) {
       console.error('Fetch error:', error);
+      toast.error('Səbətlər yüklənərkən xəta baş verdi');
     } finally {
       setLoading(false);
     }
@@ -54,7 +59,6 @@ export default function AdminBaskets() {
     fetchBaskets();
   }, [fetchBaskets]);
 
-  // Client-side filtering (stock, discount, sorting)
   const filteredBaskets = useMemo(() => {
     let result = [...baskets];
     if (filters.stockFilter !== 'all') {
@@ -75,27 +79,31 @@ export default function AdminBaskets() {
   }, [baskets, filters]);
 
   const handleArchive = async (id: string) => {
-    await fetch(`/api/baskets/${id}/archive`, { method: 'POST' });
-    fetchBaskets();
+    try {
+      const res = await fetch(`/api/admin/baskets/${id}/archive`, { method: 'POST', credentials: 'include' });
+      if (!res.ok) throw new Error('Arxivləşdirmə alınmadı');
+      toast.success('Səbət arxivləşdirildi');
+      fetchBaskets();
+    } catch (error) { toast.error('Xəta baş verdi'); }
   };
+
   const handleUnarchive = async (id: string) => {
-    await fetch(`/api/baskets/${id}/unarchive`, { method: 'POST' });
-    fetchBaskets();
+    try {
+      const res = await fetch(`/api/admin/baskets/${id}/unarchive`, { method: 'POST', credentials: 'include' });
+      if (!res.ok) throw new Error('Arxivdən çıxarma alınmadı');
+      toast.success('Səbət arxivdən çıxarıldı');
+      fetchBaskets();
+    } catch (error) { toast.error('Xəta baş verdi'); }
   };
+
   const handleDelete = async (id: string) => {
-    if (confirm('Səbəti silmək istədiyinizə əminsiniz? Bu əməliyyat geri qayıdılmazdır.')) {
-      try {
-        const res = await fetch(`/api/baskets/${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          fetchBaskets();
-        } else {
-          alert('Səbəti silmək mümkün olmadı');
-        }
-      } catch (error) {
-        console.error('Delete error:', error);
-        alert('Xəta baş verdi');
-      }
-    }
+    if (!confirm('Səbəti silmək istədiyinizə əminsiniz? Bu əməliyyat geri qayıdılmazdır.')) return;
+    try {
+      const res = await fetch(`/api/admin/baskets/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) throw new Error('Silinmə alınmadı');
+      toast.success('Səbət silindi');
+      fetchBaskets();
+    } catch (error) { toast.error('Xəta baş verdi'); }
   };
 
   const activeCount = baskets.filter(b => !b.archived).length;
@@ -103,47 +111,25 @@ export default function AdminBaskets() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-slate-50">
-      {/* Premium Header */}
+      {/* Header */}
       <div className="sticky top-0 z-30 border-b border-emerald-100/50 bg-white/70 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-4 py-4 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Səbətlər</h1>
-              <p className="text-sm text-gray-600 mt-1">
-                {activeCount} aktiv • {archivedCount} arxivlənmiş
-              </p>
+              <p className="text-sm text-gray-600 mt-1">{activeCount} aktiv • {archivedCount} arxivlənmiş</p>
             </div>
             <div className="flex items-center gap-3">
               <Link href="/admin/baskets/analytics">
-                <Button variant="secondary"   >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Analitik
-                </Button>
+                <Button variant="secondary"><BarChart3 className="w-4 h-4 mr-2" /> Analitik</Button>
               </Link>
-              <Button onClick={() => setEditingBasket({} as any)}   >
-                <Plus className="w-4 h-4 mr-2" />
-                Yeni Səbət
+              <Button onClick={() => setEditingBasket({} as Basket)}>
+                <Plus className="w-4 h-4 mr-2" /> Yeni Səbət
               </Button>
             </div>
           </div>
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-600">
-                <PackageSearch className="h-4 w-4" /> Admin panel
-              </div>
-              <h1 className="text-2xl font-extrabold text-slate-900 md:text-3xl">
-                Səbətlərin idarəsi
-              </h1>
-              <p className="text-sm text-slate-500">Məhsul səbətlərini yaradın, redaktə edin və varyantları idarə edin</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="hidden rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-medium text-emerald-800 md:block">
-                Aktiv: <span className="font-bold">{activeCount}</span> · Arxiv: <span className="font-bold">{archivedCount}</span>
-              </div>
-              <Button variant="primary" onClick={() => setEditingBasket({} as Basket)} className="shadow-md">
-                <Plus className="h-4 w-4" /> Yeni səbət
-              </Button>
-            </div>
-          </div>
-       
+        </div>
+      </div>
 
       <main className="mx-auto max-w-7xl px-4 py-6 md:px-6">
         {/* Filter Card */}
@@ -163,7 +149,7 @@ export default function AdminBaskets() {
                 label="Növ"
                 name="type"
                 value={filters.type}
-                onChange={(v) => setFilters(prev => ({ ...prev, type: v as string }))}
+                onChange={(v) => setFilters(prev => ({ ...prev, type: v as any }))}
                 options={[
                   { value: '', label: 'Bütün növlər' },
                   { value: 'gence', label: '🌅 Səhər' },
@@ -176,22 +162,12 @@ export default function AdminBaskets() {
                 className="w-56"
               />
               <div className="flex items-end gap-2">
-                <Button
-                  variant="soft"
-                  onClick={() => setAdvancedOpen(!advancedOpen)}
-                  className="flex items-center gap-1"
-                >
+                <Button variant="soft" onClick={() => setAdvancedOpen(!advancedOpen)} className="flex items-center gap-1">
                   <SlidersHorizontal className="h-4 w-4" /> Ətraflı
                 </Button>
                 <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-white">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-2 transition ${viewMode === 'grid' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400 hover:text-slate-600'}`}
-                  ><LayoutGrid className="h-4 w-4" /></button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-2 transition ${viewMode === 'list' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400 hover:text-slate-600'}`}
-                  ><Rows3 className="h-4 w-4" /></button>
+                  <button onClick={() => setViewMode('grid')} className={`p-2 transition ${viewMode === 'grid' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid className="h-4 w-4" /></button>
+                  <button onClick={() => setViewMode('list')} className={`p-2 transition ${viewMode === 'list' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-400 hover:text-slate-600'}`}><Rows3 className="h-4 w-4" /></button>
                 </div>
               </div>
             </div>

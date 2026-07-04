@@ -1,42 +1,70 @@
 // src/app/api/admin/about-us/stats/[id]/route.ts
-// Admin API for managing individual About Us stats
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { aboutUsStats } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
+import { z } from 'zod';
 
-import { NextRequest, NextResponse } from 'next/server'
+const statUpdateSchema = z.object({
+  label: z.string().min(1).optional(),
+  value: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  icon: z.string().nullable().optional(),
+  displayOrder: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+});
+
+async function requireAuth(req: NextRequest): Promise<void> {
+  const { requireAdminAuth } = await import('@/lib/auth');
+  await requireAdminAuth(req, ['ADMIN', 'SUPERADMIN', 'MANAGER']);
+}
+
+function handleError(error: unknown): NextResponse {
+  const logPayload = error instanceof Error ? error.message : (error as Record<string, unknown>);
+  console.error('[about-us/stats/[id]] error:', logPayload);
+
+  if (error instanceof z.ZodError) {
+    return NextResponse.json(
+      { error: 'Validasiya xətası', details: error.issues },
+      { status: 400 }
+    );
+  }
+  if (error instanceof Error) {
+    if ('status' in error && 'message' in error) {
+      return NextResponse.json(
+        { error: (error as any).message },
+        { status: (error as any).status }
+      );
+    }
+    return NextResponse.json({ error: error.message || 'Server xətası' }, { status: 500 });
+  }
+  return NextResponse.json({ error: 'Server xətası' }, { status: 500 });
+}
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { requireAdminAuth } = await import('@/lib/auth')
-    await requireAdminAuth(req, ['ADMIN', 'SUPERADMIN', 'MANAGER'])
+    await requireAuth(req);
+    const body = await req.json();
+    const parsed = statUpdateSchema.parse(body);
 
-    const body = await req.json()
-    const { db } = await import('@/lib/db')
-    const { aboutUsStats } = await import('@/lib/db/schema')
-    const { eq } = await import('drizzle-orm')
-
-    const updated = await db
+    const [updated] = await db
       .update(aboutUsStats)
       .set({
-        ...body,
-        id: undefined,
+        ...parsed,
         updatedAt: new Date(),
       })
       .where(eq(aboutUsStats.id, params.id))
-      .returning()
+      .returning();
 
-    if (!updated[0]) {
-      return NextResponse.json({ error: 'Statistika tapılmadı' }, { status: 404 })
+    if (!updated) {
+      return NextResponse.json({ error: 'Statistika tapılmadı' }, { status: 404 });
     }
-
-    return NextResponse.json(updated[0])
-  } catch (error: any) {
-    console.error('Error updating about us stat:', error)
-    if (error?.status === 401 || error?.status === 403) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
-    }
-    return NextResponse.json({ error: error?.message || 'Server xətası' }, { status: 500 })
+    return NextResponse.json(updated);
+  } catch (error: unknown) {
+    return handleError(error);
   }
 }
 
@@ -45,21 +73,10 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { requireAdminAuth } = await import('@/lib/auth')
-    await requireAdminAuth(req, ['ADMIN', 'SUPERADMIN', 'MANAGER'])
-
-    const { db } = await import('@/lib/db')
-    const { aboutUsStats } = await import('@/lib/db/schema')
-    const { eq } = await import('drizzle-orm')
-
-    await db.delete(aboutUsStats).where(eq(aboutUsStats.id, params.id))
-
-    return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error('Error deleting about us stat:', error)
-    if (error?.status === 401 || error?.status === 403) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
-    }
-    return NextResponse.json({ error: error?.message || 'Server xətası' }, { status: 500 })
+    await requireAuth(req);
+    await db.delete(aboutUsStats).where(eq(aboutUsStats.id, params.id));
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    return handleError(error);
   }
 }

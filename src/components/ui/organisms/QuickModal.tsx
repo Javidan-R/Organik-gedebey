@@ -1,20 +1,19 @@
 import { Product } from "@/lib/store";
-import { formatCurrency } from "@/utils/storefront_home";
+import { formatCurrency } from "@/utils/product";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, MapPin, CheckCircle2, ShoppingCart, Star } from "lucide-react";
+import { X, MapPin, CheckCircle2, ShoppingCart } from "lucide-react";
 import { useEffect } from "react";
 import Image from "next/image";
 
 type QuickViewProps = {
   open: boolean;
   onClose: () => void;
-  product: Product;
+  product: Product; 
   imgUrl: string;
   discount: number;
   displayPrice: number;
   basePrice: number;
   currency: string;
-  avgRating: number;
   qty: number;
   isOut: boolean;
   addingToCart: boolean;
@@ -34,7 +33,6 @@ export const QuickViewModal: React.FC<QuickViewProps> = ({
   displayPrice,
   basePrice,
   currency,
-  avgRating,
   qty,
   isOut,
   addingToCart,

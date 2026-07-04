@@ -8,7 +8,7 @@ export interface CartItem {
   price: number;
   image: string;
 }
-
+ 
 export interface Cart {
   items: CartItem[];
   total: number;

@@ -7,7 +7,7 @@ export function similarProducts(products: Product[], current: Product, limit=6) 
     ...(current.name||'').toLowerCase().split(/\W+/),
     ...(current.description||'').toLowerCase().split(/\W+/)
   ].filter(Boolean))
-
+ 
   const score = (p: Product) => {
     if (p.id === current.id || p.archived) return -1
     let s = 0

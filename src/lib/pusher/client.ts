@@ -9,7 +9,7 @@ const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'eu';
 if (!pusherKey) {
   console.warn('NEXT_PUBLIC_PUSHER_KEY is not set. Real-time features will be disabled.');
 }
-
+ 
 export const pusherClient = pusherKey ? new PusherClient(
   pusherKey,
   {

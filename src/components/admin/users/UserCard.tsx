@@ -14,7 +14,7 @@ interface UserCardProps {
   onDelete: (user: User) => void
   selected: boolean
   onSelect: (id: string) => void
-}
+} 
 
 export const UserCard: React.FC<UserCardProps> = ({
   user,

@@ -15,12 +15,8 @@ import { logger } from '@sentry/nextjs'
 const loginSchema = z.object({
   email: z.string().email('Düzgün email daxil edin').max(254),
   password: z.string()
-    .min(8, 'Şifrə ən az 8 simvol olmalıdır')
-    .max(128, 'Şifrə 128 simvoldan çox ola bilməz')
-    .regex(/[A-Z]/, 'Şifrə ən az bir böyük hərf olmalıdır')
-    .regex(/[a-z]/, 'Şifrə ən az bir kiçik hərf olmalıdır')
-    .regex(/[0-9]/, 'Şifrə ən az bir rəqəm olmalıdır')
-    .regex(/[^A-Za-z0-9]/, 'Şifrə ən az bir xüsusi simvol olmalıdır'),
+    .min(1, 'Şifrə tələb olunur')
+    .max(128, 'Şifrə 128 simvoldan çox ola bilməz'),
 })
 
 const ADMIN_ROLES: AdminRole[] = ['ADMIN', 'SUPERADMIN', 'MANAGER', 'WAREHOUSE_STAFF']
@@ -31,10 +27,11 @@ const cookieOptions = {
   ...adminCookieOptions,
   secure: isProd,
   sameSite: (isProd ? 'strict' : 'lax') as 'strict' | 'lax',
-  // ✅ path:'/' — cookie bütün route-lara göndərilir
-  // Bu, /api/auth/me və digər API route-larının cookie-ni oxumasına imkan verir
   path: '/',
 }
+
+// ✅ Sabit UUID (development üçün)
+const DEV_ADMIN_UUID = '00000000-0000-0000-0000-000000000001'
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req)
@@ -72,19 +69,25 @@ export async function POST(req: NextRequest) {
 
   // ── Dev mock admin ────────────────────────────────────────────────────────
   if (!isProd) {
-    const devEmail = process.env.DEV_ADMIN_EMAIL ?? 'admin@organikgedebey.az'
-    const devPass = process.env.DEV_ADMIN_PASSWORD ?? 'Admin123!'
+    const devEmail = process.env.DEV_ADMIN_EMAIL ?? process.env.SEED_ADMIN_EMAIL ?? 'admin@organikgedebey.az'
+    const devPass = process.env.DEV_ADMIN_PASSWORD ?? process.env.SEED_ADMIN_PASSWORD ?? 'Admin123!'
     if (normalizedEmail === devEmail && password === devPass) {
-      // ✅ await — signAdminToken artıq async-dır (jose)
+      // ✅ UUID formatında ID istifadə et
       const token = await signAdminToken({
-        sub: 'dev-admin-id',
+        sub: DEV_ADMIN_UUID, // ✅ UUID formatı
         email: devEmail,
         name: 'Dev Admin',
         role: 'ADMIN',
       })
       const res = NextResponse.json({
         success: true,
-        user: { id: 'dev-admin-id', email: devEmail, name: 'Dev Admin', role: 'ADMIN' as AdminRole, type: 'admin' as const },
+        user: {
+          id: DEV_ADMIN_UUID,
+          email: devEmail,
+          name: 'Dev Admin',
+          role: 'ADMIN' as AdminRole,
+          type: 'admin' as const,
+        },
       })
       res.cookies.set(COOKIE_ADMIN, token, cookieOptions)
       return res
@@ -149,7 +152,6 @@ export async function POST(req: NextRequest) {
     const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email
     const role = user.role as AdminRole
 
-    // ✅ await — jose async sign
     const token = await signAdminToken({ sub: user.id, email: user.email, name: fullName, role })
 
     const response = NextResponse.json({
@@ -172,15 +174,22 @@ export async function POST(req: NextRequest) {
     if (envEmail && envHash && normalizedEmail === envEmail.toLowerCase()) {
       const valid = await bcrypt.compare(password, envHash)
       if (valid) {
+        // ✅ UUID formatında ID istifadə et
         const token = await signAdminToken({
-          sub: 'env-admin',
+          sub: DEV_ADMIN_UUID,
           email: envEmail,
           name: process.env.ADMIN_NAME ?? 'Admin',
           role: 'ADMIN',
         })
         const res = NextResponse.json({
           success: true,
-          user: { id: 'env-admin', email: envEmail, name: process.env.ADMIN_NAME ?? 'Admin', role: 'ADMIN' as AdminRole, type: 'admin' as const },
+          user: {
+            id: DEV_ADMIN_UUID,
+            email: envEmail,
+            name: process.env.ADMIN_NAME ?? 'Admin',
+            role: 'ADMIN' as AdminRole,
+            type: 'admin' as const,
+          },
         })
         res.cookies.set(COOKIE_ADMIN, token, cookieOptions)
         return res

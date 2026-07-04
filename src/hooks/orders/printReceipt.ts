@@ -1,6 +1,6 @@
 // src/utils/orders/printReceipt.ts
 "use client";
-
+ 
 import type { OrderWithTotal } from "@/types/orders";
 
 export function printOrderReceipt(order: OrderWithTotal) {

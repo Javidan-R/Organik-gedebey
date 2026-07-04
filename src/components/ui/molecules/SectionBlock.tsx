@@ -21,7 +21,7 @@ export function SectionBlock({
     setShared(true)
     setTimeout(() => setShared(false), 2000)
   }
-
+ 
   return (
     <motion.section
       id={id}

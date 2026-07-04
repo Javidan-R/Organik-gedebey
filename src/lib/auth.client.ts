@@ -8,7 +8,7 @@ export async function loginAdmin(email: string, password: string) {
     credentials: 'include',
     body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
   })
-
+ 
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Giriş uğursuz oldu')
 

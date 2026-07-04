@@ -9,7 +9,7 @@ import { InventoryStats } from "@/types/finance";
 import { currency } from "@/helpers";
 
 export default function InventorySummary({ stats }: { stats: InventoryStats }) {
-
+ 
 
   return (
     <div className="p-5 rounded-2xl border border-emerald-100 bg-white shadow-sm space-y-4">

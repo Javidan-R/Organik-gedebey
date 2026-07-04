@@ -10,4 +10,4 @@ set<T>(key: string, value: T) { if (typeof window !== 'undefined') localStorage.
 export const exportJSON = (obj: unknown, filename: string) => {
 const data = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(obj, null, 2))
 const a = document.createElement('a'); a.href = data; a.download = filename; a.click()
-}
+} 

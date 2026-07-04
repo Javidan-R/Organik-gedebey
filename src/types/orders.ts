@@ -3,7 +3,7 @@
 // =====================================================================
 
 import { ID } from "./products";
-
+ 
 // --- Database Enum Types (Uppercase to match DB) ---
 export type OrderStatus =
   | "PENDING"
@@ -32,6 +32,7 @@ export type DeliveryStatus =
 export type OrderStatusDisplay =
   | "pending"
   | "confirmed"
+  | "shipping"
   | "preparing"
   | "ready_for_delivery"
   | "out_for_delivery"

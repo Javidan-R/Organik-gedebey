@@ -17,7 +17,7 @@ export const pusher = new Pusher({
   cluster,
   useTLS: true,
 })
-
+ 
 /**
  * Send real-time notification to user
  */

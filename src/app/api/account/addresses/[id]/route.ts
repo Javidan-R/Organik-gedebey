@@ -1,6 +1,6 @@
 // src/app/api/account/addresses/[id]/route.ts
 // User Address Details API
-
+ 
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyCustomerToken, COOKIE_CUSTOMER } from '@/lib/auth/jwt'
 import { db } from '@/lib/db'
@@ -119,7 +119,7 @@ export async function PATCH(
   } catch (error) {
     console.error('[account/addresses/[id]] PATCH error:', error)
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Validasiya xətası', details: error.errors }, { status: 400 })
+      return NextResponse.json({ error: 'Validasiya xətası', details: error.issues }, { status: 400 })
     }
     return NextResponse.json({ error: 'Server xətası' }, { status: 500 })
   }

@@ -2,7 +2,7 @@
 // Shared types for user-related functionality across the application
 
 import { z } from 'zod'
-
+ 
 // ============================================
 // ENUMS
 // ============================================

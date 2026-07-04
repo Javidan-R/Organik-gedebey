@@ -2,12 +2,13 @@
  * Centralized Formatting Utilities
  * All formatting functions to prevent code duplication
  */
-
+ 
 import { DiscountType } from '@/lib/types';
 
 // ============================================================================
 // CURRENCY & NUMBER FORMATTING
 // ============================================================================
+
 
 /**
  * Premium currency formatter with Azerbaijani localization
@@ -21,7 +22,7 @@ export const currency = (
   if (value === undefined || value === null) return '0.00 ₼';
   
   const v = Number(value);
-  if (isNaN(v)) return '0.00 ₼'; 
+  if (isNaN(v) || !isFinite(v)) return '0.00 ₼'; 
 
   return new Intl.NumberFormat('az-AZ', {
     style: 'currency',
@@ -30,19 +31,21 @@ export const currency = (
     maximumFractionDigits: maxDecimals,
   }).format(v).replace('AZN', '₼');
 };
-
 /**
  * Simple currency formatter (legacy compatibility)
  */
 export function formatCurrency(value: number, currencySymbol: string = '₼'): string {
-  if (typeof value !== 'number' || isNaN(value)) return `0.00 ${currencySymbol}`;
+  if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) return `0.00 ${currencySymbol}`;
   return `${value.toFixed(2)} ${currencySymbol}`;
 }
+
+
 
 /**
  * Format percentage
  */
 export function formatPercentage(value: number, decimals: number = 1): string {
+  if (!isFinite(value)) return '0.0%';
   return `${value.toFixed(decimals)}%`;
 }
 
@@ -50,8 +53,10 @@ export function formatPercentage(value: number, decimals: number = 1): string {
  * Format number with thousands separator
  */
 export function formatNumber(value: number, locale: string = 'az-AZ'): string {
+  if (!isFinite(value)) return '0';
   return new Intl.NumberFormat(locale).format(value);
 }
+
 
 // ============================================================================
 // DISCOUNT FORMATTING
@@ -72,6 +77,8 @@ export function formatDiscount(
   }
   return '';
 }
+
+
 
 // ============================================================================
 // WEIGHT & MEASUREMENT FORMATTING
