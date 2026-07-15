@@ -18,16 +18,9 @@ import {
 import type { OrderWithTotal } from "@/types/orders";
 import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/atoms/button";
- 
+
 type Props = {
-  order: (OrderWithTotal & {
-    paymentMethod?: "cash" | "card" | "mixed";
-    cashAmount?: number;
-    cardAmount?: number;
-    note?: string;
-    address?: string;
-    customerPhone?: string;
-  }) | null;
+  order: OrderWithTotal | null;
   onClose: () => void;
   getProductName: (item: any) => string;
 };
@@ -87,6 +80,13 @@ export const OrderDetailsFlyout: React.FC<Props> = ({
     );
   };
 
+  // Safely parse price to number for display
+  const safeNumber = (val: any, fallback = 0): number => {
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') return parseFloat(val) || 0;
+    return fallback;
+  };
+
   return (
     <AnimatePresence>
       <motion.aside
@@ -101,7 +101,7 @@ export const OrderDetailsFlyout: React.FC<Props> = ({
           <div>
             <p className="text-[0.7rem] text-slate-500">Sifariş ID</p>
             <p className="font-mono text-sm font-bold text-slate-900">
-              # {id? id.slice(0, 10).toUpperCase(): '-'}
+              # {id ? id.slice(0, 10).toUpperCase() : '-'}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -215,13 +215,15 @@ export const OrderDetailsFlyout: React.FC<Props> = ({
                 <p className={labelClass}>Məhsullar</p>
               </div>
               <span className="text-[0.75rem] text-slate-500">
-                {(order as any).itemCount ?? items.length} məhsul
+                {items.length} məhsul
               </span>
             </div>
 
             <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
               {items.map((item: any, idx: number) => {
-                const lineTotal = item.qty * item.priceAtOrder;
+                const price = safeNumber(item.priceAtOrder);
+                const qty = item.qty || 1;
+                const lineTotal = price * qty;
                 return (
                   <div
                     key={`${item.productId ?? idx}-${idx}`}
@@ -233,7 +235,7 @@ export const OrderDetailsFlyout: React.FC<Props> = ({
                       </p>
                       <p className="text-[0.7rem] text-slate-500 mt-0.5 flex items-center gap-1">
                         <Package className="w-3 h-3" />
-                        {item.qty} × {item.priceAtOrder.toFixed(2)} ₼
+                        {qty} × {price.toFixed(2)} ₼
                       </p>
                       {item.note && (
                         <p className="text-[0.7rem] text-amber-700 mt-0.5 flex items-center gap-1">
@@ -274,7 +276,7 @@ export const OrderDetailsFlyout: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Footer buttons (istəsən burdan export/print də çağırarsan) */}
+        {/* Footer */}
         <div className="border-t border-slate-100 px-5 py-3 flex items-center justify-end gap-2 bg-slate-50/60">
           <Button
             variant="secondary"

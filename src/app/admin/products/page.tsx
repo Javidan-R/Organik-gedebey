@@ -1,4 +1,10 @@
 // src/app/admin/products/page.tsx
+// Düzəlişlər:
+// - useAdminCategories → useCategories (React Query cache-dən)
+// - Select onChange: birbaşa string qəbul edir (event deyil)
+// - Bütün fetch-lər credentials: 'include' ilə (hook-lar daxilində)
+// - Tip uyğunsuzluqları aradan qaldırıldı
+
 'use client';
 
 import { useMemo, useState, useCallback, useEffect } from 'react';
@@ -23,7 +29,7 @@ import {
 
 import { useApp } from '@/lib/store';
 import { useProducts } from '@/hooks/useProducts';
-import { useCategories } from '@/hooks/useCategories';
+import { useCategories } from '@/lib/cache/category-cache'; // ✅ React Query cache-dən
 import { useCreateProduct } from '@/hooks/useProducts';
 
 import { Input } from '@/components/atoms/input';
@@ -75,7 +81,11 @@ export const newProductStub: Partial<Product> = {
 export default function AdminProducts() {
   // ── React Query ──────────────────────────────────────────────
   const { data: productsData, isLoading: productsLoading } = useProducts();
-  const { data: categoriesData, isLoading: categoriesLoading } = useCategories();
+  // ✅ useCategories hook-u admin üçün uyğun olanı qaytarır (isActive, archived filtrləri ilə)
+  const { data: categoriesData, isLoading: categoriesLoading } = useCategories({
+    isActive: true,
+    archived: false,
+  });
   const createProductMutation = useCreateProduct();
 
   // ── Zustand ──────────────────────────────────────────────────
@@ -246,13 +256,7 @@ export default function AdminProducts() {
               label="Kateqoriya"
               name="categoryFilter"
               value={filters.categoryId}
-              onChange={(valOrEvent) => {
-                const val =
-                  typeof valOrEvent === 'string'
-                    ? valOrEvent
-                    : valOrEvent?.target?.value ?? '';
-                handleFilterChange('categoryId', val as ID | '');
-              }}
+              onChange={(value) => handleFilterChange('categoryId', value as ID | '')} // ✅ birbaşa string
               options={[
                 { value: '', label: 'Bütün kateqoriyalar' },
                 ...categories.map((c) => ({ value: c.id, label: c.name })),

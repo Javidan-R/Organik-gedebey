@@ -1,4 +1,7 @@
 // src/components/admin/orders/OrdersBulkActionsBar.tsx
+// Düzəliş: Select komponentinin onChange-ı birbaşa string qaytarır, event deyil.
+// Buna görə e.target.value əvəzinə birbaşa dəyəri istifadə edirik.
+
 "use client";
 
 import React from "react";
@@ -6,15 +9,15 @@ import { motion } from "framer-motion";
 import { Package } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Select } from "@/components/atoms/select";
-import { OrderStatus } from "@/types/orders";
+import { OrderStatusDisplay } from "@/types/orders";
 
 export type OrdersBulkActionsBarProps = {
   selectedCount: number;
-  bulkUpdateStatus: OrderStatus | "all";
-  onBulkStatusChange: (value: OrderStatus | "all") => void;
+  bulkUpdateStatus: OrderStatusDisplay | "all";
+  onBulkStatusChange: (value: OrderStatusDisplay | "all") => void;
   onApply: () => void;
 };
- 
+
 export const OrdersBulkActionsBar: React.FC<OrdersBulkActionsBarProps> = ({
   selectedCount,
   bulkUpdateStatus,
@@ -42,15 +45,19 @@ export const OrdersBulkActionsBar: React.FC<OrdersBulkActionsBarProps> = ({
         <Select
           name="bulkStatus"
           value={bulkUpdateStatus}
-          onChange={(e) =>
-            onBulkStatusChange(e.target.value as OrderStatus | "all")
+          onChange={(value) =>
+            onBulkStatusChange(value as OrderStatusDisplay | "all")
           }
           options={[
             { value: "all", label: "Status seç" },
             { value: "pending", label: "Gözləyir" },
-            { value: "shipping", label: "Yolda" },
+            { value: "confirmed", label: "Təsdiqləndi" },
+            { value: "preparing", label: "Hazırlanır" },
+            { value: "ready_for_delivery", label: "Çatdırılmağa hazır" },
+            { value: "out_for_delivery", label: "Çatdırılır" },
             { value: "delivered", label: "Çatdırılıb" },
             { value: "cancelled", label: "Ləğv et" },
+            { value: "refunded", label: "Qaytarıldı" },
           ]}
           className="w-[11rem]"
         />

@@ -1,43 +1,43 @@
-// src/app/api/admin/about-us/regions/route.ts
+// src/app/api/admin/about-us/regions/route.ts (full refactored)
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { aboutUsRegions } from '@/lib/db/schema';
 import { eq, asc } from 'drizzle-orm';
 import { z } from 'zod';
+import { requireAdminAuth, AuthError } from '@/lib/auth';
 
 const regionSchema = z.object({
   name: z.string().min(1),
   description: z.string().nullable().optional(),
-  imageUrl: z.string().url().nullable().optional(),
+  imageUrl: z.string().url().nullable().optional().or(z.literal('')),
   featuredProducts: z.array(z.string()).nullable().optional(),
   displayOrder: z.number().int().optional(),
   isActive: z.boolean().optional(),
 });
 
-async function requireAuth(req: NextRequest) {
-  const { requireAdminAuth } = await import('@/lib/auth');
-  await requireAdminAuth(req, ['ADMIN', 'SUPERADMIN', 'MANAGER']);
-}
-
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
+    await requireAdminAuth(request, ['ADMIN', 'SUPERADMIN', 'MANAGER']);
+
     const regions = await db
       .select()
       .from(aboutUsRegions)
-      .where(eq(aboutUsRegions.isActive, true))
       .orderBy(asc(aboutUsRegions.displayOrder));
 
     return NextResponse.json(regions);
   } catch (error) {
-    console.error('GET /about-us/regions error:', error instanceof Error ? error.message : String(error));
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error('GET /admin/about-us/regions error:', error);
     return NextResponse.json({ error: 'Server xətası' }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    await requireAuth(req);
-    const body = await req.json();
+    await requireAdminAuth(request, ['ADMIN', 'SUPERADMIN', 'MANAGER']);
+    const body = await request.json();
     const parsed = regionSchema.parse(body);
 
     const [newRegion] = await db
@@ -51,15 +51,14 @@ export async function POST(req: NextRequest) {
       .returning();
 
     return NextResponse.json(newRegion, { status: 201 });
-  } catch (error: unknown) {
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Validasiya xətası', details: error.issues }, { status: 400 });
     }
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('POST /about-us/regions error:', message);
-    if ((error as any)?.status === 401 || (error as any)?.status === 403) {
-      return NextResponse.json({ error: (error as any).message }, { status: (error as any).status });
-    }
-    return NextResponse.json({ error: (error as any)?.message || 'Server xətası' }, { status: 500 });
+    console.error('POST /admin/about-us/regions error:', error);
+    return NextResponse.json({ error: 'Server xətası' }, { status: 500 });
   }
 }

@@ -1,13 +1,23 @@
-// src/hooks/useOrders.ts
+// src/hooks/use-orders.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminFetch } from '@/lib/fetch-admin';
+import { useEffect, useRef } from 'react';
+
+const ORDERS_QUERY_KEY = ['orders'];
 
 export function useOrders(filters?: {
-  page?: number; limit?: number; status?: string; search?: string;
-  dateFrom?: string; dateTo?: string;
+  page?: number;
+  limit?: number;
+  status?: string;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }) {
-  return useQuery({
-    queryKey: ['orders', filters],
+  const queryClient = useQueryClient();
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  const query = useQuery({
+    queryKey: [ORDERS_QUERY_KEY, filters],
     queryFn: () => {
       const params = new URLSearchParams();
       if (filters?.page) params.set('page', filters.page.toString());
@@ -16,20 +26,52 @@ export function useOrders(filters?: {
       if (filters?.search) params.set('search', filters.search);
       if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom);
       if (filters?.dateTo) params.set('dateTo', filters.dateTo);
-      return adminFetch(`/api/orders?${params}`);
+      const queryString = params.toString();
+      const url = `/api/orders${queryString ? `?${queryString}` : ''}`;
+      return adminFetch<{
+        orders: any[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
+      }>(url);
     },
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 10,
+    refetchOnWindowFocus: true,
+    refetchInterval: 1000 * 30,
   });
+
+  // Real‑time SSE (əvvəlki kod olduğu kimi saxlanıla bilər, lakin hazırda ehtiyac yoxdursa silə bilərsiniz)
+  useEffect(() => {
+    // SSE bağlantısı (əgər istifadə ediləcəksə buraya əlavə oluna bilər)
+    return () => {
+      eventSourceRef.current?.close();
+    };
+  }, [queryClient]);
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ORDERS_QUERY_KEY });
+  };
+
+  return { ...query, refresh };
 }
 
 export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
+    mutationFn: ({ id, status, cancellationReason }: { id: string; status: string; cancellationReason?: string }) =>
       adminFetch(`/api/orders/${id}/status`, {
         method: 'PATCH',
-        body: { status },
+        body: { status, cancellationReason },
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ORDERS_QUERY_KEY });
+    },
+    onError: (error) => {
+      console.error('Failed to update order status:', error);
+    },
   });
 }

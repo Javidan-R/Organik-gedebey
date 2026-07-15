@@ -52,8 +52,8 @@ export const DESKTOP_DOCK_ITEMS: NavItem[] = [
   { key: "home", href: "/", label: "Ana Səhifə", icon: Home },
   { key: "products", href: "/products", label: "Bütün Məhsullar", icon: ShoppingBag },
   { key: "fresh-today", href: "/fresh-today", label: "Bu Gün Gələnlər", icon: Grid2X2 },
-  { key: "categories", label: "Kateqoriyalar", icon: Grid2X2, action: () => {} },
-    { key: "about-us", href: "/about-us", label: "Haqqımızda", icon: BookOpen },
+  { key: "category", href: "/category", label: "Kateqoriyalar", icon: Grid2X2 },
+  { key: "about-us", href: "/about-us", label: "Haqqımızda", icon: BookOpen },
   { key: "cart", href: "/cart", label: "Səbət", icon: ShoppingCart, badge: 0 },
   { key: "account", href: "/account", label: "Hesabım", icon: User },
 ];

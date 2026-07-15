@@ -24,7 +24,6 @@ import {
   Button,
   Switch,
   ArrayFieldInput,
-  Tooltip,
   Select,
 } from '@/components/atoms';
 
@@ -65,17 +64,19 @@ export function BasicTab({
     [product.slug, setProduct, generateSlug]
   );
 
-  const handleStatusTagToggle = useCallback((tag: ProductStatus) => {
-    const current = product.statusTags || [];
-    const updated = current.includes(tag)
-      ? current.filter((t) => t !== tag)
-      : [...current, tag];
-    setProduct((prev) => ({ ...prev, statusTags: updated }));
-  }, [product.statusTags, setProduct]);
+  const handleStatusTagToggle = useCallback(
+    (tag: ProductStatus) => {
+      const current = product.statusTags || [];
+      const updated = current.includes(tag)
+        ? current.filter((t) => t !== tag)
+        : [...current, tag];
+      setProduct((prev) => ({ ...prev, statusTags: updated }));
+    },
+    [product.statusTags, setProduct]
+  );
 
   return (
     <div className="space-y-8">
-      {/* Xəta mesajı */}
       {submitted && !baseValid && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -87,7 +88,6 @@ export function BasicTab({
         </motion.div>
       )}
 
-      {/* ─── Bölmə 1: Əsas Məlumatlar ───────────────────────────── */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-base font-bold text-slate-800 flex items-center gap-2">
           <Package className="h-5 w-5 text-emerald-600" />
@@ -95,7 +95,6 @@ export function BasicTab({
         </h3>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          {/* Ad */}
           <Input
             label="Məhsul Adı"
             name="name"
@@ -108,7 +107,6 @@ export function BasicTab({
             className="border-2"
           />
 
-          {/* Slug */}
           <div className="space-y-1">
             <Input
               label="Slug (URL üçün)"
@@ -131,7 +129,6 @@ export function BasicTab({
           </div>
         </div>
 
-        {/* Kateqoriya */}
         <div className="mt-4 max-w-md">
           <Select
             label="Kateqoriya"
@@ -144,7 +141,6 @@ export function BasicTab({
         </div>
       </div>
 
-      {/* ─── Bölmə 2: Təsvir ────────────────────────────────────── */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-base font-bold text-slate-800 flex items-center gap-2">
           <FileText className="h-5 w-5 text-emerald-600" />
@@ -173,7 +169,6 @@ export function BasicTab({
         </div>
       </div>
 
-      {/* ─── Bölmə 3: Mənşə və Xüsusiyyətlər ───────────────────── */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-base font-bold text-slate-800 flex items-center gap-2">
           <MapPin className="h-5 w-5 text-emerald-600" />
@@ -181,7 +176,6 @@ export function BasicTab({
         </h3>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          {/* Mənşə Regionu */}
           <Input
             label="Mənşə Regionu"
             name="originRegion"
@@ -192,7 +186,6 @@ export function BasicTab({
             className="border-2"
           />
 
-          {/* Etiketlər */}
           <ArrayFieldInput
             label="Etiketlər"
             items={product.tags || []}
@@ -203,18 +196,17 @@ export function BasicTab({
           />
         </div>
 
-        {/* Status Etiketləri */}
         <div className="mt-5">
           <label className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-3">
             <Star className="h-4 w-4 text-amber-500" />
             Status Etiketləri
           </label>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {[
+            {([
               { key: 'newArrival' as ProductStatus, label: 'Yeni gələn', icon: <Leaf className="h-4 w-4" /> },
               { key: 'featured' as ProductStatus, label: 'Seçilmiş', icon: <Crown className="h-4 w-4" /> },
               { key: 'seasonal' as ProductStatus, label: 'Mövsümi', icon: <Calendar className="h-4 w-4" /> },
-            ].map(({ key, label, icon }) => {
+            ]).map(({ key, label, icon }) => {
               const active = (product.statusTags || []).includes(key);
               return (
                 <div
@@ -238,7 +230,6 @@ export function BasicTab({
         </div>
       </div>
 
-      {/* ─── Bölmə 4: Xüsusi Xüsusiyyətlər ────────────────────── */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-base font-bold text-slate-800 flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-emerald-600" />
@@ -268,7 +259,6 @@ export function BasicTab({
         </div>
       </div>
 
-      {/* ─── Bölmə 5: SEO (yığıla bilən) ────────────────────────── */}
       <details className="rounded-2xl border border-slate-200 bg-white/50 p-4 shadow-sm transition hover:shadow-md">
         <summary className="cursor-pointer text-sm font-semibold text-slate-700 flex items-center gap-2">
           <Tag className="h-4 w-4 text-slate-500" />
@@ -304,7 +294,6 @@ export function BasicTab({
         </div>
       </details>
 
-      {/* ─── Xülasə ────────────────────────────────────────────── */}
       <div className="rounded-2xl bg-emerald-50/50 p-4 text-xs text-slate-600">
         <p className="flex items-center gap-2">
           <CheckCircle2 className="h-4 w-4 text-emerald-600" />

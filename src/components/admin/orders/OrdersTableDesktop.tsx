@@ -20,7 +20,7 @@ import {
   ColumnVisibility,
   SortKey,
   SortDirection, 
-  OrderStatus,
+  OrderStatusDisplay,
 } from "@/types/orders";
 import { ID } from "@/lib/store";
 import RowCheckbox from "@/components/admin/molecules/RowCheckbox";
@@ -40,7 +40,7 @@ export type OrdersTableDesktopProps = {
   onSort: (key: SortKey) => void;
 
   onOpenDetails: (order: OrderWithTotal) => void;
-  onStatusChange: (id: ID, status: OrderStatus) => void;
+  onStatusChange: (id: ID, status: OrderStatusDisplay) => void;
 
   getProductName: (item: any) => string; // gələcəkdə istifadə üçün
 };
@@ -216,15 +216,19 @@ export const OrdersTableDesktop: React.FC<OrdersTableDesktopProps> = ({
                           onChange={(e) =>
                             onStatusChange(
                               o.id,
-                              e.target.value as OrderStatus,
+                              e.target.value as OrderStatusDisplay,
                             )
                           }
                           className="rounded-lg border border-slate-200 bg-slate-50 text-[0.7rem] px-[0.4rem] py-[0.25rem] focus:outline-none focus:ring-[0.08rem] focus:ring-emerald-500 text-slate-700"
                         >
                           <option value="pending">Gözləyir</option>
-                          <option value="shipping">Yolda</option>
+                          <option value="confirmed">Təsdiqləndi</option>
+                          <option value="preparing">Hazırlanır</option>
+                          <option value="ready_for_delivery">Çatdırılmağa hazır</option>
+                          <option value="out_for_delivery">Çatdırılır</option>
                           <option value="delivered">Çatdırılıb</option>
                           <option value="cancelled">Ləğv</option>
+                          <option value="refunded">Qaytarıldı</option>
                         </select>
                       </div>
                     </td>

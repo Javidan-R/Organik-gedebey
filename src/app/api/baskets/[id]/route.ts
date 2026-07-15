@@ -40,76 +40,42 @@ const updateBasketSchema = z.object({
   products: z.array(z.any()).optional(),
 });
 
-// ─── GET ─────────────────────────────────────────────────
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
   try {
-    // Public oxu üçün autentifikasiya tələb olunmur (mağaza səhifəsi)
-    const { id } = params;
-
-    const basket = await db
-      .select()
-      .from(baskets)
-      .where(eq(baskets.id, id))
-      .then(async ([b]) => {
-        if (!b) return null;
-        const variants = await db
-          .select()
-          .from(basketVariants)
-          .where(eq(basketVariants.basketId, id));
-
-        const variantIds = variants.map((v) => v.id);
-
-        const contents =
-          variantIds.length > 0
-            ? await db
-                .select()
-                .from(basketContents)
-                .where(inArray(basketContents.basketVariantId, variantIds))
-            : [];
-
-        const extras =
-          variantIds.length > 0
-            ? await db
-                .select()
-                .from(basketExtras)
-                .where(inArray(basketExtras.basketVariantId, variantIds))
-            : [];
-
-        const bp = await db
-          .select()
-          .from(basketProducts)
-          .where(eq(basketProducts.basketId, id));
-
-        const media = await db
-          .select()
-          .from(basketMedia)
-          .where(eq(basketMedia.basketId, id));
-
-        return {
-          ...b,
-          variants: variants.map((v) => ({
-            ...v,
-            contents: contents.filter((c) => c.basketVariantId === v.id),
-            extras: extras.filter((e) => e.basketVariantId === v.id),
-          })),
-          products: bp,
-          media,
-        };
-      });
-
+    const [basket] = await db.select().from(baskets).where(eq(baskets.id, id));
     if (!basket) {
       return NextResponse.json({ error: 'Səbət tapılmadı' }, { status: 404 });
     }
-    return NextResponse.json({ basket });
+
+    const variants = await db.select().from(basketVariants).where(eq(basketVariants.basketId, id));
+    const variantIds = variants.map(v => v.id);
+    const contents = variantIds.length
+      ? await db.select().from(basketContents).where(inArray(basketContents.basketVariantId, variantIds))
+      : [];
+    const extras = variantIds.length
+      ? await db.select().from(basketExtras).where(inArray(basketExtras.basketVariantId, variantIds))
+      : [];
+    const products = await db.select().from(basketProducts).where(eq(basketProducts.basketId, id));
+    const media = await db.select().from(basketMedia).where(eq(basketMedia.basketId, id));
+
+    const enriched = {
+      ...basket,
+      variants: variants.map(v => ({
+        ...v,
+        contents: contents.filter(c => c.basketVariantId === v.id),
+        extras: extras.filter(e => e.basketVariantId === v.id),
+      })),
+      products,
+      media,
+    };
+
+    return NextResponse.json({ basket: enriched });
   } catch (error) {
-    console.error('Basket GET error:', error);
+    logger.error(`Public basket ${id} GET error`, error);
     return NextResponse.json({ error: 'Server xətası' }, { status: 500 });
   }
 }
-
 // ─── PATCH ────────────────────────────────────────────────
 export async function PATCH(
   request: NextRequest,

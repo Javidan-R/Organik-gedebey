@@ -1,7 +1,7 @@
-// src/app/(storefront)/about-us/AboutUsClient.tsx (düzəlişlər: iconMap tipi, boşluqlar)
+// src/app/(storefront)/about-us/AboutUsClient.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import Image from 'next/image';
 import {
@@ -25,6 +25,29 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   Users, Globe, Award, Zap, Leaf, Heart, Shield, TrendingUp,
 };
 
+// Client‑only random star generator (hydrasiyaya uyğun)
+function useClientDimensions() {
+  const [winSize, setWinSize] = useState({ w: 1200, h: 800 });
+  useEffect(() => {
+    const handleResize = () => setWinSize({ w: window.innerWidth, h: window.innerHeight });
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return winSize;
+}
+
+function useRandomStars(count: number, width: number, height: number) {
+  return useMemo(() => {
+    return Array.from({ length: count }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      duration: 3 + Math.random() * 2,
+      delay: Math.random() * 2,
+    }));
+  }, [count]);
+}
+
 export function AboutUsClient({
   sections,
   regions,
@@ -44,13 +67,8 @@ export function AboutUsClient({
   const valuesSection = sections.find((s) => s.sectionType === 'values');
   const ctaSection = sections.find((s) => s.sectionType === 'cta');
 
-  const [winSize, setWinSize] = useState({ w: 1200, h: 800 });
-  useEffect(() => {
-    const handleResize = () => setWinSize({ w: window.innerWidth, h: window.innerHeight });
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const winSize = useClientDimensions();
+  const stars = useRandomStars(20, winSize.w, winSize.h);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-emerald-50/30 overflow-x-hidden">
@@ -61,13 +79,13 @@ export function AboutUsClient({
       >
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-700 via-teal-700 to-sky-800">
           <div className="absolute inset-0 bg-black/30" />
-          {[...Array(20)].map((_, i) => (
+          {stars.map((star, i) => (
             <motion.div
               key={i}
               className="absolute w-2 h-2 bg-white/30 rounded-full"
-              initial={{ x: Math.random() * winSize.w, y: Math.random() * winSize.h }}
+              style={{ left: star.x, top: star.y }}
               animate={{ y: [0, -100, 0], opacity: [0.3, 0.6, 0.3] }}
-              transition={{ duration: 3 + Math.random() * 2, repeat: Infinity, delay: Math.random() * 2 }}
+              transition={{ duration: star.duration, repeat: Infinity, delay: star.delay }}
             />
           ))}
         </div>
@@ -181,9 +199,9 @@ export function AboutUsClient({
                   <p className="text-lg text-gray-600 leading-relaxed mb-8">{storySection.description}</p>
                 </motion.div>
                 <div className="flex flex-wrap gap-4">
-                  {['Gədəbəy', 'Tovuz', 'Gəncə', 'Şəmkir', 'Daşkəsən', 'Qax', 'Zaqatala'].map((region, index) => (
-                    <motion.div key={region} initial={{ opacity: 0, scale: 0.8 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: index * 0.1 }} whileHover={{ scale: 1.05, y: -2 }} className="px-4 py-2 bg-white rounded-full shadow-md border border-emerald-100 text-sm font-semibold text-gray-700 cursor-pointer">
-                      {region}
+                  {regions.map((region, index) => (
+                    <motion.div key={region.id} initial={{ opacity: 0, scale: 0.8 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: index * 0.1 }} whileHover={{ scale: 1.05, y: -2 }} className="px-4 py-2 bg-white rounded-full shadow-md border border-emerald-100 text-sm font-semibold text-gray-700 cursor-pointer">
+                      {region.name}
                     </motion.div>
                   ))}
                 </div>
@@ -204,7 +222,7 @@ export function AboutUsClient({
         <EmptyState message="Hekayə bölməsi yüklənmədi" />
       )}
 
-      {/* Regions */}
+      {/* Regions – Şəkillər ön planda */}
       {regions.length > 0 ? (
         <section className="py-24 px-4 bg-white">
           <div className="max-w-7xl mx-auto">
@@ -218,30 +236,54 @@ export function AboutUsClient({
             </motion.div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {regions.map((region, index) => (
-                <motion.div key={region.id} initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: index * 0.1 }} whileHover={{ y: -10 }} className="group relative overflow-hidden rounded-3xl shadow-xl bg-white">
-                  {region.imageUrl ? (
-                    <div className="relative h-64 overflow-hidden">
-                      <Image src={region.imageUrl} alt={region.name} fill className="object-cover transition-transform duration-500 group-hover:scale-110" sizes="(max-width: 768px) 100vw, 33vw" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                    </div>
-                  ) : (
-                    <div className="h-64 bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center">
-                      <MapPin className="w-12 h-12 text-emerald-400" />
-                    </div>
-                  )}
-                  <div className="p-6">
+                <motion.div
+                  key={region.id}
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  whileHover={{ y: -10 }}
+                  className="group relative overflow-hidden rounded-3xl shadow-xl bg-white"
+                >
+                  {/* Şəkil mütləq göstərilir – yoxdursa placeholder */}
+                  <div className="relative h-64 overflow-hidden">
+                    {region.imageUrl ? (
+                      <Image
+                        src={region.imageUrl}
+                        alt={region.name}
+                        fill
+                        className="object-cover transition-transform duration-700 group-hover:scale-110"
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-emerald-100 to-teal-100 flex items-center justify-center">
+                        <MapPin className="w-12 h-12 text-emerald-400" />
+                      </div>
+                    )}
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                  </div>
+                  <div className="p-6 relative">
                     <h3 className="text-2xl font-bold text-gray-800 mb-2">{region.name}</h3>
-                    {region.description && <p className="text-gray-600 mb-4">{region.description}</p>}
+                    {region.description && (
+                      <p className="text-gray-600 mb-4 line-clamp-3">{region.description}</p>
+                    )}
                     {region.featuredProducts?.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {region.featuredProducts.slice(0, 3).map((product, i) => (
-                          <span key={i} className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold">{product}</span>
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        {region.featuredProducts.slice(0, 5).map((product, i) => (
+                          <span key={i} className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold">
+                            {product}
+                          </span>
                         ))}
-                        {region.featuredProducts.length > 3 && (
-                          <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold">+{region.featuredProducts.length - 3}</span>
+                        {region.featuredProducts.length > 5 && (
+                          <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-semibold">
+                            +{region.featuredProducts.length - 5}
+                          </span>
                         )}
                       </div>
-                    ) : null}
+                    ) : (
+                      <p className="text-sm text-gray-400">Məhsullar tezliklə</p>
+                    )}
                   </div>
                 </motion.div>
               ))}
@@ -254,10 +296,18 @@ export function AboutUsClient({
 
       {/* Values */}
       {valuesSection ? (
-        <section className="py-24 px-4 bg-gradient-to-br from-sky-600 via-teal-600 to-emerald-700 relative overflow-hidden">
+        <section className="py-24 px-4 relative overflow-hidden">
+          {valuesSection.imageUrl ? (
+            <div className="absolute inset-0">
+              <Image src={valuesSection.imageUrl} alt="Dəyərlərimiz" fill className="object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-br from-sky-600/90 via-teal-600/90 to-emerald-700/90" />
+            </div>
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-sky-600 via-teal-600 to-emerald-700" />
+          )}
           <div className="absolute inset-0">
-            {[...Array(15)].map((_, i) => (
-              <motion.div key={i} className="absolute w-1 h-1 bg-white/20 rounded-full" initial={{ x: Math.random() * winSize.w, y: Math.random() * winSize.h }} animate={{ y: [0, -50, 0], opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 4 + Math.random() * 2, repeat: Infinity, delay: Math.random() * 2 }} />
+            {stars.map((star, i) => (
+              <motion.div key={i} className="absolute w-1 h-1 bg-white/20 rounded-full" style={{ left: star.x, top: star.y }} animate={{ y: [0, -50, 0], opacity: [0.2, 0.5, 0.2] }} transition={{ duration: star.duration, repeat: Infinity, delay: star.delay }} />
             ))}
           </div>
           <div className="max-w-7xl mx-auto relative">
@@ -269,19 +319,6 @@ export function AboutUsClient({
             <motion.div initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }} className="max-w-4xl mx-auto">
               <p className="text-xl text-white/90 text-center leading-relaxed">{valuesSection.description}</p>
             </motion.div>
-            <div className="grid md:grid-cols-3 gap-8 mt-16">
-              {[
-                { icon: Leaf, title: 'Orqanik', desc: '100% təbii məhsullar' },
-                { icon: Shield, title: 'Keyfiyyət', desc: 'Qarantiya edilmiş təzəlik' },
-                { icon: Heart, title: 'Etibar', desc: 'Müştəri məmnuniyyəti' },
-              ].map((item, index) => (
-                <motion.div key={index} initial={{ opacity: 0, scale: 0.8 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: index * 0.1 }} whileHover={{ y: -5 }} className="bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 text-center">
-                  <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.6 }} className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-xl mb-4"><item.icon className="w-8 h-8 text-white" /></motion.div>
-                  <h3 className="text-xl font-bold text-white mb-2">{item.title}</h3>
-                  <p className="text-white/80">{item.desc}</p>
-                </motion.div>
-              ))}
-            </div>
           </div>
         </section>
       ) : (
@@ -292,10 +329,18 @@ export function AboutUsClient({
       {ctaSection ? (
         <section className="py-24 px-4 bg-white">
           <div className="max-w-5xl mx-auto">
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.8 }} className="relative bg-gradient-to-br from-emerald-500 via-teal-500 to-sky-600 rounded-3xl p-12 md:p-16 text-center overflow-hidden">
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ duration: 0.8 }} className="relative rounded-3xl p-12 md:p-16 text-center overflow-hidden">
+              {ctaSection.imageUrl ? (
+                <div className="absolute inset-0">
+                  <Image src={ctaSection.imageUrl} alt="CTA" fill className="object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/90 via-teal-500/90 to-sky-600/90" />
+                </div>
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 via-teal-500 to-sky-600" />
+              )}
               <div className="absolute inset-0">
-                {[...Array(10)].map((_, i) => (
-                  <motion.div key={i} className="absolute w-2 h-2 bg-white/30 rounded-full" initial={{ x: Math.random() * 800, y: Math.random() * 400 }} animate={{ y: [0, -30, 0], opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 3 + Math.random() * 2, repeat: Infinity, delay: Math.random() * 2 }} />
+                {stars.map((star, i) => (
+                  <motion.div key={i} className="absolute w-2 h-2 bg-white/30 rounded-full" style={{ left: star.x, top: star.y }} animate={{ y: [0, -30, 0], opacity: [0.3, 0.6, 0.3] }} transition={{ duration: star.duration, repeat: Infinity, delay: star.delay }} />
                 ))}
               </div>
               <div className="relative">

@@ -201,7 +201,7 @@ export type AppState = {
   updateCartItemQty: (pid: ID, vid: ID | undefined, qty: number) => void;
   removeCartItem: (pid: ID, vid: ID | undefined) => void;
   clearCart: () => void;
-  placeOrder: (o: Order) => void;
+  placeOrder: (o: Order) => Promise<Order>;  // 🔥 changed to async, returns order
   updateOrderStatus: (id: ID, status: OrderStatus) => void;
   cancelOrder: (id: ID, reason?: string) => void;
   assignDelivery: (orderId: ID, courierId: ID) => void;
@@ -346,8 +346,10 @@ export const useApp = create<AppState>()(
               ? parseFloat(p.basePrice)
               : p.basePrice) ??
             0;
+          // Use product.stock if available, otherwise calculate from variants
+          // If both are missing, default to 0 to avoid undefined
           const stock =
-            p.stock ??
+            (p.stock !== undefined && p.stock !== null) ? p.stock :
             variants.reduce(
               (sum: number, v: any) => sum + (Number(v.stock) || 0),
               0
@@ -373,26 +375,37 @@ export const useApp = create<AppState>()(
       setCategories: (categories) => set({ categories }),
       setOrders: (orders) => set({ orders }),
 
+      fetchInitialData: async () => {
+        if (typeof window === 'undefined') return;
+        try {
+          const [productsRes, categoriesRes] = await Promise.all([
+            fetch('/api/products', { cache: 'no-store', credentials: 'include' }),
+            fetch('/api/categories', { cache: 'no-store', credentials: 'include' }),
+          ]);
 
-fetchInitialData: async () => {
-  if (typeof window === 'undefined') return;
-  try {
-    const [productsRes, categoriesRes, ordersRes] = await Promise.all([
-      fetch('/api/products', { cache: 'no-store', credentials: 'include' }),
-      fetch('/api/categories', { cache: 'no-store', credentials: 'include' }),
-      fetch('/api/orders', { cache: 'no-store', credentials: 'include' }),
-    ]);
-    const productsData = await productsRes.json();
-    const categoriesData = await categoriesRes.json();
-    const ordersData = await ordersRes.json();
-    if (productsData.products) get().setProducts(productsData.products);
-    if (categoriesData) get().setCategories(categoriesData);
-    if (ordersData.orders) get().setOrders(ordersData.orders);
-  } catch (error) {
-    console.error('[Store] Failed to fetch initial data:', error);
-  }
-},
+          const productsData = await productsRes.json();
+          const categoriesData = await categoriesRes.json();
 
+          if (productsData.products) get().setProducts(productsData.products);
+          if (categoriesData) get().setCategories(categoriesData);
+
+          // ✅ Orders – yalnız admin panel üçün
+          try {
+            const ordersRes = await fetch('/api/orders', {
+              cache: 'no-store',
+              credentials: 'include',
+            });
+            if (ordersRes.ok) {
+              const ordersData = await ordersRes.json();
+              if (ordersData.orders) get().setOrders(ordersData.orders);
+            }
+          } catch {
+            // ignore
+          }
+        } catch (error) {
+          console.error('[Store] Failed to fetch initial data:', error);
+        }
+      },
       startRealtimeSync: () => {
         if (typeof window === 'undefined') return;
         get().stopRealtimeSync();
@@ -782,8 +795,10 @@ fetchInitialData: async () => {
               ? parseFloat(p.basePrice)
               : p.basePrice) ??
             0;
+          // Use product.stock if available, otherwise calculate from variants
+          // If both are missing, default to 0 to avoid undefined
           const stock =
-            p.stock ??
+            (p.stock !== undefined && p.stock !== null) ? p.stock :
             variants.reduce(
               (sum: number, v: any) => sum + (Number(v.stock) || 0),
               0
@@ -833,6 +848,15 @@ fetchInitialData: async () => {
                 ? parseFloat(merged.basePrice)
                 : merged.basePrice) ??
               0;
+
+            // Recalculate stock from variants if variants were updated
+            // Otherwise keep existing stock value
+            if (p.variants) {
+              merged.stock = variants.reduce(
+                (sum: number, v: any) => sum + (Number(v.stock) || 0),
+                0
+              );
+            }
 
             merged.basePrice =
               typeof merged.basePrice === 'string'
@@ -1058,54 +1082,96 @@ fetchInitialData: async () => {
         })),
       removeFromCart: (pid, vid) => get().removeCartItem(pid, vid),
       clearCart: () => set({ cart: [] }),
-      placeOrder: (o: Order) =>
-        set((s) => {
-          const items = o.items.map((it) => ({
-            ...it,
-            costAtOrder:
-              it.costAtOrder ??
-              (Number(it.priceAtOrder) * 0.6).toFixed(2),
-            subtotal:
-              it.subtotal ??
-              (Number(it.priceAtOrder) * it.qty).toFixed(2),
-          }));
-          const products = s.products.map((p) => {
-            const lineItems = items.filter((i) => i.productId === p.id);
-            if (!lineItems.length) return p;
-            return {
-              ...p,
-              variants: (p.variants ?? []).map((v) => {
-                const li = lineItems.find((i) => i.variantId === v.id);
-                if (!li) return v;
-                return {
-                  ...v,
-                  stock: Math.max(0, Number(v.stock || 0) - li.qty),
-                };
-              }),
-            };
+
+      // ── 🔥 Refactored: placeOrder now calls the API ────────────────────
+      placeOrder: async (o: Order): Promise<Order> => {
+        // Prepare the payload matching the API schema (strings for decimals)
+        const payload = {
+          customerName: o.customerName,
+          customerPhone: o.customerPhone,
+          customerEmail: o.customerEmail,
+          deliveryAddressText: o.deliveryAddressText || o.address || '',
+          deliveryAddressId: o.deliveryAddressId,
+          subtotal: o.subtotal?.toString() ?? '0',
+          discountAmount: o.discountAmount?.toString() ?? '0',
+          deliveryFee: o.deliveryFee?.toString() ?? '0',
+          total: o.total?.toString() ?? '0',
+          couponCode: o.couponCode,
+          couponDiscount: o.couponDiscount?.toString() ?? '0',
+          paymentMethod:
+            o.paymentMethod === 'CARD'
+              ? 'CARD'
+              : o.paymentMethod === 'CASH_ON_DELIVERY'
+              ? 'CASH_ON_DELIVERY'
+              : 'CASH_ON_DELIVERY', // fallback
+          status: 'PENDING',
+          paymentStatus: 'UNPAID',
+          items: o.items.map((item) => ({
+            productId: item.productId,
+            variantId: item.variantId || 'default',
+            productName: item.productName,
+            variantName: item.variantName,
+            qty: item.qty,
+            unit: item.unit,
+            priceAtOrder: item.priceAtOrder,
+            costAtOrder: item.costAtOrder,
+            subtotal: item.subtotal,
+          })),
+          customerNotes: o.customerNotes,
+          note: o.note,
+          // If you need delivery time slot, pass here
+          deliveryDate: o.deliveryDate,
+          deliveryTimeSlot: o.deliveryTimeSlot,
+        };
+
+        let response: Response;
+        try {
+          response = await fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload),
           });
-          const orderSaved: Order = { ...o, items };
-          return {
-            products,
-            orders: [orderSaved, ...s.orders],
-            notifications: [
-              {
-                id: cryptoId(),
-                type: 'order',
-                refId: o.id,
-                text: `Yeni sifariş (${items.length} sətir)`,
-                createdAt: new Date().toISOString(),
-                read: false,
-              },
-              ...s.notifications,
-            ],
-            cart: [],
-          };
-        }),
+        } catch (networkError) {
+          throw new Error('Şəbəkə xətası. Zəhmət olmasa yenidən cəhd edin.');
+        }
+
+        if (!response.ok) {
+          let errorMessage = 'Sifariş yaradılarkən xəta';
+          try {
+            const errData = await response.json();
+            if (errData.error) errorMessage = errData.error;
+          } catch {}
+          throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+        const newOrder = data.order;
+
+        // Update local state: add order, clear cart, notification
+        set((s) => ({
+          orders: [newOrder, ...s.orders],
+          cart: [],
+          notifications: [
+            {
+              id: cryptoId(),
+              type: 'order',
+              refId: newOrder.id,
+              text: `Sifariş #${newOrder.orderNumber} yaradıldı`,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+            ...s.notifications,
+          ],
+        }));
+
+        return newOrder;
+      },
+
       updateOrderStatus: (id, status) => {
         set((s) => ({
           orders: s.orders.map((o) =>
-            o.id === id ? { ...o, status } : o
+            o.id === id ? { ...o, status: status as any } : o
           ),
         }));
       },
@@ -1245,7 +1311,7 @@ fetchInitialData: async () => {
       variantFinalPrice: (p, v) => calcVariantFinalPrice(p, v),
     }),
     {
-      name: 'organik-gedebey-store-v2', // ✅ yeni açar – köhnə data təmizlənir
+      name: 'organik-gedebey-store-v2',
       storage: createJSONStorage(() => {
         if (typeof window !== 'undefined') return window.localStorage;
         return {

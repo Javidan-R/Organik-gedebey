@@ -6,7 +6,7 @@ import type { Category, ID } from '@/lib/types';
 
 const CATEGORIES_QUERY_KEY = ['categories'];
 
-// ─── FETCH ALL ──────────────────────────────────────────────────
+// ─── FETCH ALL (PUBLIC - storefront üçün) ─────────────────────────
 async function fetchCategories(): Promise<Category[]> {
   const res = await fetch('/api/categories');
   if (!res.ok) {
@@ -15,6 +15,39 @@ async function fetchCategories(): Promise<Category[]> {
   }
   const data = await res.json();
   return data.categories || data;
+}
+
+// ─── FETCH ALL (ADMIN - bütün kateqoriyalar üçün) ─────────────────
+async function fetchAdminCategories(): Promise<Category[]> {
+  const res = await fetch('/api/admin/categories', {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Kateqoriyalar yüklənərkən xəta');
+  }
+  const data = await res.json();
+  return data.categories || data;
+}
+
+export function useAdminCategories() {
+  const setCategories = useApp((state) => state.setCategories);
+
+  const query = useQuery({
+    queryKey: ['admin-categories'],
+    queryFn: fetchAdminCategories,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+
+  useEffect(() => {
+    if (query.data) {
+      setCategories(query.data);
+    }
+  }, [query.data, setCategories]);
+
+  return query;
 }
 
 export function useCategories() {

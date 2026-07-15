@@ -1,4 +1,4 @@
-// app/(storefront)/cart/page.tsx
+// src/app/(storefront)/cart/page.tsx
 'use client';
 
 import { useApp, useHasHydrated } from '@/lib/store';
@@ -10,12 +10,15 @@ import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import {
   Trash2, Minus, Plus, ShoppingCart, Shield, Clock,
-  Sparkles, ArrowLeft, CreditCard, MessageCircle, Percent,
+  Sparkles, ArrowLeft, CreditCard, MessageCircle, Percent, Gift,
 } from 'lucide-react';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { calculateDeliveryFee, getDeliveryPercentage } from '@/lib/calc';
 import { Button } from '@/components/atoms/button';
+import { useQueryClient } from '@tanstack/react-query';
+import { useBasketStore } from '@/stores/basketStore';
+import Image from 'next/image';
 
 const HowItWorksModal = dynamic(
   () =>
@@ -73,7 +76,6 @@ const PLACEHOLDER_IMAGE =
   'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23f3f4f6" width="400" height="400"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="24" fill="%239ca3af"%3EŞəkil yoxdur%3C/text%3E%3C/svg%3E';
 
 export default function CartPage() {
-  // ─── BÜTÜN HOOKLAR ŞƏRTSİZ ÇAĞIRILIR ───
   const hasHydrated = useHasHydrated();
   const {
     cart,
@@ -81,24 +83,48 @@ export default function CartPage() {
     removeCartItem,
     updateCartItemQty,
     productPriceNow,
-    cartTotal,
     clearCart,
   } = useApp();
   const { isAuthenticated } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const queryClient = useQueryClient();
+
+  // Basket store-dan basket məhsulları
+  const basketItems = useBasketStore((state) => state.items);
+  const removeBasketItem = useBasketStore((state) => state.removeItem);
+  const updateBasketQty = useBasketStore((state) => state.updateQuantity);
+  const clearBasketItems = useBasketStore((state) => state.clearItems);
 
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
 
-  const total = cartTotal();
+  // ─── Məhsul səbəti hesablamaları ────────────────────────
+  const productCartTotal = useMemo(
+    () =>
+      cart.reduce((sum, c) => {
+        const p = products.find((x) => x.id === c.productId);
+        const v =
+          p?.variants?.find((x) => x.id === c.variantId) ?? p?.variants?.[0];
+        if (!p || !v) return sum;
+        return sum + productPriceNow(p, v) * c.qty;
+      }, 0),
+    [cart, products, productPriceNow]
+  );
+
+  // ─── Basket səbəti cəmi ────────────────────────────────
+  const basketTotal = useMemo(
+    () => basketItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [basketItems]
+  );
+
+  const total = productCartTotal + basketTotal;
   const discountPercent = 0;
   const discountAmount = (total * discountPercent) / 100;
   const afterDiscount = total - discountAmount;
   const deliveryFee = calculateDeliveryFee(afterDiscount);
   const currentPct = getDeliveryPercentage(afterDiscount);
 
-  // ─── useEffect – checkout modal yoxlaması ───
   useEffect(() => {
     const openCheckout = searchParams.get('openCheckout');
     if (openCheckout !== '1') return;
@@ -119,19 +145,19 @@ export default function CartPage() {
     }
   }, [searchParams, isAuthenticated, pathname, router]);
 
-  // ─── useMemo – səbət elementləri ───
-  const cartItems = useMemo(() => {
+  // ─── Məhsul səbəti elementləri (göstərmək üçün) ──────────
+  const productCartItems = useMemo(() => {
     if (!hasHydrated || !products.length) return [];
     return cart
       .map((c) => {
         const p = products.find((x) => x.id === c.productId);
         const v =
-          p?.variants?.find((x) => x.id === c.variantId) ??
-          p?.variants?.[0];
+          p?.variants?.find((x) => x.id === c.variantId) ?? p?.variants?.[0];
         if (!p || !v) return null;
         const price = productPriceNow(p, v);
         return {
           id: `${c.productId}_${c.variantId || 'default'}`,
+          type: 'product' as const,
           name: p.name,
           qty: c.qty,
           price,
@@ -147,9 +173,30 @@ export default function CartPage() {
       .filter((x): x is NonNullable<typeof x> => x !== null);
   }, [hasHydrated, cart, products, productPriceNow]);
 
-  const itemCount = cart.reduce((sum, c) => sum + c.qty, 0);
+  // Basket məhsullarını da göstərmək üçün formatla
+  const basketCartItems = useMemo(
+    () =>
+      basketItems.map((item) => ({
+        id: `basket_${item.basketId}_${item.variantId}`,
+        type: 'basket' as const,
+        name: item.basketName,
+        variant: item.variantName,
+        qty: item.quantity,
+        price: item.price,
+        image: item.image,
+        stock: item.stock,
+        basketId: item.basketId,
+        variantId: item.variantId,
+        contents: item.contents,
+        extras: item.extras,
+        originalPrice: item.originalPrice,
+      })),
+    [basketItems]
+  );
 
-  // ─── useCallback – checkout modal aç ───
+  const allItems = [...productCartItems, ...basketCartItems];
+  const itemCount = allItems.reduce((sum, i) => sum + i.qty, 0);
+
   const handleOpenCheckout = useCallback(() => {
     if (!isAuthenticated) {
       router.push(
@@ -160,7 +207,6 @@ export default function CartPage() {
     }
   }, [isAuthenticated, router]);
 
-  // ─── useCallback – sifarişi yarat + WhatsApp ───
   const handlePlaceOrder = useCallback(
     async (customerInfo: {
       firstName?: string;
@@ -170,7 +216,7 @@ export default function CartPage() {
       address?: string;
       note?: string;
     }): Promise<void> => {
-      if (!cart.length) {
+      if (!cart.length && !basketItems.length) {
         toast.error('Səbət boşdur!');
         return;
       }
@@ -182,11 +228,58 @@ export default function CartPage() {
       const customerFullName =
         `${customerInfo.firstName || ''} ${customerInfo.lastName || ''}`.trim();
 
-      // ─── API üçün order data ───
+      const customerPhone = customerInfo.phone?.trim();
+      if (!customerPhone || customerPhone.length < 9) {
+        toast.error('Düzgün telefon nömrəsi daxil edin (ən azı 9 rəqəm)');
+        throw new Error('Telefon nömrəsi etibarsızdır');
+      }
+
+      if (
+        customerInfo.deliveryMethod === 'delivery' &&
+        !customerInfo.address?.trim()
+      ) {
+        toast.error('Çatdırılma ünvanı tələb olunur');
+        throw new Error('Çatdırılma ünvanı qeyd edilməyib');
+      }
+
+      // Məhsul səbətini order items-ə çevir
+      const productOrderItems = cart.map((c) => {
+        const p = products.find((x) => x.id === c.productId);
+        if (!p) throw new Error(`Məhsul tapılmadı: ${c.productId}`);
+        const v =
+          p?.variants?.find((x) => x.id === c.variantId) ?? p?.variants?.[0];
+        if (!v) throw new Error(`Variant tapılmadı: ${p.name}`);
+        const variantId: string = v?.id ?? 'default';
+        return {
+          productId: c.productId,
+          variantId,
+          productName: p.name,
+          variantName: v.name,
+          qty: c.qty,
+          unit: null,
+          priceAtOrder: productPriceNow(p!, v!).toFixed(2),
+          costAtOrder: (v.costPrice || 0).toFixed(2),
+          subtotal: (productPriceNow(p!, v!) * c.qty).toFixed(2),
+        };
+      });
+
+      // Basket məhsullarını order items-ə çevir (hamısını bir sətir kimi)
+      const basketOrderItems = basketItems.map((bi) => ({
+        productId: `basket-${bi.basketId}`,
+        variantId: `basket-${bi.variantId}`,
+        productName: `${bi.basketName} (${bi.variantName})`,
+        variantName: bi.variantName,
+        qty: bi.quantity,
+        unit: 'səbət',
+        priceAtOrder: bi.price.toFixed(2),
+        costAtOrder: '0',
+        subtotal: (bi.price * bi.quantity).toFixed(2),
+      }));
+
       const orderData = {
         orderNumber,
         customerName: customerFullName || 'Anonim Müştəri',
-        customerPhone: customerInfo.phone || '+994000000000',
+        customerPhone: customerPhone,
         deliveryAddressText:
           customerInfo.deliveryMethod === 'delivery'
             ? customerInfo.address || 'Ünvan qeyd edilməyib'
@@ -205,58 +298,83 @@ export default function CartPage() {
         paymentMethod: 'CASH_ON_DELIVERY',
         customerNotes: customerInfo.note || null,
         adminNotes: null,
-        items: cart.map((c) => {
-          const p = products.find((x) => x.id === c.productId);
-          const v =
-            p?.variants?.find((x) => x.id === c.variantId) ??
-            p?.variants?.[0];
-          // variantId həmişə string olmalıdır: UUID varsa o, yoxdursa 'default'
-          const variantId: string = v?.id ?? 'default';
-          return {
-            productId: c.productId,
-            variantId,
-            productName: p?.name || 'Məhsul',
-            variantName: v?.name || 'Standart',
-            qty: c.qty,
-            unit: null,
-            priceAtOrder: productPriceNow(p!, v!).toFixed(2),
-            costAtOrder: (v?.costPrice || 0).toFixed(2),
-            subtotal: (productPriceNow(p!, v!) * c.qty).toFixed(2),
-          };
-        }),
+        items: [...productOrderItems, ...basketOrderItems],
         note: customerInfo.note || null,
       };
 
-      try {
-        const response = await fetch('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderData),
-          credentials: 'include',
-        });
+      let createdOrder: any = null;
+      let retryCount = 0;
+      const maxRetries = 2;
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Sifariş yaradıla bilmədi');
+      while (retryCount <= maxRetries) {
+        try {
+          const response = await fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData),
+            credentials: 'include',
+          });
+          const responseData = await response.json();
+          if (!response.ok) {
+            if (response.status === 409) {
+              toast.error(responseData.error || 'Stok problemi');
+              throw new Error(responseData.error || 'Stok problemi');
+            }
+            if (response.status === 400 && responseData.details) {
+              const validationErrors = responseData.details
+                .map((d: any) => d.message)
+                .join(', ');
+              toast.error(`Validasiya xətası: ${validationErrors}`);
+              throw new Error(validationErrors);
+            }
+            if (retryCount < maxRetries) {
+              retryCount++;
+              await new Promise((resolve) =>
+                setTimeout(resolve, 1000 * retryCount)
+              );
+              continue;
+            }
+            throw new Error(responseData.error || 'Sifariş yaradıla bilmədi');
+          }
+          createdOrder = responseData.order;
+          break;
+        } catch (error) {
+          if (retryCount === maxRetries) {
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : 'Sifariş yaradılarkən xəta baş verdi'
+            );
+            throw error;
+          }
+          retryCount++;
         }
+      }
 
-        // WhatsApp mesajı
-        const dateStr = createdAt.toLocaleDateString('az-AZ', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
+      if (!createdOrder) {
+        toast.error('Sifariş yaradıla bilmədi.');
+        throw new Error('Order creation failed');
+      }
 
-        const itemsText = cartItems
-          .map(
-            (item) =>
-              `🛒 *${item.name}*${item.variant ? ` (${item.variant})` : ''}  ×${item.qty} — ${(item.price * item.qty).toFixed(2)} AZN`
-          )
-          .join('\n');
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      window.dispatchEvent(new Event('orders-updated'));
 
-        const message = `
+      const dateStr = createdAt.toLocaleDateString('az-AZ', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      const itemsText = allItems
+        .map(
+          (item) =>
+            `🛒 *${item.name}*${item.variant ? ` (${item.variant})` : ''}  ×${item.qty} — ${(item.price * item.qty).toFixed(2)} AZN`
+        )
+        .join('\n');
+
+      const message = `
 🌿 *ORGANİK GƏDƏBƏY* 🌿
 ━━━━━━━━━━━━━━━━━━━━━━━
 📦 *YENİ SİFARİŞ* #${orderNumber}
@@ -265,8 +383,8 @@ export default function CartPage() {
 
 👤 *Müştəri məlumatları*
 ${customerFullName ? `👤 Ad: ${customerFullName}` : ''}
-📞 Telefon: ${customerInfo.phone || '—'}
-${customerInfo.deliveryMethod === 'delivery' ? `🚚 Çatdırılma ünvanı: ${customerInfo.address || '—'}` : '🏪 Özü götürmə'}
+📞 Telefon: ${customerPhone}
+${customerInfo.deliveryMethod === 'delivery' ? `🚚 Çatdırılma ünvanı: ${customerInfo.address}` : '🏪 Özü götürmə'}
 ${customerInfo.note ? `📝 Qeyd: ${customerInfo.note}` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━
@@ -283,32 +401,22 @@ ${fee > 0 ? `🚚 Çatdırılma haqqı (%${currentPct}): ${fee.toFixed(2)} AZN` 
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 ✅ *Sifarişiniz qəbul edildi!*
-📌 Sifariş statusunu izləmək üçün əlaqə saxlayın.
 🙏 Təşəkkür edirik! Sağlamlıqla istifadə edin.
-        `.trim();
+      `.trim();
 
-        window.open(
-          `https://wa.me/994773676021?text=${encodeURIComponent(message)}`,
-          '_blank'
-        );
+      const whatsappUrl = `https://wa.me/994773676021?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
 
-        clearCart();
-        toast.success('Sifariş qəbul edildi!');
-      } catch (error) {
-        console.error('Order error:', error);
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : 'Sifariş yaradılarkən xəta baş verdi'
-        );
-        throw error;
-      }
+      clearCart();
+      clearBasketItems();
+      toast.success('Sifariş uğurla yaradıldı!');
     },
     [
       cart,
       products,
-      cartItems,
+      basketItems,
       clearCart,
+      clearBasketItems,
       productPriceNow,
       total,
       afterDiscount,
@@ -316,10 +424,10 @@ ${fee > 0 ? `🚚 Çatdırılma haqqı (%${currentPct}): ${fee.toFixed(2)} AZN` 
       currentPct,
       discountAmount,
       discountPercent,
+      queryClient,
     ]
   );
 
-  // ─── Hydration yoxlanışı ───
   if (!hasHydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-emerald-50/30 to-white">
@@ -332,8 +440,7 @@ ${fee > 0 ? `🚚 Çatdırılma haqqı (%${currentPct}): ${fee.toFixed(2)} AZN` 
     );
   }
 
-  // Boş səbət
-  if (!cart.length) {
+  if (!cart.length && !basketItems.length) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center bg-gradient-to-b from-emerald-50/50 to-white p-4">
         <motion.div
@@ -363,7 +470,6 @@ ${fee > 0 ? `🚚 Çatdırılma haqqı (%${currentPct}): ${fee.toFixed(2)} AZN` 
     );
   }
 
-  // ─── UI ───
   return (
     <main className="min-h-screen bg-gradient-to-b from-emerald-50/30 to-white py-8 px-4">
       <Toaster position="top-center" />
@@ -383,7 +489,14 @@ ${fee > 0 ? `🚚 Çatdırılma haqqı (%${currentPct}): ${fee.toFixed(2)} AZN` 
               </span>
             </h1>
           </div>
-          <Button onClick={clearCart} variant="ghost" className="text-xs">
+          <Button
+            onClick={() => {
+              clearCart();
+              clearBasketItems();
+            }}
+            variant="ghost"
+            className="text-xs"
+          >
             <Trash2 className="w-4 h-4" /> Səbəti təmizlə
           </Button>
         </div>
@@ -392,78 +505,102 @@ ${fee > 0 ? `🚚 Çatdırılma haqqı (%${currentPct}): ${fee.toFixed(2)} AZN` 
       <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-3">
           <AnimatePresence>
-            {cart.map((c, idx) => {
-              const p = products.find((x) => x.id === c.productId);
-              const v =
-                p?.variants?.find((x) => x.id === c.variantId) ??
-                p?.variants?.[0];
-              if (!p || !v) return null;
-              const price = productPriceNow(p, v);
-              const itemTotal = price * c.qty;
-              return (
-                <motion.div
-                  key={c.productId + (c.variantId || '')}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow p-4"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+            {allItems.map((item, idx) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ delay: idx * 0.05 }}
+                className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow p-4"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                    {item.type === 'product' ? (
                       <CldImage
-                        src={p.images?.[0]?.url || PLACEHOLDER_IMAGE}
-                        alt={p.name}
+                        src={item.image || PLACEHOLDER_IMAGE}
+                        alt={item.name}
                         width="500"
                         height="500"
                         crop={{ type: 'auto', source: true }}
                       />
-                      {p.discountType && (
-                        <div className="absolute top-0 left-0 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-br-lg">
-                          Endirim
-                        </div>
+                    ) : (
+                      <Image
+                        src={item.image || PLACEHOLDER_IMAGE}
+                        alt={item.name}
+                        width={500}
+                        height={500}
+                        className="object-cover"
+                      />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-gray-900 truncate flex items-center gap-2">
+                      {item.name}
+                      {item.type === 'basket' && (
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">
+                          <Gift className="w-3 h-3" /> Səbət
+                        </span>
                       )}
+                    </h3>
+                    {item.variant && (
+                      <p className="text-xs text-gray-500">{item.variant}</p>
+                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-emerald-600 font-bold">
+                        {item.price.toFixed(2)} ₼
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-900 truncate">
-                        {p.name}
-                      </h3>
-                      {!v.isDefault && (
-                        <p className="text-xs text-gray-500">{v.name}</p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-emerald-600 font-bold">
-                          {price.toFixed(2)} ₼
-                        </span>
-                        {p.basePrice && Number(p.basePrice) > price && (
-                          <span className="text-xs text-gray-400 line-through">
-                            {Number(p.basePrice).toFixed(2)} ₼
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-2 flex items-center justify-between">
-                        <QuantityControl
-                          qty={c.qty}
-                          onDecrease={() =>
-                            updateCartItemQty(c.productId, c.variantId, c.qty - 1)
+                    <div className="mt-2 flex items-center justify-between">
+                      <QuantityControl
+                        qty={item.qty}
+                        onDecrease={() => {
+                          if (item.type === 'product') {
+                            updateCartItemQty(
+                              item.productId,
+                              item.variantId,
+                              item.qty - 1
+                            );
+                          } else {
+                            updateBasketQty(
+                              item.basketId,
+                              item.variantId,
+                              item.qty - 1
+                            );
                           }
-                          onIncrease={() =>
-                            updateCartItemQty(c.productId, c.variantId, c.qty + 1)
+                        }}
+                        onIncrease={() => {
+                          if (item.type === 'product') {
+                            updateCartItemQty(
+                              item.productId,
+                              item.variantId,
+                              item.qty + 1
+                            );
+                          } else {
+                            updateBasketQty(
+                              item.basketId,
+                              item.variantId,
+                              item.qty + 1
+                            );
                           }
-                          onRemove={() =>
-                            removeCartItem(c.productId, c.variantId)
+                        }}
+                        onRemove={() => {
+                          if (item.type === 'product') {
+                            removeCartItem(item.productId, item.variantId);
+                          } else {
+                            removeBasketItem(item.basketId, item.variantId);
                           }
-                          max={v.stock || 999}
-                        />
-                        <span className="font-black text-lg text-gray-800">
-                          {itemTotal.toFixed(2)} ₼
-                        </span>
-                      </div>
+                        }}
+                        max={item.stock || 999}
+                      />
+                      <span className="font-black text-lg text-gray-800">
+                        {(item.price * item.qty).toFixed(2)} ₼
+                      </span>
                     </div>
                   </div>
-                </motion.div>
-              );
-            })}
+                </div>
+              </motion.div>
+            ))}
           </AnimatePresence>
           <div className="bg-emerald-50 rounded-2xl p-4 flex items-center gap-3 border border-emerald-100">
             <Shield className="w-5 h-5 text-emerald-600 flex-shrink-0" />
@@ -571,17 +708,13 @@ ${fee > 0 ? `🚚 Çatdırılma haqqı (%${currentPct}): ${fee.toFixed(2)} AZN` 
         <HowItWorksModal
           open={showCheckoutModal}
           onClose={() => setShowCheckoutModal(false)}
-          cartItems={cartItems.map((item) => ({
+          cartItems={allItems.map((item) => ({
             name: item.name,
             qty: item.qty,
             price: item.price,
             variant: item.variant,
             image: item.image,
             stock: item.stock,
-            productId: item.productId,
-            variantId: item.variantId,
-            product: item.product,
-            variantObj: item.variantObj,
           }))}
           cartTotal={afterDiscount}
           onPlaceOrder={handlePlaceOrder}

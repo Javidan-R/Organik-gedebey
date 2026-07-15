@@ -1,3 +1,4 @@
+// src/app/(storefront)/HomePageClient.tsx
 'use client';
 
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
@@ -44,6 +45,7 @@ import {
   filterBreakfastProducts,
 } from '@/utils';
 import { FreshTodayStoryBar } from '@/components/ui/molecules/FreshTodayStoryBar';
+import type { FreshStoryItem } from '@/components/ui/molecules/FreshTodayStoryBar';
 import { FreshTodayStoryModal } from '@/components/ui/molecules/FreshTodayStoryModal';
 import { ScrollProgressBar } from '@/components/common/ScrollProgressBar';
 import { SkeletonLoader } from '@/components/common/SkeletonLoader';
@@ -67,17 +69,60 @@ const FlashDealCard = dynamic(
 
 const HowItWorksInfoModal = dynamic(
   () => import('@/components/ui/molecules/HowItWorksModal').then(mod => mod.HowItWorksModal),
-  { 
+  {
     ssr: false,
-    loading: () => <div className="hidden" /> // Fallback
+    loading: () => <div className="hidden" />
   }
 );
+
 interface HomePageClientProps {
   initialData: {
     products: Product[];
     categories: Category[];
     orders?: Order[];
   };
+}
+
+// ─── Köməkçi: regiona görə fermer rəngi ──────────────────
+const REGION_COLORS: Record<string, string> = {
+  'Gədəbəy': 'bg-emerald-500',
+  'Tovuz': 'bg-amber-500',
+  'Gəncə': 'bg-blue-500',
+  'Şəmkir': 'bg-purple-500',
+  'Daşkəsən': 'bg-rose-500',
+  'Qax': 'bg-teal-500',
+  'Zaqatala': 'bg-indigo-500',
+};
+
+function getFarmerColor(region: string): string {
+  return REGION_COLORS[region] ?? 'bg-emerald-500';
+}
+
+// ─── Köməkçi: kateqoriya emojisi ─────────────────────────
+const CATEGORY_EMOJI: Record<string, string> = {
+  'meyvə': '🍎',
+  'tərəvəz': '🥬',
+  'süd': '🥛',
+  'bal': '🍯',
+  'taxıl': '🌾',
+  'pendir': '🧀',
+  'göyərti': '🌿',
+  'yumurta': '🥚',
+  'quru meyvələr': '🥜',
+  'ədviyyatlar': '🌶️',
+  'çaylar': '🍵',
+  'şirniyyatlar': '🍪',
+  'ət': '🥩',
+  'digər': '🌿',
+};
+
+function getCategoryEmoji(categoryName?: string): string {
+  if (!categoryName) return '🌿';
+  const lower = categoryName.toLowerCase();
+  for (const [key, emoji] of Object.entries(CATEGORY_EMOJI)) {
+    if (lower.includes(key)) return emoji;
+  }
+  return '🌿';
 }
 
 export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
@@ -123,28 +168,20 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
   const weather = useWeather();
   const [scrollVisible, scrollToTop] = useScrollToTop();
 
-  // Use addToRecent when user views a product
   const handleProductView = useCallback((productId: string) => {
     addToRecent(productId);
   }, [addToRecent]);
 
-  // Use timeOfDay for personalized greeting
   const greeting = useMemo(() => {
     switch (timeOfDay) {
-      case 'morning':
-        return 'Xeyirin sabahlar! ☀️';
-      case 'day':
-        return 'Xeyirli gün! 🌤️';
-      case 'evening':
-        return 'Xeyirli axşam! 🌅';
-      case 'night':
-        return 'Gecən xeyir! 🌙';
-      default:
-        return 'Salam! 👋';
+      case 'morning': return 'Xeyirin sabahlar! ☀️';
+      case 'day': return 'Xeyirli gün! 🌤️';
+      case 'evening': return 'Xeyirli axşam! 🌅';
+      case 'night': return 'Gecən xeyir! 🌙';
+      default: return 'Salam! 👋';
     }
   }, [timeOfDay]);
 
-  // Use formatTimer for flash deals
   const flashDealTimer = formatTimer(secondsLeft);
 
   const handleRefresh = useCallback(async () => {
@@ -155,43 +192,107 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
 
   const isRefreshing = usePullToRefresh(handleRefresh);
 
-  // Story üçün məhsullar - transform to FreshStoryItem format
-  const storyProducts = useMemo(() => {
-    const items = products
-      .filter(
-        (p) =>
-          !p.archived &&
-          (p.isNewArrival ||
-            p.statusTags?.includes('newArrival') ||
-            p.statusTags?.includes('seasonal'))
-      )
-      .slice(0, 12)
-      .map((p) => {
-        const createdAt = new Date(p.createdAt).getTime();
-        const hoursAgo = Math.floor((Date.now() - createdAt) / (1000 * 60 * 60));
-        return {
-          id: p.id,
-          productName: p.name,
-          farmName: p.originRegion || 'Gədəbəy Ferması',
-          farmerInitials: (p.originRegion || 'GF').substring(0, 2).toUpperCase(),
-          farmerColor: 'bg-emerald-500',
-          region: p.originRegion || 'Gədəbəy',
-          category: (p.category?.name || 'digər') as any,
-          hoursAgo,
-          availableToday: (p.variants?.[0]?.stock || p.stock || 0) > 0,
-          stockLeft: p.variants?.[0]?.stock || p.stock || 0,
-          imageEmoji: '🌿',
-          imageSrc: p.images?.[0]?.url,
-          isNew: p.isNewArrival,
-          isBestSeller: p.isFeatured,
-          pricePerUnit: `${p.variants?.[0]?.price || p.basePrice}₼/${p.unit || 'ədəd'}`,
-          soldToday: Math.floor(Math.random() * 50),
-          rating: 4.5 + Math.random() * 0.5,
-        };
-      });
+  // ─── REAL DATA ilə zənginləşdirilmiş Hekayə Məhsulları ───
+  const storyProducts: FreshStoryItem[] = useMemo(() => {
+    if (!products.length) return [];
 
-    return items;
-  }, [products]);
+    // Bu günün tarix aralığı
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // Bu gün satılmış məhsulların sayını hesabla (orders varsa)
+    const soldTodayMap = new Map<string, number>();
+    if (orders && orders.length > 0) {
+      orders.forEach((order) => {
+        const orderDate = new Date(order.createdAt);
+        if (orderDate >= todayStart && orderDate <= todayEnd) {
+          order.items?.forEach((item: any) => {
+            const pid = item.productId;
+            soldTodayMap.set(pid, (soldTodayMap.get(pid) || 0) + item.qty);
+          });
+        }
+      });
+    }
+
+    // Hekayəyə uyğun məhsulları süz
+    const storyCandidates = products.filter(
+      (p) =>
+        !p.archived &&
+        (p.isNewArrival ||
+         p.statusTags?.includes('newArrival') ||
+         p.statusTags?.includes('seasonal') ||
+         p.statusTags?.includes('fresh') ||
+         p.isSeasonal)
+    );
+
+    // Sıralama: təzəlik + satış həcmi
+    const sorted = storyCandidates.sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (aTime !== bTime) return bTime - aTime;
+      const aSold = soldTodayMap.get(a.id) || 0;
+      const bSold = soldTodayMap.get(b.id) || 0;
+      return bSold - aSold;
+    });
+
+    const topItems = sorted.slice(0, 12);
+
+    return topItems.map((p): FreshStoryItem => {
+      const createdAt = p.createdAt ? new Date(p.createdAt).getTime() : 0;
+      const hoursAgo = createdAt ? Math.floor((Date.now() - createdAt) / (1000 * 60 * 60)) : 0;
+      const stock = p.variants?.[0]?.stock ?? p.stock ?? 0;
+      const region = p.originRegion || 'Gədəbəy';
+
+      // Fermer adı: originRegion + "Ferması"
+      const farmName = region ? `${region} Ferması` : 'Gədəbəy Ferması';
+
+      // Baş hərflər
+      const initials = region
+        ? region.slice(0, 2).toUpperCase()
+        : 'GF';
+
+      const soldToday = soldTodayMap.get(p.id) || 0;
+
+      // Qiymət formatı
+      const price = p.variants?.[0]?.price ?? p.basePrice;
+      const pricePerUnit = `₼${Number(price).toFixed(2)}/${p.unit || 'ədəd'}`;
+
+      // Məhsulun ilk şəkli
+      const imageSrc = p.images?.[0]?.url || p.image;
+
+      // Kateqoriya tipini təyin et
+      const catName = p.category?.name?.toLowerCase() || '';
+      let category: FreshStoryItem['category'] = 'digər';
+      if (catName.includes('meyvə')) category = 'meyvə';
+      else if (catName.includes('tərəvəz')) category = 'tərəvəz';
+      else if (catName.includes('süd') || catName.includes('pendir') || catName.includes('qaymaq')) category = 'süd';
+      else if (catName.includes('bal')) category = 'bal';
+      else if (catName.includes('taxıl') || catName.includes('un')) category = 'taxıl';
+
+      return {
+        id: p.id,
+        productName: p.name,
+        farmName,
+        farmerInitials: initials,
+        farmerColor: getFarmerColor(region),
+        region,
+        category,
+        hoursAgo,
+        availableToday: stock > 0,
+        stockLeft: stock,
+        imageEmoji: getCategoryEmoji(p.category?.name),
+        imageSrc,
+        isNew: p.isNewArrival,
+        isBestSeller: p.isFeatured,
+        preOrderAvailable: false,
+        pricePerUnit,
+        soldToday,
+        rating: (p as any).rating || (4.0 + Math.random() * 1.0),
+      };
+    });
+  }, [products, orders]);
 
   // Kolleksiyalar
   const productCollections = useMemo(() => {
@@ -218,25 +319,21 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
     };
   }, [products, categories, recentViewed, wishlist]);
 
-  // Hero vurğulanan məhsul
   const heroHighlighted = useMemo((): Product | null => {
     if (!products.length) return null;
     const viewedIds = recentViewed.map((p) => p.id);
     const hero = [...products.filter((p) => !p.archived)].sort(
       (a, b) => scoreProduct(b, viewedIds, wishlist) - scoreProduct(a, viewedIds, wishlist)
     )[0] ?? null;
-
     return hero;
   }, [products, recentViewed, wishlist]);
 
-  // Track hero product view
   useEffect(() => {
     if (heroHighlighted) {
       handleProductView(heroHighlighted.id);
     }
   }, [heroHighlighted, handleProductView]);
 
-  // Flash deal
   const flashDeal = useMemo(() => {
     const product = productCollections.discounted[0];
     if (!product) return null;
@@ -261,14 +358,27 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
     }
   }, [hasSeenHowItWorks]);
 
+  // Hekayə modalı üçün real məhsullar (filtrsiz)
+  const storyModalProducts = useMemo(
+    () =>
+      products.filter(
+        (p) =>
+          !p.archived &&
+          (p.isNewArrival ||
+            p.statusTags?.includes('newArrival') ||
+            p.statusTags?.includes('seasonal') ||
+            p.statusTags?.includes('fresh'))
+      ).slice(0, 12),
+    [products]
+  );
+
+  // ─── RENDER ──────────────────────────────────────────────────
   return (
     <main ref={mainRef} className="relative min-h-screen overflow-x-hidden bg-linear-to-b from-[#f3f9e7] via-[#fdfaf3] to-[#eef7ea]">
-      {/* Pull-to-refresh indikatoru */}
       {isRefreshing && (
         <div className="fixed top-0 left-0 right-0 h-1 bg-emerald-500 z-50 animate-pulse" />
       )}
 
-      {/* Dağ və təbii elementlər (parallaks) */}
       <motion.div style={{ y: mountainY }} className="fixed inset-x-0 bottom-0 pointer-events-none z-0">
         <svg viewBox="0 0 1440 320" preserveAspectRatio="none" className="w-full h-auto opacity-30">
           <path fill="#0f5c3c" fillOpacity="0.15" d="M0,192L48,176C96,160,192,128,288,138.7C384,149,480,203,576,213.3C672,224,768,192,864,176C960,160,1056,160,1152,170.7C1248,181,1344,203,1392,213.3L1440,224L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z" />
@@ -286,7 +396,6 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
         <MobileSearchDrawer isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} products={products} />
 
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pb-36 pt-6 md:gap-10 md:px-6 lg:px-10">
-          {/* Top Barn Banner + bildiriş ikonu + salam */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <motion.div
               initial={{ opacity: 0, y: -20 }}
@@ -306,7 +415,6 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
             </motion.p>
           </div>
 
-       
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <motion.div
               initial={{ opacity: 0, x: -30 }}
@@ -324,17 +432,15 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
             </motion.div>
           </div>
 
-          {/* HeroSection vurğulanan məhsul ilə */}
           <motion.div
             initial={{ scale: 0.98, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            <HeroSection  />
+            <HeroSection />
           </motion.div>
           <OrganicSeparator />
 
-          {/* Fresh Today Story */}
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             whileInView={{ y: 0, opacity: 1 }}
@@ -344,7 +450,6 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
             <SectionBlock id="fresh-today" title="" subtitle="" badge="">
               <FreshTodayStoryBar
                 onOpenStory={(idx) => { setStoryStartIndex(idx); setStoryOpen(true); }}
-                items={storyProducts}
               />
             </SectionBlock>
           </motion.div>
@@ -352,13 +457,9 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
             open={storyOpen}
             initialIndex={storyStartIndex}
             onClose={() => setStoryOpen(false)}
-            items={products.filter(p => 
-              !p.archived && 
-              (p.isNewArrival || p.statusTags?.includes('newArrival') || p.statusTags?.includes('seasonal'))
-            ).slice(0, 12)}
+            items={storyModalProducts}
           />
 
-          {/* Category Strip */}
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             whileInView={{ y: 0, opacity: 1 }}
@@ -368,7 +469,6 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
             <CategoryStrip categories={categories} />
           </motion.div>
 
-          {/* Flash Deal with countdown */}
           {flashDeal && (
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -396,7 +496,6 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
             </motion.div>
           )}
 
-          {/* Tabbed Products - mobil üçün carousel, desktop üçün grid */}
           <motion.div
             initial={{ y: 30, opacity: 0 }}
             whileInView={{ y: 0, opacity: 1 }}
@@ -456,9 +555,6 @@ export const HomePageClient: FC<HomePageClientProps> = ({ initialData }) => {
               </AnimatePresence>
             </SectionBlock>
           </motion.div>
-
-          {/* Qalan bölmələr (wishlist, must try, discounted, breakfast, gedebey, trust, popular, recent viewed, nutrition, whatsapp, howitworks) */}
-          {/* ... (əvvəlki kimi, heç bir dəyişiklik yoxdur) ... */}
 
           <AnimatePresence>
             {productCollections.wishlistProducts.length > 0 && (

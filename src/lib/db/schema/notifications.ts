@@ -1,6 +1,4 @@
-// ============================================================
 // src/lib/db/schema/notifications.ts
-// ============================================================
 
 import {
   pgTable,
@@ -13,30 +11,33 @@ import {
 } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { orders } from './orders';
-import { notificationTypeEnum, notificationChannelEnum } from './enums';
 
 export const notifications = pgTable(
   'notifications',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    type: notificationTypeEnum('type').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: varchar('type', { length: 50 }).notNull(),
     title: varchar('title', { length: 255 }).notNull(),
     message: text('message').notNull(),
     refType: varchar('ref_type', { length: 50 }),
     refId: uuid('ref_id'),
-    channel: notificationChannelEnum('channel').default('APP'),
-    isRead: boolean('is_read').default(false),
+    channel: varchar('channel', { length: 20 }).default('APP').notNull(),
+    isRead: boolean('is_read').default(false).notNull(),
     readAt: timestamp('read_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
-    userIdx: index('notifications_user_idx').on(table.userId),
-    readIdx: index('notifications_read_idx').on(table.isRead),
-    createdAtIdx: index('notifications_created_at_idx').on(table.createdAt),
+    userIdIdx: index('notifications_user_id_idx').on(table.userId),
+    typeIdx: index('notifications_type_idx').on(table.type),
+    channelIdx: index('notifications_channel_idx').on(table.channel),
+    isReadIdx: index('notifications_is_read_idx').on(table.isRead),
   })
 );
 
+// whatsappMessages table olduğu kimi qalır
 export const whatsappMessages = pgTable(
   'whatsapp_messages',
   {

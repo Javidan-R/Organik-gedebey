@@ -1,4 +1,6 @@
 // src/components/admin/products/ProductFilter.tsx
+// Tam düzəldilmiş – `categories` üçün default array və yoxlama əlavə edildi
+
 'use client';
 
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
@@ -394,7 +396,7 @@ export function ProductFilter({
 
   // ── Store ──────────────────────────────────────────────────────────────────
   const products = useApp((state) => state.products || []);
-  const categories = useApp((state) => state.categories || []);
+  const categories = useApp((state) => state.categories || []); // ✅ default []
 
   // Əgər externalFilters varsa, ondan istifadə et, yoxsa daxili state-dən
   const filters = externalFilters ?? internalFilters;
@@ -425,12 +427,10 @@ export function ProductFilter({
   // ── Callbacks ──────────────────────────────────────────────────────────────
   const handleFilterChange = useCallback(
     <K extends keyof FilterState>(key: K, value: FilterState[K]) => {
-      // Əgər externalFilters prop-u varsa, onu yenilə
       if (externalOnFilterChange) {
         const newFilters = { ...filters, [key]: value };
         externalOnFilterChange(newFilters);
       } else {
-        // Əks halda daxili state-i yenilə
         setInternalFilters((prev) => ({ ...prev, [key]: value }));
       }
     },
@@ -492,7 +492,7 @@ export function ProductFilter({
             }}
             options={[
               { value: '', label: 'Bütün kateqoriyalar' },
-              ...categories.map((c) => ({ value: c.id, label: c.name })),
+              ...(Array.isArray(categories) ? categories.map((c) => ({ value: c.id, label: c.name })) : []),
             ]}
             icon={<Filter className="h-4 w-4" />}
             className="w-full md:w-48"

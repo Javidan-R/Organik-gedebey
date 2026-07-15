@@ -40,7 +40,7 @@ import LabelsTab from '@/components/admin/molecules/LabelsTab';
 import { Button } from '@/components/atoms/button';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// ─── Stillər (əvvəlki kimi) ─────────────────────────────────────
+// ─── Stillər ─────────────────────────────────────────────────────
 export const INPUT_BASE =
   'w-full px-4 py-3 border-2 rounded-2xl text-base font-medium transition-all duration-300 shadow-sm bg-white text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-4 focus:ring-emerald-200/70 focus:border-emerald-500 hover:border-emerald-300 hover:shadow-md disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed disabled:opacity-70';
 
@@ -259,19 +259,40 @@ export const cryptoId = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
 
-function sanitizeNulls<T extends Record<string, any>>(obj: T): T {
-  const result: any = {};
-  for (const key in obj) {
-    const val = obj[key];
-    if (val === null || val === undefined) continue;
-    if (Array.isArray(val) && val.length === 0) continue;
-    if (typeof val === 'object' && !Array.isArray(val) && val !== null) {
-      result[key] = sanitizeNulls(val);
-    } else {
+function sanitizeNulls<T extends Record<string, any>>(obj: T, maxDepth = 5): T {
+  const seen = new WeakSet<object>();
+
+  function clean(value: any, depth: number): any {
+    if (value === null || value === undefined) return undefined;
+    if (typeof value !== 'object') return value;
+    if (depth > maxDepth) return value;
+    if (seen.has(value)) return '[Circular]';
+    seen.add(value);
+
+    if (Array.isArray(value)) {
+      return value
+        .filter((item) => item !== null && item !== undefined)
+        .map((item) => clean(item, depth + 1))
+        .filter((item) => {
+          if (Array.isArray(item)) return item.length > 0;
+          if (typeof item === 'object' && item !== null) return Object.keys(item).length > 0;
+          return item !== undefined;
+        });
+    }
+
+    const result: any = {};
+    for (const key in value) {
+      if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+      const val = clean(value[key], depth + 1);
+      if (val === undefined || val === null) continue;
+      if (Array.isArray(val) && val.length === 0) continue;
+      if (typeof val === 'object' && val !== null && Object.keys(val).length === 0) continue;
       result[key] = val;
     }
+    return result;
   }
-  return result as T;
+
+  return clean(obj, 0) as T;
 }
 
 interface ProductEditModalProps {
@@ -382,7 +403,6 @@ export default function ProductEditModal({
         }
       }
 
-      // @ts-expect-error – key dynamically assigned, but we know it's safe
       variants[index] = { ...variants[index], [key]: finalValue };
 
       if (index === 0 && key === 'price') {
@@ -469,7 +489,7 @@ export default function ProductEditModal({
         isSeasonal: product.isSeasonal ?? false,
         soldCount: product.soldCount ?? 0,
         discountType: product.discountType
-          ? product.discountType.toUpperCase() as 'PERCENTAGE' | 'FIXED'
+          ? (product.discountType.toUpperCase() as 'PERCENTAGE' | 'FIXED')
           : undefined,
       };
 
@@ -504,17 +524,15 @@ export default function ProductEditModal({
   const pendingReviewsCount =
     product.reviews?.filter((r) => !r.approved).length ?? 0;
 
-  // ─── Mobile Tab Selector ──────────────────────────────────────
   const currentTabLabel = TAB_DEFS.find((t) => t.key === tab)?.label || 'Əsas';
   const currentTabIcon = TAB_DEFS.find((t) => t.key === tab)?.icon;
 
-  // ─── Render ────────────────────────────────────────────────────
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-999 flex items-center justify-center bg-black/60 p-2 sm:p-4 backdrop-blur-sm">
       <div className="flex h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl sm:rounded-3xl bg-white shadow-2xl">
-        {/* ─── Header ────────────────────────────────────────────── */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b px-4 py-3 sm:px-6 sm:py-4 gap-3">
           <div className="w-full sm:w-auto">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-emerald-600">
@@ -548,7 +566,7 @@ export default function ProductEditModal({
           </div>
         </div>
 
-        {/* ─── Summary Cards ────────────────────────────────────── */}
+        {/* Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-b bg-gray-50/80 px-3 py-2 sm:px-6 sm:py-3 text-xs">
           <SummaryCard
             label="Ümumi stok"
@@ -574,7 +592,7 @@ export default function ProductEditModal({
           />
         </div>
 
-        {/* ─── Tabs ──────────────────────────────────────────────── */}
+        {/* Tabs */}
         <div className="border-b px-3 py-2 sm:px-6 sm:py-3">
           {/* Desktop Tabs */}
           <div className="hidden sm:flex items-center gap-1 overflow-x-auto scrollbar-thin">
@@ -660,7 +678,7 @@ export default function ProductEditModal({
           </div>
         </div>
 
-        {/* ─── Content ────────────────────────────────────────────── */}
+        {/* Content */}
         <div className="flex-1 overflow-y-auto px-3 py-2 sm:px-6 sm:pb-4 sm:pt-3">
           {errorMsg && (
             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -826,7 +844,7 @@ export default function ProductEditModal({
           </AnimatePresence>
         </div>
 
-        {/* ─── Footer ────────────────────────────────────────────── */}
+        {/* Footer */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-t bg-gray-50/80 px-3 py-2.5 sm:px-6 sm:py-3 gap-2">
           <div className="flex flex-col gap-0.5 text-xs">
             {!baseValid && submitted && (

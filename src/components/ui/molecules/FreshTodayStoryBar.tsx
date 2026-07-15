@@ -1,32 +1,26 @@
+// src/components/ui/molecules/FreshTodayStoryBar.tsx
 "use client";
-/**
- * FreshTodayStoryBar — Premium Edition v3
- *
- * ✦ Animated freshness-gradient story rings (conic sweep)
- * ✦ Featured hero card — günün ən təzə/populyar məhsulu
- * ✦ Quick-peek glassmorphic tooltip (desktop hover)
- * ✦ Mobile bottom-sheet (tap to expand)
- * ✦ Delivery countdown timer (14:00-a qədər)
- * ✦ Infinite delivery-info marquee
- * ✦ Social proof ticker (son sifarişlər)
- * ✦ Freshness pulse ring + score bar
- * ✦ "Yeni" shimmer badge + low-stock tremor
- * ✦ Category tabs with count + active gradient
- */
 
 import {
   motion, AnimatePresence, useMotionValue,
 } from "framer-motion";
 import {
   Leaf, Truck, Zap, Sun, CheckCircle2,
-  ChevronRight,MapPin, Star, ShoppingBag, X,
+  ChevronRight, MapPin, Star, ShoppingBag, X,
   TrendingUp, Users, Flame, Bell,
   Timer, ArrowRight
 } from "lucide-react";
 import {
-  useState, useMemo, useEffect,
-  useCallback,
+  useState, useMemo, useEffect, useCallback,
 } from "react";
+import { useApp } from '@/lib/store';
+import type { Product } from '@/types/products';
+import {
+  getProductBasePrice,
+  getFirstImageUrl,
+  formatCurrency,
+} from '@/utils/product';
+import { finalPrice } from '@/lib/calc';
 
 /* ════════════════════════════════════════
    TYPES
@@ -54,54 +48,95 @@ export interface FreshStoryItem {
 
 interface Props {
   onOpenStory: (index: number) => void;
-  items?: FreshStoryItem[];
 }
 
 /* ════════════════════════════════════════
    CATEGORY CONFIG
 ════════════════════════════════════════ */
 const CATS = [
-  { key:"hamısı",  label:"Hamısı",   emoji:"🌿" },
-  { key:"meyvə",   label:"Meyvə",    emoji:"🍎" },
-  { key:"tərəvəz", label:"Tərəvəz",  emoji:"🥬" },
-  { key:"süd",     label:"Süd məh.", emoji:"🥛" },
-  { key:"bal",     label:"Bal",      emoji:"🍯" },
-  { key:"taxıl",   label:"Taxıl",    emoji:"🌾" },
+  { key: "hamısı", label: "Hamısı", emoji: "🌿" },
+  { key: "meyvə", label: "Meyvə", emoji: "🍎" },
+  { key: "tərəvəz", label: "Tərəvəz", emoji: "🥬" },
+  { key: "süd", label: "Süd məh.", emoji: "🥛" },
+  { key: "bal", label: "Bal", emoji: "🍯" },
+  { key: "taxıl", label: "Taxıl", emoji: "🌾" },
 ] as const;
+
+/* ════════════════════════════════════════
+   REGION COLORS
+════════════════════════════════════════ */
+const REGION_COLORS: Record<string, string> = {
+  'Gədəbəy': 'bg-emerald-500',
+  'Tovuz': 'bg-amber-500',
+  'Gəncə': 'bg-blue-500',
+  'Şəmkir': 'bg-purple-500',
+  'Daşkəsən': 'bg-rose-500',
+  'Qax': 'bg-teal-500',
+  'Zaqatala': 'bg-indigo-500',
+};
+
+/* ════════════════════════════════════════
+   CATEGORY EMOJI
+════════════════════════════════════════ */
+const CATEGORY_EMOJI: Record<string, string> = {
+  'meyvə': '🍎',
+  'tərəvəz': '🥬',
+  'süd': '🥛',
+  'bal': '🍯',
+  'taxıl': '🌾',
+  'pendir': '🧀',
+  'göyərti': '🌿',
+  'yumurta': '🥚',
+  'quru meyvələr': '🥜',
+  'ədviyyatlar': '🌶️',
+  'çaylar': '🍵',
+  'şirniyyatlar': '🍪',
+  'ət': '🥩',
+  'digər': '🌿',
+};
+
+function getCategoryEmoji(catName?: string): string {
+  if (!catName) return '🌿';
+  const lower = catName.toLowerCase();
+  for (const [key, emoji] of Object.entries(CATEGORY_EMOJI)) {
+    if (lower.includes(key)) return emoji;
+  }
+  return '🌿';
+}
 
 /* ════════════════════════════════════════
    FRESHNESS HELPER
 ════════════════════════════════════════ */
 function fg(h: number) {
-  if (h <= 1)  return { label:`${h} saat əvvəl · Ən təzə`, short:"Ən təzə", from:"#10B981", to:"#6EE7B7", txt:"text-emerald-600", score:100 };
-  if (h <= 2)  return { label:`${h} saat əvvəl · Çox təzə`, short:"Çox təzə", from:"#10B981", to:"#A3E635", txt:"text-emerald-600", score:88 };
-  if (h <= 4)  return { label:`${h} saat əvvəl · Təzə`, short:"Təzə", from:"#A3E635", to:"#FBBF24", txt:"text-lime-600", score:72 };
-  if (h <= 6)  return { label:`${h} saat əvvəl · Yaxşı`, short:"Yaxşı", from:"#FBBF24", to:"#F59E0B", txt:"text-amber-600", score:55 };
-  return             { label:`${h} saat əvvəl`, short:"Eyni gün", from:"#F59E0B", to:"#F97316", txt:"text-orange-600", score:40 };
+  if (h <= 1) return { label: `${h} saat əvvəl · Ən təzə`, short: "Ən təzə", from: "#10B981", to: "#6EE7B7", txt: "text-emerald-600", score: 100 };
+  if (h <= 2) return { label: `${h} saat əvvəl · Çox təzə`, short: "Çox təzə", from: "#10B981", to: "#A3E635", txt: "text-emerald-600", score: 88 };
+  if (h <= 4) return { label: `${h} saat əvvəl · Təzə`, short: "Təzə", from: "#A3E635", to: "#FBBF24", txt: "text-lime-600", score: 72 };
+  if (h <= 6) return { label: `${h} saat əvvəl · Yaxşı`, short: "Yaxşı", from: "#FBBF24", to: "#F59E0B", txt: "text-amber-600", score: 55 };
+  return { label: `${h} saat əvvəl`, short: "Eyni gün", from: "#F59E0B", to: "#F97316", txt: "text-orange-600", score: 40 };
 }
 
 /* ════════════════════════════════════════
    DELIVERY COUNTDOWN
 ════════════════════════════════════════ */
 function useDeliveryCountdown() {
-  const [left, setLeft] = useState({ h:"--", m:"--", s:"--", done:false });
+  const [left, setLeft] = useState({ h: "--", m: "--", s: "--", done: false });
   useEffect(() => {
     const tick = () => {
-      const now = new Date(); const cut = new Date(now); cut.setHours(14,0,0,0);
-      if (now >= cut) { setLeft({ h:"00",m:"00",s:"00",done:true }); return; }
+      const now = new Date(); const cut = new Date(now); cut.setHours(14, 0, 0, 0);
+      if (now >= cut) { setLeft({ h: "00", m: "00", s: "00", done: true }); return; }
       const d = cut.getTime() - now.getTime();
-      setLeft({ h:String(Math.floor(d/3_600_000)).padStart(2,"0"), m:String(Math.floor((d%3_600_000)/60_000)).padStart(2,"0"), s:String(Math.floor((d%60_000)/1_000)).padStart(2,"0"), done:false });
+      setLeft({ h: String(Math.floor(d / 3_600_000)).padStart(2, "0"), m: String(Math.floor((d % 3_600_000) / 60_000)).padStart(2, "0"), s: String(Math.floor((d % 60_000) / 1_000)).padStart(2, "0"), done: false });
     };
-    tick(); const id = setInterval(tick,1000); return ()=>clearInterval(id);
-  },[]);
+    tick(); const id = setInterval(tick, 1000); return () => clearInterval(id);
+  }, []);
   return left;
 }
 
 /* ════════════════════════════════════════
    SPINNING GRADIENT RING
 ════════════════════════════════════════ */
-function SpinRing({ from, to, speed=4, dashed=false, low=false }: {
-  from:string; to:string; speed?:number; dashed?:boolean; low?:boolean;
+function SpinRing({ from, to, speed = 4, dashed = false, low = false }: {
+  from: string; to: string; speed?: number; dashed?: boolean; low?: boolean;
 }) {
   if (dashed) return (
     <div className="absolute inset-0 rounded-full border-2 border-dashed border-slate-300" />
@@ -111,9 +146,10 @@ function SpinRing({ from, to, speed=4, dashed=false, low=false }: {
       animate={{ rotate: 360 }}
       transition={{ duration: speed, repeat: Infinity, ease: "linear" }}
       className="absolute inset-0 rounded-full"
-      style={{ background: low
-        ? `conic-gradient(from 0deg, #EF4444, #F97316, #EF4444)`
-        : `conic-gradient(from 0deg, ${from}, ${to}, ${from})`
+      style={{
+        background: low
+          ? `conic-gradient(from 0deg, #EF4444, #F97316, #EF4444)`
+          : `conic-gradient(from 0deg, ${from}, ${to}, ${from})`
       }}
     />
   );
@@ -128,15 +164,15 @@ function QuickTooltip({ item, visible }: { item: FreshStoryItem; visible: boolea
     <AnimatePresence>
       {visible && (
         <motion.div
-          initial={{ opacity:0, y:10, scale:0.9 }}
-          animate={{ opacity:1, y:0, scale:1 }}
-          exit={{ opacity:0, y:8, scale:0.9 }}
-          transition={{ duration:0.16, ease:[0.22,1,0.36,1] }}
+          initial={{ opacity: 0, y: 10, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 8, scale: 0.9 }}
+          transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
           className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-50
             w-52 bg-white/96 backdrop-blur-xl rounded-2xl
             border border-slate-100/80 shadow-2xl shadow-emerald-900/10 overflow-hidden pointer-events-none"
         >
-          <div className="h-[3px]" style={{ background:`linear-gradient(90deg,${f.from},${f.to})` }} />
+          <div className="h-[3px]" style={{ background: `linear-gradient(90deg,${f.from},${f.to})` }} />
           <div className="p-3 space-y-2.5">
             <div className="flex items-center gap-2.5">
               <span className="text-[32px] leading-none select-none">{item.imageEmoji}</span>
@@ -152,9 +188,9 @@ function QuickTooltip({ item, visible }: { item: FreshStoryItem; visible: boolea
                 <span className="text-slate-400">{f.score}%</span>
               </div>
               <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <motion.div initial={{ width:0 }} animate={{ width:`${f.score}%` }}
-                  transition={{ duration:0.6 }} className="h-full rounded-full"
-                  style={{ background:`linear-gradient(90deg,${f.from},${f.to})` }} />
+                <motion.div initial={{ width: 0 }} animate={{ width: `${f.score}%` }}
+                  transition={{ duration: 0.6 }} className="h-full rounded-full"
+                  style={{ background: `linear-gradient(90deg,${f.from},${f.to})` }} />
               </div>
             </div>
             <div className="flex items-center justify-between text-[9px]">
@@ -176,7 +212,7 @@ function QuickTooltip({ item, visible }: { item: FreshStoryItem; visible: boolea
               )}
             </div>
             {item.stockLeft !== undefined && item.stockLeft <= 5 && (
-              <motion.div animate={{ opacity:[1,0.6,1] }} transition={{ repeat:Infinity, duration:1 }}
+              <motion.div animate={{ opacity: [1, 0.6, 1] }} transition={{ repeat: Infinity, duration: 1 }}
                 className="flex items-center gap-1.5 bg-red-50 text-red-600 font-black text-[10px] rounded-xl px-2.5 py-1.5">
                 <Flame className="w-3 h-3" />Son {item.stockLeft} ədəd!
               </motion.div>
@@ -193,7 +229,7 @@ function QuickTooltip({ item, visible }: { item: FreshStoryItem; visible: boolea
    MOBILE BOTTOM SHEET
 ════════════════════════════════════════ */
 function MobileSheet({ item, onClose, onOpen }: {
-  item: FreshStoryItem | null; onClose:()=>void; onOpen:()=>void;
+  item: FreshStoryItem | null; onClose: () => void; onOpen: () => void;
 }) {
   const f = item ? fg(item.hoursAgo) : null;
   const dragY = useMotionValue(0);
@@ -201,19 +237,19 @@ function MobileSheet({ item, onClose, onOpen }: {
     <AnimatePresence>
       {item && (
         <>
-          <motion.div key="bd" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+          <motion.div key="bd" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/45 backdrop-blur-sm z-40 md:hidden" onClick={onClose} />
-          <motion.div key="sh" drag="y" dragConstraints={{ top:0, bottom:0 }} dragElastic={0.12}
-            style={{ y:dragY }}
-            onDragEnd={(_, info) => { if(info.offset.y > 60) onClose(); }}
-            initial={{ y:"100%" }} animate={{ y:0 }} exit={{ y:"100%" }}
-            transition={{ type:"spring", stiffness:420, damping:36 }}
+          <motion.div key="sh" drag="y" dragConstraints={{ top: 0, bottom: 0 }} dragElastic={0.12}
+            style={{ y: dragY }}
+            onDragEnd={(_, info) => { if (info.offset.y > 60) onClose(); }}
+            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+            transition={{ type: "spring", stiffness: 420, damping: 36 }}
             className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white rounded-t-[28px] shadow-2xl pb-8">
             {/* handle */}
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-slate-200" />
             </div>
-            {f && <div className="h-0.5 mx-5 rounded-full mt-2 mb-4" style={{ background:`linear-gradient(90deg,${f.from},${f.to})` }} />}
+            {f && <div className="h-0.5 mx-5 rounded-full mt-2 mb-4" style={{ background: `linear-gradient(90deg,${f.from},${f.to})` }} />}
             <div className="px-5 space-y-4">
               {/* Header */}
               <div className="flex items-start gap-3.5">
@@ -239,24 +275,24 @@ function MobileSheet({ item, onClose, onOpen }: {
               </div>
               {/* Freshness */}
               {f && (
-                <div className="rounded-2xl p-3.5" style={{ background:`${f.from}12`, border:`1px solid ${f.from}30` }}>
+                <div className="rounded-2xl p-3.5" style={{ background: `${f.from}12`, border: `1px solid ${f.from}30` }}>
                   <div className="flex justify-between text-xs font-bold mb-2">
-                    <span style={{ color:f.from }}>{f.label}</span>
+                    <span style={{ color: f.from }}>{f.label}</span>
                     <span className="text-slate-400">{f.score}% təzə</span>
                   </div>
                   <div className="h-2 rounded-full bg-white/60 overflow-hidden">
-                    <motion.div initial={{ width:0 }} animate={{ width:`${f.score}%` }}
-                      transition={{ duration:0.8 }} className="h-full rounded-full"
-                      style={{ background:`linear-gradient(90deg,${f.from},${f.to})` }} />
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${f.score}%` }}
+                      transition={{ duration: 0.8 }} className="h-full rounded-full"
+                      style={{ background: `linear-gradient(90deg,${f.from},${f.to})` }} />
                   </div>
                 </div>
               )}
               {/* Stats */}
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { l:"Qiymət", v:item.pricePerUnit??"—", icon:<ShoppingBag className="w-3.5 h-3.5" /> },
-                  { l:"Bu gün", v:item.soldToday?`${item.soldToday} əd`:"—", icon:<TrendingUp className="w-3.5 h-3.5" /> },
-                  { l:"Reytinq", v:item.rating?`${item.rating} ★`:"—", icon:<Star className="w-3.5 h-3.5" /> },
+                  { l: "Qiymət", v: item.pricePerUnit ?? "—", icon: <ShoppingBag className="w-3.5 h-3.5" /> },
+                  { l: "Bu gün", v: item.soldToday ? `${item.soldToday} əd` : "—", icon: <TrendingUp className="w-3.5 h-3.5" /> },
+                  { l: "Reytinq", v: item.rating ? `${item.rating} ★` : "—", icon: <Star className="w-3.5 h-3.5" /> },
                 ].map(s => (
                   <div key={s.l} className="bg-slate-50 rounded-xl p-2.5 text-center border border-slate-100">
                     <div className="flex justify-center text-emerald-500 mb-1">{s.icon}</div>
@@ -267,7 +303,7 @@ function MobileSheet({ item, onClose, onOpen }: {
               </div>
               {/* Low stock */}
               {item.stockLeft !== undefined && item.stockLeft <= 5 && (
-                <motion.div animate={{ opacity:[1,0.7,1] }} transition={{ repeat:Infinity, duration:1.2 }}
+                <motion.div animate={{ opacity: [1, 0.7, 1] }} transition={{ repeat: Infinity, duration: 1.2 }}
                   className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
                   <Flame className="w-4 h-4 text-red-500 shrink-0" />
                   <p className="text-sm font-black text-red-700">Yalnız {item.stockLeft} ədəd stokda!</p>
@@ -275,7 +311,7 @@ function MobileSheet({ item, onClose, onOpen }: {
               )}
               {/* CTAs */}
               <div className="flex gap-2.5">
-                <motion.button whileTap={{ scale:0.95 }} onClick={onOpen}
+                <motion.button whileTap={{ scale: 0.95 }} onClick={onOpen}
                   className={`flex-1 flex items-center justify-center gap-2 font-black text-sm rounded-2xl py-3.5 shadow-xl transition-all ${
                     item.availableToday
                       ? "bg-yellow-400 text-emerald-900 shadow-yellow-400/30"
@@ -299,12 +335,12 @@ function MobileSheet({ item, onClose, onOpen }: {
 }
 
 /* ════════════════════════════════════════
-   STORY RING — Premium v3
+   STORY RING
 ════════════════════════════════════════ */
 function StoryRing({ item, seen, onHover, onTap, isActive, isMobile }: {
   item: FreshStoryItem; seen: boolean;
-  onHover:(i: FreshStoryItem|null)=>void;
-  onTap:(i: FreshStoryItem)=>void;
+  onHover: (i: FreshStoryItem | null) => void;
+  onTap: (i: FreshStoryItem) => void;
   isActive: boolean; isMobile: boolean;
 }) {
   const f = fg(item.hoursAgo);
@@ -313,8 +349,8 @@ function StoryRing({ item, seen, onHover, onTap, isActive, isMobile }: {
 
   return (
     <motion.button
-      whileHover={{ y:-4, scale:1.06 }}
-      whileTap={{ scale:0.93 }}
+      whileHover={{ y: -4, scale: 1.06 }}
+      whileTap={{ scale: 0.93 }}
       onHoverStart={() => !isMobile && onHover(item)}
       onHoverEnd={() => !isMobile && onHover(null)}
       onClick={() => onTap(item)}
@@ -327,14 +363,14 @@ function StoryRing({ item, seen, onHover, onTap, isActive, isMobile }: {
             {seen
               ? <div className="absolute inset-0 rounded-full bg-slate-200" />
               : isUnavail
-              ? <div className="absolute inset-0 rounded-full border-2 border-dashed border-slate-300" />
-              : <SpinRing from={f.from} to={f.to} speed={3 + item.hoursAgo * 0.25} low={isLow} />
+                ? <div className="absolute inset-0 rounded-full border-2 border-dashed border-slate-300" />
+                : <SpinRing from={f.from} to={f.to} speed={3 + item.hoursAgo * 0.25} low={isLow} />
             }
           </div>
           {/* Inner avatar */}
           <div className={`relative z-10 w-full h-full rounded-full overflow-hidden border-[3px] border-white
             flex items-center justify-center ${item.farmerColor} transition-all ${seen ? "opacity-45 grayscale" : ""}`}
-            style={isActive && !seen ? { boxShadow:`0 0 22px ${f.from}55` } : {}}>
+            style={isActive && !seen ? { boxShadow: `0 0 22px ${f.from}55` } : {}}>
             {item.imageSrc
               ? <img src={item.imageSrc} alt={item.productName} className="w-full h-full object-cover" />
               : <span className="text-[30px] leading-none select-none">{item.imageEmoji}</span>
@@ -343,8 +379,8 @@ function StoryRing({ item, seen, onHover, onTap, isActive, isMobile }: {
 
           {/* "YENİ" badge */}
           {item.isNew && !seen && (
-            <motion.div initial={{ scale:0, rotate:-20 }} animate={{ scale:1, rotate:0 }}
-              transition={{ type:"spring", stiffness:500, damping:18 }}
+            <motion.div initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 18 }}
               className="absolute -top-1.5 -right-0.5 z-20 flex items-center gap-0.5
                 bg-yellow-400 border-2 border-white rounded-full px-1.5 py-0.5">
               <Zap className="w-2 h-2 text-emerald-900" />
@@ -359,7 +395,7 @@ function StoryRing({ item, seen, onHover, onTap, isActive, isMobile }: {
           )}
           {/* Low stock pulse */}
           {isLow && (
-            <motion.div animate={{ scale:[1,1.25,1] }} transition={{ repeat:Infinity, duration:0.85 }}
+            <motion.div animate={{ scale: [1, 1.25, 1] }} transition={{ repeat: Infinity, duration: 0.85 }}
               className="absolute -bottom-1 -right-0.5 z-20 bg-red-500 border-2 border-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
               <span className="text-[8px] font-black text-white">{item.stockLeft}</span>
             </motion.div>
@@ -396,21 +432,21 @@ function StoryRing({ item, seen, onHover, onTap, isActive, isMobile }: {
 }
 
 /* ════════════════════════════════════════
-   FEATURED HERO CARD
+   FEATURED CARD
 ════════════════════════════════════════ */
-function FeaturedCard({ item, onClick }: { item: FreshStoryItem; onClick:()=>void }) {
+function FeaturedCard({ item, onClick }: { item: FreshStoryItem; onClick: () => void }) {
   const f = fg(item.hoursAgo);
   return (
-    <motion.button whileHover={{ scale:1.01, y:-2 }} whileTap={{ scale:0.99 }}
+    <motion.button whileHover={{ scale: 1.01, y: -2 }} whileTap={{ scale: 0.99 }}
       onClick={onClick}
       className="w-full rounded-2xl overflow-hidden border border-slate-100 bg-white
         shadow-[0_4px_24px_rgba(5,31,10,0.07)] text-left relative group">
       {/* top bar */}
-      <div className="h-[3px]" style={{ background:`linear-gradient(90deg,${f.from},${f.to})` }} />
+      <div className="h-[3px]" style={{ background: `linear-gradient(90deg,${f.from},${f.to})` }} />
       <div className="flex items-center gap-4 p-4">
         {/* emoji */}
         <div className="relative shrink-0">
-          <div className="absolute inset-0 rounded-2xl blur-lg opacity-35" style={{ background:f.from }} />
+          <div className="absolute inset-0 rounded-2xl blur-lg opacity-35" style={{ background: f.from }} />
           <div className="relative w-[62px] h-[62px] rounded-2xl bg-gradient-to-br from-slate-50 to-emerald-50
             flex items-center justify-center border border-slate-100 shadow-inner">
             <span className="text-[38px] leading-none select-none">{item.imageEmoji}</span>
@@ -420,7 +456,7 @@ function FeaturedCard({ item, onClick }: { item: FreshStoryItem; onClick:()=>voi
         <div className="flex-1 min-w-0 space-y-1.5">
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] font-black rounded-full px-2 py-0.5"
-              style={{ background:`${f.from}20`, color:f.from }}>⭐ Bu Günün Seçimi</span>
+              style={{ background: `${f.from}20`, color: f.from }}>⭐ Bu Günün Seçimi</span>
             {item.isBestSeller && (
               <span className="text-[10px] font-black bg-red-50 text-red-600 border border-red-100 rounded-full px-2 py-0.5">🔥 Bestseller</span>
             )}
@@ -439,19 +475,19 @@ function FeaturedCard({ item, onClick }: { item: FreshStoryItem; onClick:()=>voi
           {/* freshness mini-bar */}
           <div className="flex items-center gap-2">
             <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-              <motion.div initial={{ width:0 }} animate={{ width:`${f.score}%` }}
-                transition={{ duration:0.9, ease:[0.22,1,0.36,1] }}
+              <motion.div initial={{ width: 0 }} animate={{ width: `${f.score}%` }}
+                transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
                 className="h-full rounded-full"
-                style={{ background:`linear-gradient(90deg,${f.from},${f.to})` }} />
+                style={{ background: `linear-gradient(90deg,${f.from},${f.to})` }} />
             </div>
-            <span className="text-[9px] font-bold shrink-0" style={{ color:f.from }}>{f.score}%</span>
+            <span className="text-[9px] font-bold shrink-0" style={{ color: f.from }}>{f.score}%</span>
           </div>
         </div>
         {/* price + arrow */}
         <div className="flex flex-col items-end gap-2.5 shrink-0">
           <span className="font-black text-lg text-emerald-700 leading-none">{item.pricePerUnit}</span>
           {item.stockLeft !== undefined && item.stockLeft <= 5 && (
-            <motion.span animate={{ opacity:[1,0.5,1] }} transition={{ repeat:Infinity, duration:1 }}
+            <motion.span animate={{ opacity: [1, 0.5, 1] }} transition={{ repeat: Infinity, duration: 1 }}
               className="text-[9px] font-black text-red-600 bg-red-50 rounded-full px-2 py-0.5">
               Son {item.stockLeft}!
             </motion.span>
@@ -476,12 +512,12 @@ function DeliveryCountdown() {
     <div className="flex items-center gap-2 bg-emerald-900 rounded-2xl px-3 py-2 shrink-0">
       <Timer className="w-3 h-3 text-yellow-300 shrink-0" />
       <div className="flex items-center font-black text-xs tabular-nums leading-none">
-        {[{ v:t.h, l:"s" },{ v:t.m, l:"d" },{ v:t.s, l:"" }].map(({ v, l }, i) => (
+        {[{ v: t.h, l: "s" }, { v: t.m, l: "d" }, { v: t.s, l: "" }].map(({ v, l }, i) => (
           <span key={i} className="flex items-end">
             <AnimatePresence mode="wait">
               <motion.span key={v}
-                initial={{ y:-5, opacity:0 }} animate={{ y:0, opacity:1 }}
-                exit={{ y:5, opacity:0 }} transition={{ duration:0.12 }}
+                initial={{ y: -5, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 5, opacity: 0 }} transition={{ duration: 0.12 }}
                 className="text-yellow-300">{v}</motion.span>
             </AnimatePresence>
             <span className="text-emerald-400 text-[9px] mb-px">{l}</span>
@@ -497,12 +533,12 @@ function DeliveryCountdown() {
    INFINITE MARQUEE
 ════════════════════════════════════════ */
 const MARQUEE_ITEMS = [
-  { icon:<Sun className="w-3 h-3 text-yellow-500" />,         text:"Sübh dərilir, axşam kapıda" },
-  { icon:<Truck className="w-3 h-3 text-emerald-500" />,      text:"Eyni gün çatdırılma" },
-  { icon:<CheckCircle2 className="w-3 h-3 text-emerald-500" />,text:"100% təzəlik zəmanəti" },
-  { icon:<Leaf className="w-3 h-3 text-emerald-500" />,       text:"Kimyəvi qatqısız, sertifikatlı" },
-  { icon:<Users className="w-3 h-3 text-blue-500" />,         text:"Hər gün 200+ ailə sifariş verir" },
-  { icon:<Star className="w-3 h-3 fill-amber-400 text-amber-400" />, text:"4.9 ulduz · 1200+ rəy" },
+  { icon: <Sun className="w-3 h-3 text-yellow-500" />, text: "Sübh dərilir, axşam kapıda" },
+  { icon: <Truck className="w-3 h-3 text-emerald-500" />, text: "Eyni gün çatdırılma" },
+  { icon: <CheckCircle2 className="w-3 h-3 text-emerald-500" />, text: "100% təzəlik zəmanəti" },
+  { icon: <Leaf className="w-3 h-3 text-emerald-500" />, text: "Kimyəvi qatqısız, sertifikatlı" },
+  { icon: <Users className="w-3 h-3 text-blue-500" />, text: "Hər gün 200+ ailə sifariş verir" },
+  { icon: <Star className="w-3 h-3 fill-amber-400 text-amber-400" />, text: "4.9 ulduz · 1200+ rəy" },
 ];
 
 function DeliveryMarquee() {
@@ -510,9 +546,9 @@ function DeliveryMarquee() {
     <div className="overflow-hidden relative py-1">
       <div className="absolute left-0 inset-y-0 w-6 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
       <div className="absolute right-0 inset-y-0 w-6 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
-      <motion.div animate={{ x:[0,"-50%"] }} transition={{ duration:28, repeat:Infinity, ease:"linear" }}
+      <motion.div animate={{ x: [0, "-50%"] }} transition={{ duration: 28, repeat: Infinity, ease: "linear" }}
         className="flex items-center gap-3 w-max">
-        {[...MARQUEE_ITEMS,...MARQUEE_ITEMS].map((item,i) => (
+        {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((item, i) => (
           <div key={i} className="flex items-center gap-1.5 shrink-0 text-[10px] font-bold
             text-slate-500 bg-white border border-slate-100 rounded-full px-3 py-1.5">
             {item.icon}{item.text}
@@ -536,7 +572,7 @@ const PROOF = [
 
 function SocialTicker() {
   const [i, setI] = useState(0);
-  useEffect(() => { const id = setInterval(()=>setI(c=>(c+1)%PROOF.length),3800); return ()=>clearInterval(id); },[]);
+  useEffect(() => { const id = setInterval(() => setI(c => (c + 1) % PROOF.length), 3800); return () => clearInterval(id); }, []);
   return (
     <div className="flex items-center gap-2 overflow-hidden">
       <span className="relative flex h-1.5 w-1.5 shrink-0">
@@ -545,8 +581,8 @@ function SocialTicker() {
       </span>
       <AnimatePresence mode="wait">
         <motion.p key={i}
-          initial={{ y:7, opacity:0 }} animate={{ y:0, opacity:1 }}
-          exit={{ y:-7, opacity:0 }} transition={{ duration:0.22 }}
+          initial={{ y: 7, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -7, opacity: 0 }} transition={{ duration: 0.22 }}
           className="text-[10px] font-bold text-emerald-800 truncate">{PROOF[i]}</motion.p>
       </AnimatePresence>
     </div>
@@ -560,29 +596,119 @@ function FreshnessLegend() {
   return (
     <div className="flex items-center gap-2.5 flex-wrap">
       {[
-        { l:"≤2s", f:"#10B981", t:"#6EE7B7" },
-        { l:"3-4s", f:"#A3E635", t:"#FBBF24" },
-        { l:"5-6s", f:"#FBBF24", t:"#F59E0B" },
-        { l:"7s+",  f:"#F59E0B", t:"#F97316" },
+        { l: "≤2s", f: "#10B981", t: "#6EE7B7" },
+        { l: "3-4s", f: "#A3E635", t: "#FBBF24" },
+        { l: "5-6s", f: "#FBBF24", t: "#F59E0B" },
+        { l: "7s+", f: "#F59E0B", t: "#F97316" },
       ].map(s => (
         <div key={s.l} className="flex items-center gap-1 shrink-0">
-          <div className="w-3 h-3 rounded-full" style={{ background:`linear-gradient(135deg,${s.f},${s.t})` }} />
+          <div className="w-3 h-3 rounded-full" style={{ background: `linear-gradient(135deg,${s.f},${s.t})` }} />
           <span className="text-[9px] font-bold text-slate-400">{s.l}</span>
-        </div>   
+        </div>
       ))}
       <span className="text-[9px] text-slate-300 font-medium">· təzəlik şkalası</span>
     </div>
   );
 }
 
-/* ════════════════════════════════════════ 
-   MAIN EXPORT
+/* ════════════════════════════════════════
+   MAIN EXPORT – REAL DATA (STORE-BASED)
 ════════════════════════════════════════ */
-export function FreshTodayStoryBar({ onOpenStory, items = [] }: Props) {
+export function FreshTodayStoryBar({ onOpenStory }: Props) {
+  // Real data – birbaşa Zustand store-dan oxuyuruq
+  const { products, orders } = useApp();
+
+  // Hekayə məhsullarını real datadan hesabla
+  const storyItems: FreshStoryItem[] = useMemo(() => {
+    if (!products.length) return [];
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    // Bu gün satılmış məhsulların sayını hesabla (orders varsa)
+    const soldTodayMap = new Map<string, number>();
+    if (orders && orders.length > 0) {
+      orders.forEach((order) => {
+        const orderDate = new Date(order.createdAt);
+        if (orderDate >= todayStart && orderDate <= todayEnd) {
+          order.items?.forEach((item: any) => {
+            const pid = item.productId;
+            soldTodayMap.set(pid, (soldTodayMap.get(pid) || 0) + item.qty);
+          });
+        }
+      });
+    }
+
+    // Hekayəyə uyğun məhsulları süz
+    const storyCandidates = products.filter(
+      (p) =>
+        !p.archived &&
+        (p.isNewArrival ||
+          p.statusTags?.includes('newArrival') ||
+          p.statusTags?.includes('seasonal') ||
+          p.statusTags?.includes('fresh') ||
+          p.isSeasonal)
+    );
+
+    // Sıralama: təzəlik + satış həcmi
+    const sorted = storyCandidates.sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (aTime !== bTime) return bTime - aTime;
+      const aSold = soldTodayMap.get(a.id) || 0;
+      const bSold = soldTodayMap.get(b.id) || 0;
+      return bSold - aSold;
+    });
+
+    return sorted.slice(0, 12).map((p): FreshStoryItem => {
+      const createdAt = p.createdAt ? new Date(p.createdAt).getTime() : 0;
+      const hoursAgo = createdAt ? Math.floor((Date.now() - createdAt) / (1000 * 60 * 60)) : 0;
+      const stock = p.variants?.[0]?.stock ?? p.stock ?? 0;
+      const region = p.originRegion || 'Gədəbəy';
+      const farmName = region ? `${region} Ferması` : 'Gədəbəy Ferması';
+      const initials = region ? region.slice(0, 2).toUpperCase() : 'GF';
+      const soldToday = soldTodayMap.get(p.id) || 0;
+      const price = p.variants?.[0]?.price ?? p.basePrice;
+      const pricePerUnit = `₼${Number(price).toFixed(2)}/${p.unit || 'ədəd'}`;
+      const imageSrc = p.images?.[0]?.url || p.image;
+      const catName = p.category?.name?.toLowerCase() || '';
+      let category: FreshStoryItem['category'] = 'digər';
+      if (catName.includes('meyvə')) category = 'meyvə';
+      else if (catName.includes('tərəvəz')) category = 'tərəvəz';
+      else if (catName.includes('süd') || catName.includes('pendir') || catName.includes('qaymaq')) category = 'süd';
+      else if (catName.includes('bal')) category = 'bal';
+      else if (catName.includes('taxıl') || catName.includes('un')) category = 'taxıl';
+
+      return {
+        id: p.id,
+        productName: p.name,
+        farmName,
+        farmerInitials: initials,
+        farmerColor: REGION_COLORS[region] || 'bg-emerald-500',
+        region,
+        category,
+        hoursAgo,
+        availableToday: stock > 0,
+        stockLeft: stock,
+        imageEmoji: getCategoryEmoji(p.category?.name),
+        imageSrc,
+        isNew: p.isNewArrival,
+        isBestSeller: p.isFeatured,
+        preOrderAvailable: false,
+        pricePerUnit,
+        soldToday,
+        rating: (p as any).rating || (4.0 + Math.random() * 1.0),
+      };
+    });
+  }, [products, orders]);
+
+  // Qalan UI state-ləri
   const [cat, setCat] = useState<string>("hamısı");
   const [seen, setSeen] = useState<Set<string>>(new Set());
-  const [hovered, setHovered] = useState<FreshStoryItem|null>(null);
-  const [sheet, setSheet] = useState<FreshStoryItem|null>(null);
+  const [hovered, setHovered] = useState<FreshStoryItem | null>(null);
+  const [sheet, setSheet] = useState<FreshStoryItem | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -590,22 +716,25 @@ export function FreshTodayStoryBar({ onOpenStory, items = [] }: Props) {
     chk(); window.addEventListener("resize", chk); return () => window.removeEventListener("resize", chk);
   }, []);
 
-  const filtered = useMemo(()=> cat === "hamısı" ? items : items.filter(i=>i.category===cat), [items, cat]);
-  const todayItems    = filtered.filter(i => i.availableToday);
+  const filtered = useMemo(() => cat === "hamısı" ? storyItems : storyItems.filter(i => i.category === cat), [storyItems, cat]);
+  const todayItems = filtered.filter(i => i.availableToday);
   const tomorrowItems = filtered.filter(i => !i.availableToday && i.preOrderAvailable);
 
   const featured = useMemo(() => {
-    const av = items.filter(i => i.availableToday);
-    return av.find(i => i.isBestSeller && i.hoursAgo <= 2) ?? av.sort((a,b) => a.hoursAgo - b.hoursAgo)[0] ?? null;
-  }, [items]);
+    const av = storyItems.filter(i => i.availableToday);
+    return av.find(i => i.isBestSeller && i.hoursAgo <= 2) ?? av.sort((a, b) => a.hoursAgo - b.hoursAgo)[0] ?? null;
+  }, [storyItems]);
 
-  const totalToday = items.filter(i => i.availableToday).length;
-  const lowCount   = items.filter(i => i.stockLeft !== undefined && i.stockLeft <= 5).length;
+  const totalToday = storyItems.filter(i => i.availableToday).length;
+  const lowCount = storyItems.filter(i => i.stockLeft !== undefined && i.stockLeft <= 5).length;
 
   const handleTap = useCallback((item: FreshStoryItem) => {
     setSeen(s => new Set([...s, item.id]));
-    if (isMobile) { setSheet(item); }
-    else { onOpenStory(filtered.indexOf(item)); }
+    if (isMobile) {
+      setSheet(item);
+    } else {
+      onOpenStory(filtered.indexOf(item));
+    }
   }, [isMobile, filtered, onOpenStory]);
 
   const handleSheetOpen = useCallback(() => {
@@ -618,14 +747,13 @@ export function FreshTodayStoryBar({ onOpenStory, items = [] }: Props) {
   return (
     <>
       <div className="space-y-4">
-
         {/* ── HEADER ── */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2.5 flex-wrap">
             <div className="flex items-center gap-2">
               <div className="relative flex h-2.5 w-2.5">
-                <motion.span animate={{ scale:[1,2.2,1], opacity:[0.8,0,0.8] }}
-                  transition={{ repeat:Infinity, duration:2.2 }}
+                <motion.span animate={{ scale: [1, 2.2, 1], opacity: [0.8, 0, 0.8] }}
+                  transition={{ repeat: Infinity, duration: 2.2 }}
                   className="absolute inset-0 rounded-full bg-emerald-400" />
                 <span className="relative rounded-full h-2.5 w-2.5 bg-emerald-500" />
               </div>
@@ -635,7 +763,7 @@ export function FreshTodayStoryBar({ onOpenStory, items = [] }: Props) {
               {totalToday} məhsul
             </span>
             {lowCount > 0 && (
-              <motion.span animate={{ opacity:[1,0.6,1] }} transition={{ repeat:Infinity, duration:1.4 }}
+              <motion.span animate={{ opacity: [1, 0.6, 1] }} transition={{ repeat: Infinity, duration: 1.4 }}
                 className="text-xs bg-red-100 text-red-600 font-black px-2.5 py-1 rounded-full border border-red-100 flex items-center gap-1">
                 <Flame className="w-3 h-3" />{lowCount} az qalıb
               </motion.span>
@@ -657,22 +785,21 @@ export function FreshTodayStoryBar({ onOpenStory, items = [] }: Props) {
         {/* ── FEATURED CARD ── */}
         {featured && (
           <FeaturedCard item={featured}
-            onClick={() => { setSeen(s=>new Set([...s,featured.id])); handleTap(featured); }} />
+            onClick={() => { setSeen(s => new Set([...s, featured.id])); handleTap(featured); }} />
         )}
 
         {/* ── CATEGORY TABS ── */}
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
           {CATS.map(({ key, label, emoji }) => {
-            const count = items.filter(i => key === "hamısı" || i.category === key).length;
+            const count = storyItems.filter(i => key === "hamısı" || i.category === key).length;
             const active = cat === key;
             return (
-              <motion.button key={key} whileHover={{ y:-1 }} whileTap={{ scale:0.95 }}
+              <motion.button key={key} whileHover={{ y: -1 }} whileTap={{ scale: 0.95 }}
                 onClick={() => setCat(key)}
-                className={`flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                  active
+                className={`flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${active
                     ? "bg-emerald-700 text-white border-emerald-700 shadow-md shadow-emerald-700/20"
                     : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300"
-                }`}>
+                  }`}>
                 <span className="text-[13px] leading-none">{emoji}</span>
                 {label}
                 <span className={`text-[9px] font-black rounded-full px-1.5 py-0.5 ${active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-400"}`}>
@@ -689,8 +816,8 @@ export function FreshTodayStoryBar({ onOpenStory, items = [] }: Props) {
         {/* ── STORY RINGS ── */}
         <AnimatePresence mode="wait">
           <motion.div key={cat}
-            initial={{ opacity:0, x:14 }} animate={{ opacity:1, x:0 }}
-            exit={{ opacity:0, x:-14 }} transition={{ duration:0.2 }}>
+            initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.2 }}>
             {todayItems.length > 0 || tomorrowItems.length > 0 ? (
               <div className="flex items-start gap-4 overflow-x-auto scrollbar-hide pb-3 pt-1 px-0.5">
 
@@ -717,7 +844,7 @@ export function FreshTodayStoryBar({ onOpenStory, items = [] }: Props) {
                 ))}
               </div>
             ) : (
-              <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 className="flex flex-col items-center justify-center py-8 rounded-2xl
                   border border-dashed border-emerald-200 bg-emerald-50/40 gap-2">
                 <span className="text-3xl">🌱</span>

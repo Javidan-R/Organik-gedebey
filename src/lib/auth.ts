@@ -20,7 +20,11 @@ export type SessionUser = {
 }
 
 const ADMIN_ROLES: AdminRole[] = ['ADMIN', 'SUPERADMIN', 'MANAGER', 'WAREHOUSE_STAFF']
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+// ✅ FIX: Sərt v4 UUID regex əvəzinə ÜMUMİ UUID formatı — versiya/variant
+// nişanələrini məcbur etmir. Bu, gen_random_uuid()-dan gələn real Postgres
+// UUID-lərini DƏ, dev-də istifadə olunan fiktiv/sıfırlı ID-ləri DƏ qəbul edir.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function isUuid(id: string): boolean {
   return UUID_RE.test(id)
@@ -68,7 +72,6 @@ async function resolveUserFromDb(
       type,
     }
   } catch (error) {
-    // ✅ FIX: If DB fails, return null so token payload fallback is used
     console.warn('[auth] DB resolve failed, using token payload:', error)
     return null
   }
@@ -91,25 +94,36 @@ async function validateTokenUser(
   payload: { sub: string; email: string; role: string; name: string },
   type: 'admin' | 'customer'
 ): Promise<SessionUser | null> {
-  // ✅ Try DB resolve first
+  // ✅ İndi UUID_RE ümumi formatı qəbul etdiyi üçün DEV_ADMIN_UUID
+  // ('00000000-0000-0000-0000-000000000001') bu blokdan keçəcək.
+  // resolveUserFromDb yenə də DB-də uyğun sətir tapmayacaq (çünki bu ID
+  // real user deyil) və null qaytaracaq — bu normaldır, aşağıdakı
+  // fallback bloku məhz bunun üçündür.
   if (isUuid(payload.sub)) {
     const dbUser = await resolveUserFromDb(payload.sub, type)
     if (dbUser) return dbUser
-    // Fall through to payload fallback
   }
 
-  // ✅ Dev / env fallback tokens (non-UUID sub) - always allowed in dev
-  if (process.env.NODE_ENV !== 'production' && payload.sub === 'dev-admin-id' && type === 'admin') {
+  // ✅ FIX: Əvvəlki kodda bura YALNIZ payload.sub === 'dev-admin-id' (sabit
+  // string) olduqda işə düşürdü, amma login route-u faktiki olaraq
+  // DEV_ADMIN_UUID sabitini istifadə edir. Bu iki dəyər heç vaxt üst-üstə
+  // düşmürdü. İndi DEV_ADMIN_UUID-ni JWT konstantları ilə paylaşırıq.
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    payload.sub === DEV_ADMIN_SUB &&
+    type === 'admin'
+  ) {
     return sessionFromPayload(payload, type)
   }
+
   if (payload.sub === 'env-admin' && type === 'admin' && process.env.ADMIN_EMAIL) {
     return sessionFromPayload(payload, type)
   }
 
-  // ✅ PAYLOAD FALLBACK: If DB failed but token is valid, trust token
-  // This prevents constant logouts when DB is slow/unavailable
+  // ✅ PAYLOAD FALLBACK: DB uğursuz olsa da, token özü etibarlıdırsa,
+  // token-in payload-una etibar et (indi isUuid ümumi format qəbul etdiyi
+  // üçün DEV_ADMIN_UUID də bura çata bilər — DB-də tapılmasa belə).
   if (isUuid(payload.sub) && payload.role) {
-    // Check role validity
     if (type === 'admin' && !ADMIN_ROLES.includes(payload.role as AdminRole)) {
       return null
     }
@@ -121,6 +135,9 @@ async function validateTokenUser(
 
   return null
 }
+
+// ✅ Login route-u ilə paylaşılan tək mənbə — magic string təkrarını aradan qaldırır
+export const DEV_ADMIN_SUB = '00000000-0000-0000-0000-000000000001'
 
 // ─── Admin Auth ──────────────────────────────────────────────────────────────
 
@@ -139,8 +156,6 @@ export async function requireAuth(
         }
         return { user }
       }
-      // If validateTokenUser returns null but token was valid, it means
-      // user not found or inactive. Still throw error.
       throw new AuthError('Sessiya bitmişdir. Yenidən giriş edin.', 401)
     }
   }
@@ -183,13 +198,12 @@ export async function requireAdminAuth(
   return { user }
 }
 
-// ─── Optional Auth (for guest checkout) ────────────────────────────────────
+// ─── Optional Auth (guest checkout üçün) ────────────────────────────────────
 
 export async function optionalAuth(
   req: NextRequest
 ): Promise<{ user: SessionUser | null }> {
   try {
-    // Try admin token first
     const adminToken = req.cookies.get(COOKIE_ADMIN)?.value
     if (adminToken) {
       const payload = await verifyAdminToken(adminToken)
@@ -199,7 +213,6 @@ export async function optionalAuth(
       }
     }
 
-    // Try customer token
     const customerToken = req.cookies.get(COOKIE_CUSTOMER)?.value
     if (customerToken) {
       const payload = await verifyCustomerToken(customerToken)
@@ -209,10 +222,8 @@ export async function optionalAuth(
       }
     }
 
-    // Guest (no auth)
     return { user: null }
   } catch {
-    // Any error, treat as guest
     return { user: null }
   }
 }

@@ -116,8 +116,6 @@ export type RecipeItem = {
   steps: string[];
   servings: number;
 };
-
-// ─── Kateqoriya ──────────────────────────────────────────────
 export type Category = {
   id: ID;
   name: string;
@@ -127,7 +125,7 @@ export type Category = {
   parentId?: ID | null;
   color?: string;
   createdAt?: string;
-  archived?: boolean;
+  archived?: boolean;   // burada null yoxdur
   featured?: boolean;
   _count?: {
     products?: number;

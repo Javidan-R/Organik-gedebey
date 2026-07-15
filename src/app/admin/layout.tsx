@@ -1,5 +1,7 @@
 // src/app/admin/layout.tsx
+
 import type { Metadata } from "next";
+import { Providers } from '@/app/providers';
 import AdminClientLayout from "./AdminClientLayout";
 
 export const metadata: Metadata = {
@@ -8,5 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return <AdminClientLayout>{children}</AdminClientLayout>;
+  return (
+    <Providers>
+      <AdminClientLayout>{children}</AdminClientLayout>
+    </Providers>
+  );
 }

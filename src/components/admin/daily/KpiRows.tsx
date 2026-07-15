@@ -1,240 +1,130 @@
-import { StatCard } from '@/app/admin/summary/daily/page';
-import { useFinance } from '@/lib/finance';
-import { useApp } from '@/lib/store';
-import { DayClosingForm } from '@/types/daily';
-import { ShoppingBag, Users, Wallet , Activity } from 'lucide-react'
-import React, {  useMemo, useState } from 'react'
+// src/components/admin/daily/KpiRows.tsx
+'use client';
 
-const KpiRows = () => {
+import {
+  ShoppingBag, Users, Wallet, Activity,
+  TrendingUp, CreditCard, Banknote, TicketPercent,
+  Truck, Percent, DollarSign, BarChart3,
+} from 'lucide-react';
+import { StatCard } from '@/components/admin/daily/StatCard';
+import { currency } from '@/helpers';
 
-  const { orders} = useApp();
-  const { purchases, expenses, cashBalances } = useFinance();
-
-  const [selectedDay, setSelectedDay] = useState(
-    new Date().toISOString().slice(0, 10), // YYYY-MM-DD
-  );
-
-  const [closingForm, setClosingForm] = useState<DayClosingForm>({
-    realCustomers: 0,
-    realSales: 0,
-    realPurchases: 0,
-    realExpenses: 0,
-    realCashStart: 0,
-    realCashEnd: 0,
-    realPos: 0,
-    realBank: 0,
-    note: '',
-  });
-
-// Helpers
-const currency = (v: number) => `${v.toFixed(2)} ₼`;
-
-  const dayOrders = useMemo(
-    () =>
-      orders.filter(
-        (o) => o.createdAt.slice(0, 10) === selectedDay,
-      ),
-    [orders, selectedDay],
-  );
-
-  const systemDayMetrics = useMemo(() => {
-    const salesTotal = dayOrders.reduce(
-      (s, o) =>
-        s +
-        o.items.reduce(
-          (x, it) => x + it.qty * it.priceAtOrder,
-          0,
-        ),
-      0,
-    );
-    const orderCount = dayOrders.length;
-    const customerCount = new Set(
-      dayOrders
-        .map((o) => o.customerName?.trim())
-        .filter(Boolean),
-    ).size;
-
-    const avgTicket =
-      orderCount > 0 ? salesTotal / orderCount : 0;
-
-    const pending = dayOrders.filter(
-      (o) => o.status === 'pending',
-    ).length;
-    const delivered = dayOrders.filter(
-      (o) => o.status === 'delivered',
-    ).length;
-    const cancelled = dayOrders.filter(
-      (o) => o.status === 'cancelled',
-    ).length;
-
-    return {
-      salesTotal,
-      orderCount,
-      customerCount,
-      avgTicket,
-      pending,
-      delivered,
-      cancelled,
-    };
-  }, [dayOrders]);
-
-  // ========= MİSMATCH / HEALTH SCORE =========
-  const diffSales = closingForm.realSales - systemDayMetrics.salesTotal;
-  const dayPurchases = useMemo(
-    () =>
-      purchases.filter(
-        (p) => p.date.slice(0, 10) === selectedDay,
-      ),
-    [purchases, selectedDay],
-  );
-  const dayPurchasesTotal = useMemo(
-    () =>
-      dayPurchases.reduce(
-        (s, p) => s + p.unitCost * p.qty,
-        0,
-      ),
-    [dayPurchases],
-  );
-  const dayExpenses = useMemo(
-    () =>
-      expenses.filter(
-        (e) => e.date.slice(0, 10) === selectedDay,
-      ),
-    [expenses, selectedDay],
-  );
-  const dayExpensesTotal = useMemo(
-    () =>
-      dayExpenses.reduce((s, e) => s + e.amount, 0),
-    [dayExpenses],
-  );
-  const kassaReal =
-    closingForm.realCashEnd +
-    closingForm.realPos +
-    closingForm.realBank;
-
-  // kassaların sistem balansı (ümumi)
-  const systemBalances = cashBalances();
-  const kassaSystem = useMemo(
-    () =>
-      systemBalances.reduce(
-        (s, b) => s + (b.balance ?? 0),
-        0,
-      ),
-    [systemBalances],
-  );
-  const diffCustomers =
-    closingForm.realCustomers -
-    systemDayMetrics.customerCount;
-  const diffKassa = kassaReal - kassaSystem;
-
-  const realProfit = useMemo(
-    () =>
-      closingForm.realSales -
-      closingForm.realPurchases -
-      closingForm.realExpenses,
-    [
-      closingForm.realSales,
-      closingForm.realPurchases,
-      closingForm.realExpenses,
-    ],
-  );
-
-  const dayHealthScore = useMemo(() => {
-    let score = 100;
-
-    const gapSalesAbs = Math.abs(diffSales);
-    const gapSalesRatio =
-      systemDayMetrics.salesTotal > 0
-        ? gapSalesAbs /
-          Math.max(systemDayMetrics.salesTotal, 1)
-        : 0;
-
-    if (gapSalesRatio > 0.1) score -= 25;
-    else if (gapSalesRatio > 0.05) score -= 10;
-
-    const expRatio =
-      systemDayMetrics.salesTotal > 0
-        ? dayExpensesTotal /
-          systemDayMetrics.salesTotal
-        : 0;
-    if (expRatio > 0.6) score -= 20;
-    else if (expRatio > 0.4) score -= 10;
-
-    if (realProfit < 0) score -= 20;
-    if (diffKassa !== 0) score -= 15;
-
-    score = Math.max(0, Math.min(100, score));
-    return score;
-  }, [
-    diffSales,
-    diffKassa,
-    realProfit,
-    dayExpensesTotal,
-    systemDayMetrics.salesTotal,
-  ]);
-
-  const dayTag = useMemo(() => {
-    if (dayHealthScore >= 85 && realProfit > 0)
-      return { label: 'Super Gün', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
-    if (dayHealthScore >= 60 && realProfit >= 0)
-      return { label: 'Normal Gün', color: 'bg-blue-100 text-blue-800 border-blue-300' };
-    if (realProfit < 0)
-      return { label: 'Zərərlə Gün', color: 'bg-red-100 text-red-800 border-red-300' };
-    return { label: 'Riskli Gün', color: 'bg-amber-100 text-amber-800 border-amber-300' };
-  }, [dayHealthScore, realProfit]);
-
-  const systemProfit = useMemo(
-    () =>
-      systemDayMetrics.salesTotal -
-      dayPurchasesTotal -
-      dayExpensesTotal,
-    [
-      systemDayMetrics.salesTotal,
-      dayPurchasesTotal,
-      dayExpensesTotal,
-    ],
-  );
-
-
-
-  return (
-    <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              icon={<ShoppingBag className="w-5 h-5" />}
-              label="Sistem üzrə bu gün satış"
-              value={currency(systemDayMetrics.salesTotal)}
-              subtitle={`${systemDayMetrics.orderCount} sifariş`}
-              accent="emerald"
-            />
-            <StatCard
-              icon={<Users className="w-5 h-5" />}
-              label="Müştəri sayı (sistem)"
-              value={systemDayMetrics.customerCount.toString()}
-              subtitle={`Real: ${
-                closingForm.realCustomers || '—'
-              } (${diffCustomers === 0 ? 'Uyğundur' : 'Fərq: ' + diffCustomers})`}
-              accent="blue"
-            />
-            <StatCard
-              icon={<Wallet className="w-5 h-5" />}
-              label="Günün sistem mənfəəti"
-              value={currency(systemProfit)}
-              subtitle={`Real: ${
-                closingForm.realSales
-                  ? currency(realProfit)
-                  : '—'
-              }`}
-              accent={systemProfit >= 0 ? 'emerald' : 'red'}
-            />
-            <StatCard
-              icon={<Activity size={20} />}
-              label="Gün Sağlamlıq Skoru"
-              value={`${dayHealthScore.toFixed(0)} / 100`}
-              subtitle={dayTag.label}
-              accent="purple"
-            />
-          </section>
-  )
+interface KpiRowsProps {
+  systemMetrics?: any;
+  closingForm?: any;
+  systemProfit?: number;
+  realProfit?: number;
+  dayHealthScore?: number;
+  dayTag?: { label: string; color?: string };
+  diffCustomers?: number;
+  diffSales?: number;
+  diffKassa?: number;
+  expensesTotal?: number;
+  avgTicket?: number;
+  cashPayments?: number;
+  cardPayments?: number;
+  totalDiscount?: number;
+  totalDelivery?: number;
 }
 
-export default KpiRows
+export default function KpiRows(props: KpiRowsProps) {
+  const {
+    systemMetrics = {},
+    closingForm = {},
+    systemProfit = 0,
+    realProfit = 0,
+    dayHealthScore = 0,
+    dayTag = { label: '—' },
+    diffCustomers = 0,
+    diffSales = 0,
+    diffKassa = 0,
+    expensesTotal = 0,
+    avgTicket = 0,
+    cashPayments = 0,
+    cardPayments = 0,
+    totalDiscount = 0,
+    totalDelivery = 0,
+  } = props;
+
+  const salesTotal = systemMetrics?.salesTotal ?? 0;
+  const orderCount = systemMetrics?.orderCount ?? 0;
+  const customerCount = systemMetrics?.customerCount ?? 0;
+  const totalCoupon = systemMetrics?.totalCoupon ?? 0;
+
+  const profitMargin = salesTotal > 0 ? (systemProfit / salesTotal) * 100 : 0;
+
+  return (
+    <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <StatCard
+        icon={<ShoppingBag className="w-5 h-5" />}
+        label="Sistem satış"
+        value={currency(salesTotal)}
+        subtitle={`${orderCount} sifariş, orta çek ${currency(avgTicket)}`}
+        accent="emerald"
+      />
+      <StatCard
+        icon={<Users className="w-5 h-5" />}
+        label="Müştəri sayı"
+        value={customerCount.toString()}
+        subtitle={`Real: ${closingForm?.realCustomers ?? '—'}`}
+        accent="blue"
+      />
+      <StatCard
+        icon={<Banknote className="w-5 h-5" />}
+        label="Nağd / Kart"
+        value={`${currency(cashPayments)} / ${currency(cardPayments)}`}
+        subtitle="Ödəniş üsulu"
+        accent="purple"
+      />
+      <StatCard
+        icon={<TicketPercent className="w-5 h-5" />}
+        label="Endirimlər"
+        value={currency(totalDiscount)}
+        subtitle={`Kupon: ${currency(totalCoupon)}`}
+        accent="amber"
+      />
+      <StatCard
+        icon={<Truck className="w-5 h-5" />}
+        label="Çatdırılma"
+        value={currency(totalDelivery)}
+        subtitle=""
+        accent="indigo"
+      />
+      <StatCard
+        icon={<Wallet className="w-5 h-5" />}
+        label="Sistem mənfəəti"
+        value={currency(systemProfit)}
+        subtitle={`Real: ${currency(realProfit)}`}
+        accent={systemProfit >= 0 ? 'emerald' : 'red'}
+      />
+      <StatCard
+        icon={<Percent className="w-5 h-5" />}
+        label="Mənfəət marjı"
+        value={`${profitMargin.toFixed(1)}%`}
+        subtitle="Sistem üzrə"
+        accent={profitMargin > 10 ? 'emerald' : 'orange'}
+      />
+      <StatCard
+        icon={<Activity size={20} />}
+        label="Gün skoru"
+        value={`${dayHealthScore.toFixed(0)} / 100`}
+        subtitle={dayTag.label}
+        accent="purple"
+      />
+      <StatCard
+        icon={<BarChart3 className="w-5 h-5" />}
+        label="Satış fərqi"
+        value={currency(Math.abs(diffSales))}
+        subtitle={diffSales >= 0 ? 'Sistemdən çox' : 'Sistemdən az'}
+        accent="orange"
+      />
+      <StatCard
+        icon={<DollarSign className="w-5 h-5" />}
+        label="Kassa fərqi"
+        value={currency(Math.abs(diffKassa))}
+        subtitle="Sistem – Real"
+        accent={diffKassa === 0 ? 'emerald' : 'red'}
+      />
+    </section>
+  );
+}

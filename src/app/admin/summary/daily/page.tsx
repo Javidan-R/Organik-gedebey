@@ -1,306 +1,290 @@
-// src/app/admin/daily/page.tsx
+// src/app/admin/summary/daily/page.tsx
 'use client';
-import DailyCharts from '@/components/admin/daily/DailyCharts';
-import Dailychecklist from '@/components/admin/daily/Dailychecklist';
+
+import { useState, useMemo, useCallback } from 'react';
 import DailyHeader from '@/components/admin/daily/DailyHeader';
 import KpiRows from '@/components/admin/daily/KpiRows';
 import SaleSystem from '@/components/admin/daily/SaleSystem';
+import DailyCharts from '@/components/admin/daily/DailyCharts';
+import Dailychecklist from '@/components/admin/daily/Dailychecklist';
+import DailyOrdersTable from '@/components/admin/daily/DailyOrdersTable';
+import { useDailySummary } from '@/hooks/useDailySummary';
+import { useApp } from '@/lib/store';
+import { sumBalances } from '@/utils/safe-sum';
 import { currency } from '@/helpers';
 import { motion } from 'framer-motion';
 import {
-  ArrowDownRight,
-  ArrowUpRight,
-  PieChart as PieIcon,
-  LineChart as LineIcon,
-  CheckCircle2,
+  RefreshCw, AlertTriangle, TrendingUp, TrendingDown,
 } from 'lucide-react';
-import { useState } from 'react';
-import { DayClosingForm } from '@/types/daily';
 
-// MAIN COMPONENT
 export default function DailyPremiumPage() {
   const [selectedDay, setSelectedDay] = useState(
-    new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+    new Date().toISOString().slice(0, 10)
   );
 
-  const [closingForm, setClosingForm] = useState<DayClosingForm>({
-    realCustomers: 0,
-    realSales: 0,
-    realPurchases: 0,
-    realExpenses: 0,
-    realCashStart: 0,
-    realCashEnd: 0,
-    realPos: 0,
-    realBank: 0,
-    note: '',
-  });
+  const { data, isLoading, error, saveDailySummary, refetch } =
+    useDailySummary(selectedDay);
+  const { products, categories } = useApp();
+
+  const closingForm = useMemo(
+    () => ({
+      realCustomers: data?.saved?.realCustomers ?? 0,
+      realSales: data?.saved?.realSales ?? 0,
+      realPurchases: data?.saved?.realPurchases ?? 0,
+      realExpenses: data?.saved?.realExpenses ?? 0,
+      realCashStart: data?.saved?.realCashStart ?? 0,
+      realCashEnd: data?.saved?.realCashEnd ?? 0,
+      realPos: data?.saved?.realPos ?? 0,
+      realBank: data?.saved?.realBank ?? 0,
+      note: data?.saved?.note ?? '',
+    }),
+    [data]
+  );
+
+  const handleSave = useCallback(
+    (updated: typeof closingForm) => {
+      saveDailySummary({ ...updated, date: selectedDay });
+    },
+    [saveDailySummary, selectedDay]
+  );
+
+  const kassaSystem = useMemo(
+    () => sumBalances(data?.system?.systemBalances),
+    [data]
+  );
+
+  const dayHealthScore = useMemo(() => {
+    if (!data) return 100;
+    const { system, computed } = data;
+    let score = 100;
+    const gapSalesRatio =
+      system.salesTotal > 0 ? Math.abs(computed.diffSales) / system.salesTotal : 0;
+    if (gapSalesRatio > 0.1) score -= 25;
+    else if (gapSalesRatio > 0.05) score -= 10;
+
+    const expRatio =
+      system.salesTotal > 0 ? system.expensesTotal / system.salesTotal : 0;
+    if (expRatio > 0.6) score -= 20;
+    else if (expRatio > 0.4) score -= 10;
+
+    if (computed.realProfit < 0) score -= 20;
+    if (computed.diffKassa !== 0) score -= 15;
+
+    return Math.max(0, Math.min(100, score));
+  }, [data]);
+
+  const dayTag = useMemo(() => {
+    const realProfit = data?.computed?.realProfit ?? 0;
+    if (dayHealthScore >= 85 && realProfit > 0)
+      return { label: 'Super Gün', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+    if (dayHealthScore >= 60 && realProfit >= 0)
+      return { label: 'Normal Gün', color: 'bg-blue-100 text-blue-800 border-blue-300' };
+    if (realProfit < 0)
+      return { label: 'Zərərlə Gün', color: 'bg-red-100 text-red-800 border-red-300' };
+    return { label: 'Riskli Gün', color: 'bg-amber-100 text-amber-800 border-amber-300' };
+  }, [dayHealthScore, data]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-14 h-14 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-slate-500">Günlük məlumatlar yüklənir...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen text-center px-4">
+        <AlertTriangle className="w-12 h-12 text-red-400 mb-3" />
+        <p className="text-xl font-semibold text-red-600">Xəta baş verdi</p>
+        <p className="text-sm text-slate-500 mt-2">
+          {(error as Error)?.message || 'Məlumat yüklənə bilmədi'}
+        </p>
+        <button
+          onClick={() => refetch()}
+          className="mt-4 px-5 py-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition flex items-center gap-2"
+        >
+          <RefreshCw className="w-4 h-4" /> Yenidən cəhd et
+        </button>
+      </div>
+    );
+  }
+
+  const { system, computed, orders } = data;
+  const comparisonItems = [
+    { label: 'Satış', system: system.salesTotal, real: closingForm.realSales },
+    { label: 'Müştəri', system: system.customerCount, real: closingForm.realCustomers, integer: true },
+    { label: 'Kassa', system: kassaSystem, real: computed.kassaReal },
+  ];
 
   return (
-    <main className="min-h-screen bg-linear-to-br from-emerald-50 via-white to-slate-50 px-3 py-4 md:px-6 md:py-6 space-y-6 print:bg-white print:px-0">
+    <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-slate-50 px-3 py-4 md:px-6 md:py-6 space-y-6 print:bg-white print:px-0">
+      <DailyHeader
+        selectedDay={selectedDay}
+        onDayChange={setSelectedDay}
+        systemMetrics={system}
+        closingForm={closingForm}
+        realProfit={computed.realProfit}
+        systemProfit={system.systemProfit}
+        purchasesTotal={system.purchasesTotal}
+        expensesTotal={system.expensesTotal}
+        kassaReal={computed.kassaReal}
+        kassaSystem={kassaSystem}
+        diffSales={computed.diffSales}
+        diffCustomers={computed.diffCustomers}
+        diffKassa={computed.diffKassa}
+        dayHealthScore={dayHealthScore}
+        dayTag={dayTag}
+      />
 
-     <DailyHeader/>
-      {/* TOP KPI ROWS */}
-    <KpiRows/>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <QuickStatCard
+          label="Ümumi gəlir"
+          value={currency(system.salesTotal)}
+          trend={system.salesTotal > 0 ? 'up' : 'down'}
+        />
+        <QuickStatCard
+          label="Xərclər"
+          value={currency(system.expensesTotal)}
+          trend="down"
+          danger
+        />
+        <QuickStatCard
+          label="Sistem mənfəət"
+          value={currency(system.systemProfit)}
+          trend={system.systemProfit >= 0 ? 'up' : 'down'}
+          highlight
+        />
+        <QuickStatCard
+          label="Real mənfəət"
+          value={currency(computed.realProfit)}
+          trend={computed.realProfit > system.systemProfit ? 'up' : 'down'}
+          highlight
+        />
+      </div>
 
-      {/* SYSTEM vs REAL 3-COLUMN GRID */}
+      <KpiRows
+        systemMetrics={system}
+        closingForm={closingForm}
+        systemProfit={system.systemProfit}
+        realProfit={computed.realProfit}
+        dayHealthScore={dayHealthScore}
+        dayTag={dayTag}
+        diffCustomers={computed.diffCustomers}
+        diffSales={computed.diffSales}
+        diffKassa={computed.diffKassa}
+        expensesTotal={system.expensesTotal}
+        avgTicket={system.avgTicket}
+        cashPayments={system.cashPayments}
+        cardPayments={system.cardPayments}
+        totalDiscount={system.totalDiscount}
+        totalDelivery={system.totalDelivery}
+      />
 
-     <SaleSystem initialForm={closingForm} dayKey={selectedDay} />
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-3xl border border-slate-100 bg-white/95 p-5 shadow-lg"
+      >
+        <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-emerald-600" />
+          Real vs Sistem Müqayisəsi
+        </h3>
+        <div className="space-y-3">
+          {comparisonItems.map((item) => {
+            const diff = item.real - item.system;
+            const percent = item.system > 0 ? (Math.abs(diff) / item.system) * 100 : 0;
+            const barWidth = Math.min(percent, 100);
+            const isPositive = diff >= 0;
+            return (
+              <div key={item.label} className="flex items-center gap-3">
+                <span className="w-20 text-xs font-semibold text-slate-600">{item.label}</span>
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${isPositive ? 'bg-emerald-500' : 'bg-red-400'}`}
+                    style={{ width: `${barWidth}%` }}
+                  />
+                </div>
+                <span className="text-xs w-16 text-right font-mono text-slate-700">
+                  {isPositive ? '+' : ''}{item.integer ? diff.toFixed(0) : currency(Math.abs(diff))}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </motion.section>
 
-      {/* CHARTS SECTION: PIE + BAR + LINE */}
-<DailyCharts/>
-      {/* DAILY PRODUCT LIST + CASH / CHECKLIST */}
-      <Dailychecklist/>
+      <SaleSystem
+        closingForm={closingForm}
+        onClosingFormChange={handleSave}
+        systemMetrics={system}
+        purchasesTotal={system.purchasesTotal}
+        expensesTotal={system.expensesTotal}
+        systemProfit={system.systemProfit}
+        kassaSystem={kassaSystem}
+        kassaReal={computed.kassaReal}
+        systemBalances={system.systemBalances}
+        dayOrders={orders ?? []}
+        selectedDay={selectedDay}
+      />
+
+      <DailyCharts
+        dayOrders={orders ?? []}
+        productBreakdown={system.productBreakdown ?? []}
+        hourlySales={system.hourlySales ?? []}
+        products={products}
+        categories={categories}
+      />
+
+      <DailyOrdersTable orders={orders ?? []} />
+
+      <Dailychecklist
+        dayOrders={orders ?? []}
+        products={products}
+        systemBalances={system.systemBalances}
+        kassaSystem={kassaSystem}
+        kassaReal={computed.kassaReal}
+        closingForm={closingForm}
+        systemMetrics={system}
+        diffSales={computed.diffSales}
+        diffKassa={computed.diffKassa}
+        realProfit={computed.realProfit}
+        expensesTotal={system.expensesTotal}
+      />
     </main>
   );
 }
 
-// ============= SMALL COMPONENTS =============
-
-type Accent = 'emerald' | 'blue' | 'purple' | 'red';
-
-export function StatCard(props: {
-  icon: React.ReactNode;
+function QuickStatCard({
+  label,
+  value,
+  trend,
+  highlight,
+  danger,
+}: {
   label: string;
   value: string;
-  subtitle?: string;
-  accent?: Accent;
-}) {
-  const { icon, label, value, subtitle, accent = 'emerald' } =
-    props;
-
-  const colorMap: Record<
-    Accent,
-    { bg: string; text: string }
-  > = {
-    emerald: {
-      bg: 'bg-emerald-50',
-      text: 'text-emerald-700',
-    },
-    blue: {
-      bg: 'bg-sky-50',
-      text: 'text-sky-700',
-    },
-    purple: {
-      bg: 'bg-purple-50',
-      text: 'text-purple-700',
-    },
-    red: {
-      bg: 'bg-rose-50',
-      text: 'text-rose-700',
-    },
-  };
-
-  const { bg, text } = colorMap[accent];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="rounded-3xl border border-slate-100 bg-white px-4 py-4 shadow-md shadow-slate-50 md:px-5 md:py-5"
-    >
-      <div
-        className={`mb-2 inline-flex h-9 w-9 items-center justify-center rounded-2xl ${bg} ${text}`}
-      >
-        {icon}
-      </div>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-      <p className={`mt-1 text-xl md:text-2xl font-extrabold ${text}`}>
-        {value}
-      </p>
-      {subtitle && (
-        <p className="mt-0.5 text-[11px] md:text-xs text-slate-500">
-          {subtitle}
-        </p>
-      )}
-    </motion.div>
-  );
-}
-
-export function SectionCard(props: {
-  title: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
+  trend: 'up' | 'down';
   highlight?: boolean;
+  danger?: boolean;
 }) {
-  const { title, icon, children, highlight } = props;
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`rounded-3xl border bg-white/95 px-4 py-4 md:px-5 md:py-5 shadow-lg ${
-        highlight
-          ? 'border-purple-200 shadow-purple-50'
-          : 'border-slate-100 shadow-slate-50'
-      }`}
-    >
-      <header className="mb-3 flex items-center justify-between gap-2">
-        <div className="inline-flex items-center gap-2">
-          {icon && (
-            <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-slate-50 text-slate-700">
-              {icon}
-            </div>
-          )}
-          <h2 className="text-sm md:text-base font-bold text-slate-800">
-            {title}
-          </h2>
-        </div>
-      </header>
-      {children}
-    </motion.section>
-  );
-}
-
-export function KeyValue(props: {
-  label: string;
-  value: string | number;
-  valueClass?: string;
-}) {
-  const { label, value, valueClass } = props;
-  return (
-    <div className="flex flex-col rounded-2xl bg-slate-50 px-3 py-2">
-      <span className="text-[11px] font-semibold text-slate-500">
-        {label}
-      </span>
-      <span
-        className={`text-xs md:text-sm font-semibold text-slate-800 ${valueClass}`}
-      >
+    <div className="rounded-2xl bg-white/90 border border-slate-100 p-3 shadow-sm">
+      <p className="text-[11px] text-slate-500 font-medium">{label}</p>
+      <p className={`text-lg font-extrabold mt-1 ${highlight ? 'text-emerald-700' : 'text-slate-800'}`}>
         {value}
-      </span>
-    </div>
-  );
-}
-
-export function NumberField(props: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  const { label, value, onChange } = props;
-  return (
-    <div>
-      <label className="mb-1 block text-[11px] font-semibold text-slate-600">
-        {label}
-      </label>
-      <input
-        type="number"
-        step="0.01"
-        value={Number.isNaN(value) ? '' : value}
-        onChange={(e) =>
-          onChange(parseFloat(e.target.value || '0'))
-        }
-        className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs md:text-sm text-slate-800 shadow-inner focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-      />
-    </div>
-  );
-}
-
-export function DiffRow(props: {
-  label: string;
-  system: number;
-  real: number;
-  money?: boolean;
-}) {
-  const { label, system, real, money = true } = props;
-  const diff = (real || 0) - (system || 0);
-  const hasReal = !!real || real === 0;
-  const positive = diff > 0;
-  const neutral = diff === 0;
-  return (
-    <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
-      <div className="flex flex-col">
-        <span className="text-[11px] font-semibold text-slate-500">
-          {label}
-        </span>
-        <span className="text-[11px] text-slate-500">
-          Sistem: {money ? currency(system) : system}
-          {hasReal && (
-            <>
-              {' · '}Real: {money ? currency(real) : real}
-            </>
-          )}
-        </span>
+      </p>
+      <div className="flex items-center gap-1 mt-1">
+        {trend === 'up' ? (
+          <TrendingUp className={`w-3.5 h-3.5 ${danger ? 'text-red-500' : 'text-emerald-500'}`} />
+        ) : (
+          <TrendingDown className="w-3.5 h-3.5 text-emerald-500" />
+        )}
+        <span className="text-[10px] text-slate-500">{trend === 'up' ? 'Artım' : 'Azalma'}</span>
       </div>
-      {hasReal && (
-        <span
-          className={`inline-flex items-center rounded-xl px-2 py-1 text-[10px] font-semibold ${
-            neutral
-              ? 'bg-slate-100 text-slate-500'
-              : positive
-              ? 'bg-emerald-100 text-emerald-700'
-              : 'bg-rose-100 text-rose-700'
-          }`}
-        >
-          {neutral ? (
-            'Uyğundur'
-          ) : positive ? (
-            <>
-              <ArrowUpRight className="mr-1 h-3 w-3" />
-              +{money ? currency(diff) : diff}
-            </>
-          ) : (
-            <>
-              <ArrowDownRight className="mr-1 h-3 w-3" />
-              {money ? currency(diff) : diff}
-            </>
-          )}
-        </span>
-      )}
-    </div>
-  );
-}
-
-export function HealthBadge(props: {
-  label: string;
-  score: number;
-}) {
-  const { label, score } = props;
-  return (
-    <div className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
-      <CheckCircle2 className="w-4 h-4" />
-      <span>{label}</span>
-      <span className="rounded-xl bg-white/80 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
-        {score.toFixed(0)}/100
-      </span>
-    </div>
-  );
-}
-
-export function ChecklistItem(props: {
-  label: string;
-  checked: boolean;
-  onChange: () => void;
-}) {
-  const { label, checked, onChange } = props;
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      className={`flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-[11px] md:text-xs text-left ${
-        checked
-          ? 'bg-emerald-100 text-emerald-800'
-          : 'bg-white text-slate-700 hover:bg-slate-100'
-      }`}
-    >
-      <span>{label}</span>
-      <span
-        className={`inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
-          checked
-            ? 'border-emerald-500 bg-emerald-500 text-white'
-            : 'border-slate-300 text-slate-400'
-        }`}
-      >
-        {checked ? '✓' : ''}
-      </span>
-    </button>
-  );
-}
-
-export function EmptyState(props: { message: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center text-center text-xs md:text-sm text-slate-400">
-      <p>{props.message}</p>
     </div>
   );
 }

@@ -6,21 +6,42 @@ import { ID } from '@/lib/types';
 import { useEffect } from 'react';
 
 const PRODUCTS_QUERY_KEY = ['products'];
+// src/hooks/useProducts.ts – sanitizeNulls safe, deep recursion yox
 
-// ─── Helpers ────────────────────────────────────────────────────
-export function sanitizeNulls<T extends Record<string, any>>(obj: T): T {
-  const result: any = {};
-  for (const key in obj) {
-    const val = obj[key];
-    if (val === null || val === undefined) continue;
-    if (Array.isArray(val) && val.length === 0) continue;
-    if (typeof val === 'object' && !Array.isArray(val) && val !== null) {
-      result[key] = sanitizeNulls(val);
-    } else {
+export function sanitizeNulls<T extends Record<string, any>>(obj: T, maxDepth = 5): T {
+  const seen = new WeakSet<object>();
+
+  function clean(value: any, depth: number): any {
+    if (value === null || value === undefined) return undefined;
+    if (typeof value !== 'object') return value;
+    if (depth > maxDepth) return value;
+    if (seen.has(value)) return '[Circular]';
+    seen.add(value);
+
+    if (Array.isArray(value)) {
+      return value
+        .filter((item) => item !== null && item !== undefined)
+        .map((item) => clean(item, depth + 1))
+        .filter((item) => {
+          if (Array.isArray(item)) return item.length > 0;
+          if (typeof item === 'object' && item !== null) return Object.keys(item).length > 0;
+          return item !== undefined;
+        });
+    }
+
+    const result: any = {};
+    for (const key in value) {
+      if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+      const val = clean(value[key], depth + 1);
+      if (val === undefined || val === null) continue;
+      if (Array.isArray(val) && val.length === 0) continue;
+      if (typeof val === 'object' && val !== null && Object.keys(val).length === 0) continue;
       result[key] = val;
     }
+    return result;
   }
-  return result as T;
+
+  return clean(obj, 0) as T;
 }
 
 // ─── FETCH ALL (Admin endpoint-i) ───────────────────────────────

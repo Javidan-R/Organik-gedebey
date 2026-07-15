@@ -26,7 +26,7 @@ export const StatusBadge: React.FC<{ status: OrderStatusDisplay }> = ({ status }
       icon = <Package className="w-[0.8rem] h-[0.8rem]" />;
       classes += ' bg-indigo-50 text-indigo-700 border border-indigo-200';
       break;
-    case 'shipping':
+    case 'out_for_delivery':
       icon = <Truck className="w-[0.8rem] h-[0.8rem]" />;
       classes += ' bg-cyan-50 text-cyan-700 border border-cyan-200';
       break;
@@ -52,11 +52,10 @@ export const StatusBadge: React.FC<{ status: OrderStatusDisplay }> = ({ status }
     confirmed: 'Təsdiqləndi',
     preparing: 'Hazırlanır',
     ready_for_delivery: 'Çatdırılmağa hazır',
-    shipping: 'Yolda',
+    out_for_delivery: 'Çatdırılır',
     delivered: 'Çatdırılıb',
     cancelled: 'Ləğv edilib',
     refunded: 'Qaytarıldı',
-    out_for_delivery: "Çatdırılmaya yola düşüb"
   };
 
   return (

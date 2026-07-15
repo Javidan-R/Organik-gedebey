@@ -7,7 +7,8 @@ import {
   X, Plus, Trash2, Package, ShoppingBag, Save,
   AlertCircle, DollarSign, Search, GripVertical,
   Layers, Image, Gift, Tag, Star, TrendingUp, Leaf,
-  ChevronLeft, ChevronRight, Upload, Camera, Eye, EyeOff,
+  Upload, Camera, Eye, EyeOff, Link as LinkIcon,
+  ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/atoms/button';
 import { Input } from '@/components/atoms/input';
@@ -31,29 +32,43 @@ interface SelectedProduct {
   quantity: number;
 }
 
+interface MediaItem {
+  id: string;
+  type: 'image' | 'video';
+  url: string;
+  altText?: string;
+  displayOrder: number;
+}
+
 // ─── Margin Calculator ──────────────────────────────────────────
 function calculateBasketMargin(
   basket: Partial<Basket>,
   selectedProducts: SelectedProduct[],
-  products: any[]
+  products: any[],
+  productPriceNow: (product: any, variant: any) => number
 ) {
-  const primaryVariant = basket.variants?.[0];
-  const price = primaryVariant ? parseFloat(String(primaryVariant.price || '0')) : 0;
   let totalCost = 0;
   let totalRevenue = 0;
 
   if (selectedProducts.length > 0) {
     for (const sp of selectedProducts) {
       const product = products.find(p => p.id === sp.productId);
-      if (product) {
-        const variant = product.variants?.find((v: any) => v.id === sp.variantId) || product.variants?.[0];
-        const cost = variant?.costPrice ?? 0;
-        const qty = sp.quantity || 1;
-        totalCost += Number(cost) * qty;
-        totalRevenue += (Number(variant?.price ?? 0)) * qty;
-      }
+      if (!product) continue;
+      const variant = sp.variantId
+        ? product.variants?.find((v: any) => v.id === sp.variantId)
+        : product.variants?.[0];
+      if (!variant) continue;
+      const price = productPriceNow(product, variant);
+      const cost = variant.costPrice ? Number(variant.costPrice) : 0;
+      const qty = sp.quantity || 1;
+      totalCost += cost * qty;
+      totalRevenue += price * qty;
     }
   } else {
+    const primaryVariant = basket.variants?.[0];
+    const price = primaryVariant
+      ? parseFloat(String(primaryVariant.price || '0'))
+      : 0;
     totalCost = price * 0.6;
     totalRevenue = price;
   }
@@ -63,9 +78,9 @@ function calculateBasketMargin(
   return { totalRevenue, totalCost, profit, margin };
 }
 
-// ─── Sub-components ─────────────────────────────────────────────
-
-/** Məhsul axtarış və seçim komponenti */
+// ═══════════════════════════════════════════════════════════════
+// SUB-COMPONENT: ProductSelector
+// ═══════════════════════════════════════════════════════════════
 const ProductSelector = ({
   products,
   onAddProduct,
@@ -115,7 +130,7 @@ const ProductSelector = ({
             placeholder="Məhsul axtar..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white"
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white text-gray-700 placeholder-gray-400"
           />
           {search && (
             <div className="absolute top-full mt-1 w-full bg-white border rounded-xl shadow-lg z-20 max-h-48 overflow-y-auto">
@@ -147,7 +162,7 @@ const ProductSelector = ({
               <select
                 value={selectedVariantId || ''}
                 onChange={(e) => setSelectedVariantId(e.target.value || null)}
-                className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:border-emerald-500 bg-white"
+                className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:border-emerald-500 bg-white text-gray-700"
               >
                 <option value="">Standart variant</option>
                 {variants.map((v: any) => (
@@ -165,7 +180,7 @@ const ProductSelector = ({
               >
                 −
               </button>
-              <span className="w-8 text-center font-bold text-sm">{quantity}</span>
+              <span className="w-8 text-center font-bold text-sm text-gray-700">{quantity}</span>
               <button
                 type="button"
                 onClick={() => setQuantity(q => q + 1)}
@@ -198,7 +213,9 @@ const ProductSelector = ({
   );
 };
 
-/** Seçilmiş məhsullar siyahısı */
+// ═══════════════════════════════════════════════════════════════
+// SUB-COMPONENT: SelectedProductsList
+// ═══════════════════════════════════════════════════════════════
 const SelectedProductsList = ({
   items,
   products,
@@ -215,7 +232,9 @@ const SelectedProductsList = ({
       <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
         <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
         <p className="text-sm text-gray-500">Hələ məhsul əlavə edilməyib</p>
-        <p className="text-xs text-gray-400 mt-1">Yuxarıdakı axtarış panelindən məhsul seçin</p>
+        <p className="text-xs text-gray-400 mt-1">
+          Yuxarıdakı axtarış panelindən məhsul seçin
+        </p>
       </div>
     );
   }
@@ -248,7 +267,9 @@ const SelectedProductsList = ({
               </p>
               <p className="text-xs text-gray-500">
                 {variant?.name || 'Standart'} · {formatCurrency(price)} × {item.quantity} ={' '}
-                <span className="font-semibold text-emerald-600">{formatCurrency(lineTotal)}</span>
+                <span className="font-semibold text-emerald-600">
+                  {formatCurrency(lineTotal)}
+                </span>
               </p>
             </div>
 
@@ -257,7 +278,7 @@ const SelectedProductsList = ({
                 <select
                   value={item.variantId || ''}
                   onChange={e => onUpdate(idx, 'variantId', e.target.value || null)}
-                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white hover:border-emerald-300"
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white hover:border-emerald-300 text-gray-700"
                 >
                   <option value="">Standart</option>
                   {product.variants.map((v: any) => (
@@ -275,7 +296,9 @@ const SelectedProductsList = ({
                 >
                   −
                 </button>
-                <span className="w-6 text-center text-xs font-bold">{item.quantity}</span>
+                <span className="w-6 text-center text-xs font-bold text-gray-700">
+                  {item.quantity}
+                </span>
                 <button
                   type="button"
                   onClick={() => onUpdate(idx, 'quantity', item.quantity + 1)}
@@ -300,7 +323,9 @@ const SelectedProductsList = ({
   );
 };
 
-/** Tab navigation */
+// ═══════════════════════════════════════════════════════════════
+// SUB-COMPONENT: TabButton
+// ═══════════════════════════════════════════════════════════════
 const TabButton = ({
   active,
   onClick,
@@ -340,16 +365,32 @@ const TabButton = ({
 // ═══════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════
-export default function BasketEditModal({ open, onClose, basket, onSave }: BasketEditModalProps) {
-  const { products } = useApp();
+export default function BasketEditModal({
+  open,
+  onClose,
+  basket,
+  onSave,
+}: BasketEditModalProps) {
+  const { products, productPriceNow } = useApp();
 
   const [formData, setFormData] = useState<Partial<Basket>>({});
-  const [variants, setVariants] = useState<FormVariant[]>([emptyFormVariant()]);
-  const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
+  const [variants, setVariants] = useState<FormVariant[]>([
+    emptyFormVariant(),
+  ]);
+  const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>(
+    []
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'general' | 'variants' | 'products'>('general');
+  const [activeTab, setActiveTab] = useState<
+    'general' | 'variants' | 'products' | 'media'
+  >('general');
   const [formTouched, setFormTouched] = useState(false);
+
+  // Media state
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [newMediaUrl, setNewMediaUrl] = useState('');
+  const [newMediaType, setNewMediaType] = useState<'image' | 'video'>('image');
 
   // ─── Initialize form ─────────────────────────────────────
   useEffect(() => {
@@ -365,6 +406,15 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
           productId: p.productId,
           variantId: p.productVariantId || null,
           quantity: parseFloat(String(p.quantity)) || 1,
+        })) || []
+      );
+      setMediaItems(
+        basket.media?.map(m => ({
+          id: m.id,
+          type: m.type as 'image' | 'video',
+          url: m.url,
+          altText: m.altText || undefined,
+          displayOrder: m.displayOrder || 0,
         })) || []
       );
     } else {
@@ -385,6 +435,7 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
       });
       setVariants([emptyFormVariant()]);
       setSelectedProducts([]);
+      setMediaItems([]);
     }
     setError('');
     setActiveTab('general');
@@ -409,14 +460,17 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
     setFormTouched(true);
   }, []);
 
-  const updateVariant = useCallback((index: number, field: keyof FormVariant, value: any) => {
-    setVariants(p => {
-      const updated = [...p];
-      updated[index] = { ...updated[index], [field]: value } as FormVariant;
-      return updated;
-    });
-    setFormTouched(true);
-  }, []);
+  const updateVariant = useCallback(
+    (index: number, field: keyof FormVariant, value: any) => {
+      setVariants(p => {
+        const updated = [...p];
+        updated[index] = { ...updated[index], [field]: value } as FormVariant;
+        return updated;
+      });
+      setFormTouched(true);
+    },
+    []
+  );
 
   // ─── Product handlers ────────────────────────────────────
   const addProduct = useCallback(
@@ -432,30 +486,67 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
     setFormTouched(true);
   }, []);
 
-  const updateProduct = useCallback((index: number, field: string, value: any) => {
-    setSelectedProducts(p => {
-      const updated = [...p];
-      (updated[index] as any)[field] = value;
-      return updated;
-    });
-    setFormTouched(true);
-  }, []);
+  const updateProduct = useCallback(
+    (index: number, field: string, value: any) => {
+      setSelectedProducts(p => {
+        const updated = [...p];
+        (updated[index] as any)[field] = value;
+        return updated;
+      });
+      setFormTouched(true);
+    },
+    []
+  );
 
-  // ─── Form handlers ───────────────────────────────────────
-  const handleFieldChange = useCallback((field: keyof Basket, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    setFormTouched(true);
-  }, []);
+  // ─── Form field handlers ───────────────────────────────────────
+  const handleFieldChange = useCallback(
+    (field: keyof Basket, value: any) => {
+      setFormData(prev => ({ ...prev, [field]: value }));
+      setFormTouched(true);
+    },
+    []
+  );
 
-  const handleNumberFieldChange = useCallback((field: keyof Basket, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: parseInt(value, 10) || 0 }));
+  const handleNumberFieldChange = useCallback(
+    (field: keyof Basket, value: string) => {
+      setFormData(prev => ({ ...prev, [field]: parseInt(value, 10) || 0 }));
+      setFormTouched(true);
+    },
+    []
+  );
+
+  // ─── Media handlers ─────────────────────────────────────
+  const addMediaItem = () => {
+    if (!newMediaUrl.trim()) {
+      toast.error('URL daxil edin');
+      return;
+    }
+    const newItem: MediaItem = {
+      id: crypto.randomUUID(),
+      type: newMediaType,
+      url: newMediaUrl.trim(),
+      displayOrder: mediaItems.length,
+    };
+    setMediaItems(prev => [...prev, newItem]);
+    setNewMediaUrl('');
     setFormTouched(true);
-  }, []);
+  };
+
+  const removeMediaItem = (id: string) => {
+    setMediaItems(prev => prev.filter(m => m.id !== id));
+    setFormTouched(true);
+  };
 
   // ─── Margin ──────────────────────────────────────────────
   const marginData = useMemo(
-    () => calculateBasketMargin(formData, selectedProducts, products),
-    [formData, selectedProducts, products]
+    () =>
+      calculateBasketMargin(
+        formData,
+        selectedProducts,
+        products,
+        productPriceNow
+      ),
+    [formData, selectedProducts, products, productPriceNow]
   );
 
   // ─── Submit ──────────────────────────────────────────────
@@ -466,33 +557,31 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
       setError('');
 
       try {
-        // Validate variant uniqueness
         const variantTypes = variants.map(v => v.variant);
         if (new Set(variantTypes).size !== variantTypes.length) {
           throw new Error('Eyni növ variantdan yalnız bir dəfə əlavə edilə bilər');
         }
-
-        // Validate required fields
         if (!formData.name?.trim()) throw new Error('Səbət adı tələb olunur');
         if (!formData.slug?.trim()) throw new Error('Slug tələb olunur');
-        if (!formData.description?.trim() || formData.description.length < 10) {
+        if (
+          !formData.description?.trim() ||
+          formData.description.length < 10
+        ) {
           throw new Error('Təsvir ən azı 10 simvol olmalıdır');
         }
 
         const preparedVariants = variants.map(v => ({
-          id: v.id || crypto.randomUUID(),
+          id: v.id || undefined,
           variant: v.variant,
           price: String(v.price || '0'),
           originalPrice: v.originalPrice || undefined,
           stock: Number(v.stock) || 0,
           gift: v.gift || undefined,
           contents: (v.contents || []).map((c: string) => ({
-            id: crypto.randomUUID(),
             content: c,
             displayOrder: 0,
           })),
           extras: (v.extras || []).map((e: string) => ({
-            id: crypto.randomUUID(),
             extra: e,
             displayOrder: 0,
           })),
@@ -508,10 +597,18 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
             displayOrder: 0,
           }));
 
+        const preparedMedia = mediaItems.map(m => ({
+          type: m.type,
+          url: m.url,
+          altText: m.altText || '',
+          displayOrder: m.displayOrder,
+        }));
+
         await onSave({
           ...formData,
           variants: preparedVariants as any,
           products: preparedProducts as any,
+          media: preparedMedia as any,
         });
 
         toast.success('Səbət uğurla yadda saxlanıldı!');
@@ -523,12 +620,12 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
         setLoading(false);
       }
     },
-    [formData, variants, selectedProducts, onSave, onClose]
+    [formData, variants, selectedProducts, mediaItems, onSave, onClose]
   );
 
   // ─── Close confirmation ─────────────────────────────────
   const handleClose = useCallback(() => {
-    if (formTouched && Object.keys(basket || {}).length > 1) {
+    if (formTouched && basket && Object.keys(basket).length > 1) {
       if (confirm('Dəyişikliklər itəcək. Çıxmaq istədiyinizə əminsiniz?')) {
         onClose();
       }
@@ -560,7 +657,7 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
           <div className="flex-shrink-0 px-6 py-5 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-emerald-50 via-white to-white">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-white shadow-lg shadow-emerald-200">
-                {Object.keys(basket || {}).length > 1 ? (
+                {basket && Object.keys(basket).length > 1 ? (
                   <Tag className="w-6 h-6" />
                 ) : (
                   <Plus className="w-6 h-6" />
@@ -568,7 +665,9 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900">
-                  {basket && Object.keys(basket).length > 1 ? 'Səbəti redaktə et' : 'Yeni səbət yarat'}
+                  {basket && Object.keys(basket).length > 1
+                    ? 'Səbəti redaktə et'
+                    : 'Yeni səbət yarat'}
                 </h2>
                 <p className="text-sm text-gray-500">
                   {basket && Object.keys(basket).length > 1
@@ -615,12 +714,19 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
               label="Məhsullar"
               count={selectedProducts.length}
             />
+            <TabButton
+              active={activeTab === 'media'}
+              onClick={() => setActiveTab('media')}
+              icon={<Image className="w-4 h-4" />}
+              label="Media"
+              count={mediaItems.length}
+            />
           </div>
 
           {/* ── Form Content ───────────────────────────── */}
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
             {error && (
-              <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-start gap-2 animate-shake">
+              <div className="mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
                 <span className="text-sm">{error}</span>
               </div>
@@ -667,7 +773,9 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                     </label>
                     <Textarea
                       value={String(formData.description || '')}
-                      onChange={e => handleFieldChange('description', e.target.value)}
+                      onChange={e =>
+                        handleFieldChange('description', e.target.value)
+                      }
                       required
                       rows={4}
                       placeholder="Səbətin tərkibi, faydaları, xüsusiyyətləri haqqında ətraflı..."
@@ -690,11 +798,15 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div>
-                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Növ</label>
+                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
+                        Növ
+                      </label>
                       <select
                         value={String(formData.type || 'custom')}
-                        onChange={e => handleFieldChange('type', e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white"
+                        onChange={e =>
+                          handleFieldChange('type', e.target.value)
+                        }
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white text-gray-700"
                       >
                         <option value="gence">🌅 Gəncə</option>
                         <option value="gedebey">🏔 Gədəbəy</option>
@@ -705,26 +817,36 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                       </select>
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Ümumi stok</label>
+                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
+                        Ümumi stok
+                      </label>
                       <Input
                         type="number"
                         value={formData.stock ?? 0}
-                        onChange={val => handleNumberFieldChange('stock', String(val))}
+                        onChange={val =>
+                          handleNumberFieldChange('stock', String(val))
+                        }
                         min="0"
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Endirim %</label>
+                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
+                        Endirim %
+                      </label>
                       <Input
                         type="number"
                         value={formData.discount ?? 0}
-                        onChange={val => handleNumberFieldChange('discount', String(val))}
+                        onChange={val =>
+                          handleNumberFieldChange('discount', String(val))
+                        }
                         min="0"
                         max="100"
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Mənşə</label>
+                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
+                        Mənşə
+                      </label>
                       <Input
                         value={String(formData.origin || '')}
                         onChange={val => handleFieldChange('origin', val)}
@@ -735,7 +857,9 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Porsiya</label>
+                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
+                        Porsiya
+                      </label>
                       <Input
                         value={String(formData.servings || '')}
                         onChange={val => handleFieldChange('servings', val)}
@@ -743,7 +867,9 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Vahid</label>
+                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
+                        Vahid
+                      </label>
                       <Input
                         value={String(formData.unit || 'səbət')}
                         onChange={val => handleFieldChange('unit', val)}
@@ -751,7 +877,9 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Təravət</label>
+                      <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
+                        Təravət
+                      </label>
                       <Input
                         value={String(formData.freshness || '')}
                         onChange={val => handleFieldChange('freshness', val)}
@@ -761,61 +889,77 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                   </div>
 
                   <div>
-                    <label className="text-sm font-semibold text-gray-700 mb-2 block">Status & Etiketlər</label>
+                    <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                      Status & Etiketlər
+                    </label>
                     <div className="flex flex-wrap gap-3">
                       <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 hover:border-emerald-300 cursor-pointer transition-colors">
                         <input
                           type="checkbox"
                           checked={Boolean(formData.isActive ?? true)}
-                          onChange={e => handleFieldChange('isActive', e.target.checked)}
+                          onChange={e =>
+                            handleFieldChange('isActive', e.target.checked)
+                          }
                           className="accent-emerald-500 w-4 h-4"
                         />
-                        <span className="text-sm font-medium">Aktiv</span>
+                        <span className="text-sm font-medium text-gray-700">Aktiv</span>
                       </label>
                       <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 hover:border-emerald-300 cursor-pointer transition-colors">
                         <input
                           type="checkbox"
                           checked={Boolean(formData.bestseller ?? false)}
-                          onChange={e => handleFieldChange('bestseller', e.target.checked)}
+                          onChange={e =>
+                            handleFieldChange('bestseller', e.target.checked)
+                          }
                           className="accent-emerald-500 w-4 h-4"
                         />
-                        <span className="text-sm font-medium">Bestseller</span>
+                        <span className="text-sm font-medium text-gray-700">Bestseller</span>
                       </label>
                       <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 hover:border-emerald-300 cursor-pointer transition-colors">
                         <input
                           type="checkbox"
                           checked={Boolean(formData.trending ?? false)}
-                          onChange={e => handleFieldChange('trending', e.target.checked)}
+                          onChange={e =>
+                            handleFieldChange('trending', e.target.checked)
+                          }
                           className="accent-emerald-500 w-4 h-4"
                         />
-                        <span className="text-sm font-medium">Trend</span>
+                        <span className="text-sm font-medium text-gray-700">Trend</span>
                       </label>
                       <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 hover:border-emerald-300 cursor-pointer transition-colors">
                         <input
                           type="checkbox"
                           checked={Boolean(formData.new ?? false)}
-                          onChange={e => handleFieldChange('new', e.target.checked)}
+                          onChange={e =>
+                            handleFieldChange('new', e.target.checked)
+                          }
                           className="accent-emerald-500 w-4 h-4"
                         />
-                        <span className="text-sm font-medium">Yeni</span>
+                        <span className="text-sm font-medium text-gray-700">Yeni</span>
                       </label>
                       <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 hover:border-emerald-300 cursor-pointer transition-colors">
                         <input
                           type="checkbox"
                           checked={Boolean(formData.lowStock ?? false)}
-                          onChange={e => handleFieldChange('lowStock', e.target.checked)}
+                          onChange={e =>
+                            handleFieldChange('lowStock', e.target.checked)
+                          }
                           className="accent-emerald-500 w-4 h-4"
                         />
-                        <span className="text-sm font-medium">Az qalıb</span>
+                        <span className="text-sm font-medium text-gray-700">Az qalıb</span>
                       </label>
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-sm font-semibold text-gray-700 mb-2 block">SEO</label>
+                    <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                      SEO
+                    </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Meta başlıq</label>
+                        <label className="text-xs text-gray-500 mb-1 block">
+                          Meta başlıq
+                        </label>
                         <Input
                           value={String(formData.metaTitle || '')}
                           onChange={val => handleFieldChange('metaTitle', val)}
@@ -823,7 +967,9 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Meta təsvir</label>
+                        <label className="text-xs text-gray-500 mb-1 block">
+                          Meta təsvir
+                        </label>
                         <Input
                           value={String(formData.metaDescription || '')}
                           onChange={val => handleFieldChange('metaDescription', val)}
@@ -846,7 +992,9 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-bold text-gray-800 text-lg">Variant tənzimləmələri</h3>
+                      <h3 className="font-bold text-gray-800 text-lg">
+                        Variant tənzimləmələri
+                      </h3>
                       <p className="text-sm text-gray-500">
                         Hər variant üçün fərqli qiymət, stok və bonus təyin edin
                       </p>
@@ -931,30 +1079,48 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                             <input
                               type="number"
                               value={variant.price}
-                              onChange={e => updateVariant(index, 'price', e.target.value)}
-                              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white"
+                              onChange={e =>
+                                updateVariant(index, 'price', e.target.value)
+                              }
+                              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white text-gray-700"
                               min="0"
                               step="0.01"
                               required
                             />
                           </div>
                           <div>
-                            <label className="text-xs font-semibold text-gray-600 mb-1 block">Stok</label>
+                            <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                              Stok
+                            </label>
                             <input
                               type="number"
                               value={variant.stock}
-                              onChange={e => updateVariant(index, 'stock', Number(e.target.value) || 0)}
-                              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white"
+                              onChange={e =>
+                                updateVariant(
+                                  index,
+                                  'stock',
+                                  Number(e.target.value) || 0
+                                )
+                              }
+                              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white text-gray-700"
                               min="0"
                             />
                           </div>
                           <div>
-                            <label className="text-xs font-semibold text-gray-600 mb-1 block">Orijinal qiymət</label>
+                            <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                              Orijinal qiymət
+                            </label>
                             <input
                               type="number"
                               value={variant.originalPrice}
-                              onChange={e => updateVariant(index, 'originalPrice', e.target.value)}
-                              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white"
+                              onChange={e =>
+                                updateVariant(
+                                  index,
+                                  'originalPrice',
+                                  e.target.value
+                                )
+                              }
+                              className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white text-gray-700"
                               min="0"
                               step="0.01"
                               placeholder="Endirim göstərmək üçün"
@@ -969,15 +1135,20 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                           <input
                             type="text"
                             value={variant.gift}
-                            onChange={e => updateVariant(index, 'gift', e.target.value)}
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white"
+                            onChange={e =>
+                              updateVariant(index, 'gift', e.target.value)
+                            }
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white text-gray-700"
                             placeholder="Məs: 1 kq bal hədiyyə"
                           />
                         </div>
 
                         <div>
                           <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                            Səbətin məzmunu <span className="text-gray-400">(hər sətrə bir məhsul)</span>
+                            Səbətin məzmunu{' '}
+                            <span className="text-gray-400">
+                              (hər sətrə bir məhsul)
+                            </span>
                           </label>
                           <textarea
                             value={variant.contents.join('\n')}
@@ -988,7 +1159,7 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                                 e.target.value.split('\n').filter(c => c.trim())
                               )
                             }
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm resize-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white"
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm resize-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white text-gray-700"
                             rows={3}
                             placeholder="Alma\nArmud\nPortağal\nNar"
                           />
@@ -996,7 +1167,10 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
 
                         <div>
                           <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                            Əlavə bonuslar <span className="text-gray-400">(hər sətrə bir)</span>
+                            Əlavə bonuslar{' '}
+                            <span className="text-gray-400">
+                              (hər sətrə bir)
+                            </span>
                           </label>
                           <textarea
                             value={variant.extras.join('\n')}
@@ -1007,7 +1181,7 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                                 e.target.value.split('\n').filter(ex => ex.trim())
                               )
                             }
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm resize-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white"
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm resize-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none bg-white text-gray-700"
                             rows={2}
                             placeholder="Bal qabı\nQoz ləpəsi"
                           />
@@ -1028,11 +1202,16 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                   className="p-6 space-y-6"
                 >
                   <div>
-                    <h3 className="font-bold text-gray-800 text-lg mb-1">Məhsul əlavə et</h3>
+                    <h3 className="font-bold text-gray-800 text-lg mb-1">
+                      Məhsul əlavə et
+                    </h3>
                     <p className="text-sm text-gray-500 mb-4">
                       Səbətin tərkibinə daxil olan məhsulları seçin
                     </p>
-                    <ProductSelector products={products} onAddProduct={addProduct} />
+                    <ProductSelector
+                      products={products}
+                      onAddProduct={addProduct}
+                    />
                   </div>
 
                   {/* Margin info */}
@@ -1062,7 +1241,9 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                         <p className="text-xs text-gray-500">Mənfəət</p>
                         <p
                           className={`text-lg font-black ${
-                            marginData.profit >= 0 ? 'text-emerald-600' : 'text-red-600'
+                            marginData.profit >= 0
+                              ? 'text-emerald-600'
+                              : 'text-red-600'
                           }`}
                         >
                           {formatCurrency(marginData.profit)}
@@ -1072,7 +1253,9 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                         <p className="text-xs text-gray-500">Marja</p>
                         <p
                           className={`text-lg font-black ${
-                            marginData.margin >= 0 ? 'text-emerald-600' : 'text-red-600'
+                            marginData.margin >= 0
+                              ? 'text-emerald-600'
+                              : 'text-red-600'
                           }`}
                         >
                           {marginData.margin.toFixed(1)}%
@@ -1091,7 +1274,11 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                         <button
                           type="button"
                           onClick={() => {
-                            if (confirm('Bütün məhsulları silmək istədiyinizə əminsiniz?')) {
+                            if (
+                              confirm(
+                                'Bütün məhsulları silmək istədiyinizə əminsiniz?'
+                              )
+                            ) {
                               setSelectedProducts([]);
                             }
                           }}
@@ -1108,6 +1295,108 @@ export default function BasketEditModal({ open, onClose, basket, onSave }: Baske
                       onUpdate={updateProduct}
                     />
                   </div>
+                </motion.div>
+              )}
+
+              {/* ── MEDIA TAB ─────────────────────── */}
+              {activeTab === 'media' && (
+                <motion.div
+                  key="media"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="p-6 space-y-6"
+                >
+                  <div>
+                    <h3 className="font-bold text-gray-800 text-lg mb-1">
+                      Media əlavə et
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Səbətə aid şəkil və ya video linkləri
+                    </p>
+                    <div className="flex items-end gap-3 mb-6">
+                      <div className="flex-1">
+                        <label className="text-xs font-semibold text-gray-700 mb-1 block">
+                          URL
+                        </label>
+                        <input
+                          type="text"
+                          value={newMediaUrl}
+                          onChange={(e) => setNewMediaUrl(e.target.value)}
+                          placeholder="https://example.com/image.jpg"
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 outline-none bg-white text-gray-700"
+                        />
+                      </div>
+                      <div className="w-32">
+                        <label className="text-xs font-semibold text-gray-700 mb-1 block">
+                          Tip
+                        </label>
+                        <select
+                          value={newMediaType}
+                          onChange={(e) => setNewMediaType(e.target.value as 'image' | 'video')}
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:border-emerald-500 outline-none bg-white text-gray-700"
+                        >
+                          <option value="image">Şəkil</option>
+                          <option value="video">Video</option>
+                        </select>
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={addMediaItem}
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        <Plus className="w-4 h-4 mr-1" /> Əlavə et
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Media list */}
+                  {mediaItems.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {mediaItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="relative group border border-gray-200 rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          {item.type === 'image' ? (
+                            <div className="aspect-video relative bg-gray-100">
+                              <img
+                                src={item.url}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,...'; // fallback
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="aspect-video bg-gray-100 flex items-center justify-center">
+                              <Camera className="w-12 h-12 text-gray-400" />
+                              <span className="text-xs text-gray-500 ml-2">{item.url}</span>
+                            </div>
+                          )}
+                          <div className="p-3 flex items-center justify-between">
+                            <span className="text-xs text-gray-500 capitalize">{item.type}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeMediaItem(item.id)}
+                              className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                      <Camera className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p className="text-sm text-gray-500">Hələ media əlavə edilməyib</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Yuxarıdakı formu istifadə edərək şəkil və ya video linki əlavə edin
+                      </p>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

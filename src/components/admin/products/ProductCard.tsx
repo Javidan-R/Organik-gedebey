@@ -2,12 +2,11 @@
 'use client';
 
 import Image from 'next/image';
-import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { memo, useMemo, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   XCircle,
   Percent,
-  Star,
   List,
   Layers,
   Clock,
@@ -34,7 +33,6 @@ import {
   isDiscountActive,
   productDisplayPrice,
   minPrice,
-  avgRating,
   variantFinalPrice,
 } from '@/lib/calc';
 import { Button } from '@/components/atoms/button';
@@ -101,7 +99,7 @@ const ProfitLine = memo(({ margin, isProfitable }: { margin: string; isProfitabl
     <div className="mt-3 pt-3 border-t border-slate-100">
       <div className="flex items-center justify-between mb-1">
         <p className={`flex items-center gap-1 text-[11px] font-semibold ${text}`}>
-          <Scale className="h-3 w-3" /> Orta Profit Marjası
+          <Scale className="h-3 w-3" /> Profit Marjası
         </p>
         <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md ${text} ${isProfitable ? 'bg-emerald-100' : 'bg-red-100'}`}>
           {margin}%
@@ -221,7 +219,6 @@ const EnhancedProductCardBase = ({
   const discount = isDiscountActive(p);
   const price = productDisplayPrice(p);
   const regularPrice = minPrice(p);
-  const rating = avgRating(p);
   const isArchived = p.archived ?? false;
   const hasSlug = !!p.slug;
 
@@ -369,8 +366,8 @@ const EnhancedProductCardBase = ({
         isLargeValue
       />
       <MetricBadge
-        label="Stok Vahidi"
-        value={`${financialMetrics.totalStockQty} əd`}
+        label="Stok"
+        value={`${financialMetrics.totalStockQty} ədəd`}
         icon={Layers}
         colorClass={stockColorSet.bg}
         iconColorClass={stockColorSet.text}
@@ -469,17 +466,13 @@ const EnhancedProductCardBase = ({
                   </div>
                 </div>
 
-                {/* Category + stats */}
+                {/* Category + stock */}
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 text-[10px] text-slate-500">
                   <span className="flex items-center gap-0.5 text-emerald-600 font-medium">
                     <List className="h-3 w-3" /> {categoryName}
                   </span>
-                  <span className="flex items-center gap-0.5">
-                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                    {rating.toFixed(1)}
-                  </span>
                   <span className={`flex items-center gap-0.5 font-semibold ${stockColorSet.text}`}>
-                    <Layers className="h-3 w-3" /> {financialMetrics.totalStockQty} əd
+                    <Layers className="h-3 w-3" /> {financialMetrics.totalStockQty} ədəd
                   </span>
                 </div>
               </div>
@@ -494,7 +487,7 @@ const EnhancedProductCardBase = ({
                 {financialMetrics.isProfitable ? '↑' : '↓'} {currency(financialMetrics.potentialProfit, 0)}
               </span>
               <span className="text-blue-700">{currency(financialMetrics.potentialRevenue, 0)} gəlir</span>
-              <span className="ml-auto text-slate-400">Marjа: {financialMetrics.profitMargin}%</span>
+              <span className="ml-auto text-slate-400">Marja: {financialMetrics.profitMargin}%</span>
             </div>
           </div>
 
@@ -524,10 +517,6 @@ const EnhancedProductCardBase = ({
                     <span className="flex items-center gap-1 text-emerald-600 font-medium">
                       <List className="h-3 w-3" /> {categoryName}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                      {rating.toFixed(1)} ({p.reviews?.length ?? 0})
-                    </span>
                     <span className="flex items-center gap-1 text-slate-400">
                       <Clock className="h-3 w-3" /> {productAgeDays} gün
                     </span>
@@ -543,7 +532,7 @@ const EnhancedProductCardBase = ({
                   <span className={financialMetrics.isProfitable ? 'text-emerald-700' : 'text-red-700'}>
                     {currency(financialMetrics.potentialProfit, 0)} mənfəət
                   </span>
-                  <span className="text-blue-700">{financialMetrics.totalStockQty} vahid</span>
+                  <span className="text-blue-700">{financialMetrics.totalStockQty} ədəd</span>
                 </div>
                 <div className="w-32">
                   <ProfitLine
@@ -688,13 +677,10 @@ const EnhancedProductCardBase = ({
             {renderPriceBlock()}
           </div>
 
-          {/* Stats row */}
+          {/* Stats row (reytingsiz) */}
           <div className="flex items-center justify-between text-[11px] text-slate-600 mb-2 border-b border-slate-100 pb-2">
             <span className={`flex items-center gap-1 font-semibold ${stockColorSet.text}`}>
-              <Layers className="h-3.5 w-3.5" /> {financialMetrics.totalStockQty} vahid
-            </span>
-            <span className="flex items-center gap-1 text-amber-500">
-              <Star className="h-3.5 w-3.5 fill-amber-400" /> {rating.toFixed(1)}
+              <Layers className="h-3.5 w-3.5" /> {financialMetrics.totalStockQty} ədəd
             </span>
             <span className="flex items-center gap-1 text-slate-400">
               <Clock className="h-3.5 w-3.5" /> {productAgeDays} gün

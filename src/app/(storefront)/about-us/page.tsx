@@ -40,59 +40,77 @@ export interface Stat {
 }
 
 const getAboutUsData = cache(async () => {
-  const [rawSections, rawRegions, rawStats] = await Promise.all([
-    db
-      .select()
-      .from(aboutUsSections)
-      .where(eq(aboutUsSections.isActive, true))
-      .orderBy(asc(aboutUsSections.displayOrder)),
-    db
-      .select()
-      .from(aboutUsRegions)
-      .where(eq(aboutUsRegions.isActive, true))
-      .orderBy(asc(aboutUsRegions.displayOrder)),
-    db
-      .select()
-      .from(aboutUsStats)
-      .where(eq(aboutUsStats.isActive, true))
-      .orderBy(asc(aboutUsStats.displayOrder)),
-  ]);
+  // 📌 Əgər DB sütun adı fərqli olarsa, sorğular xəta verə bilər.
+  // ⚠️ Bu sətirlər migration tətbiq edildikdən sonra problemsiz işləyir.
+  try {
+    const [rawSections, rawRegions, rawStats] = await Promise.all([
+      db
+        .select()
+        .from(aboutUsSections)
+        .where(eq(aboutUsSections.isActive, true))
+        .orderBy(asc(aboutUsSections.displayOrder)),
+      db
+        .select()
+        .from(aboutUsRegions)
+        .where(eq(aboutUsRegions.isActive, true))
+        .orderBy(asc(aboutUsRegions.displayOrder)),
+      db
+        .select()
+        .from(aboutUsStats)
+        .where(eq(aboutUsStats.isActive, true))
+        .orderBy(asc(aboutUsStats.displayOrder)),
+    ]);
 
-  // DB‑dən gələn nullable sahələri interfeysə uyğunlaşdır
-  const sections: Section[] = rawSections.map((s) => ({
-    id: s.id,
-    title: s.title,
-    subtitle: s.subtitle ?? null,
-    description: s.description ?? '',
-    imageUrl: s.imageUrl ?? null,
-    videoUrl: s.videoUrl ?? null,
-    displayOrder: s.displayOrder ?? 0,
-    isActive: s.isActive ?? false,
-    sectionType: s.sectionType,
-    metadata: s.metadata ?? null,
-  }));
+    // 🧹 Təkrarlanan sətirləri sil (id unikaldır, lakin eyni sıralı məlumat varsa)
+    const uniqueSections = Array.from(
+      new Map(rawSections.map((s) => [s.id, s])).values()
+    );
+    const uniqueRegions = Array.from(
+      new Map(rawRegions.map((r) => [r.id, r])).values()
+    );
+    const uniqueStats = Array.from(
+      new Map(rawStats.map((s) => [s.id, s])).values()
+    );
 
-  const regions: Region[] = rawRegions.map((r) => ({
-    id: r.id,
-    name: r.name,
-    description: r.description ?? null,
-    imageUrl: r.imageUrl ?? null,
-    featuredProducts: r.featuredProducts ?? null,
-    displayOrder: r.displayOrder ?? 0,
-    isActive: r.isActive ?? false,
-  }));
+    const sections: Section[] = uniqueSections.map((s) => ({
+      id: s.id,
+      title: s.title,
+      subtitle: s.subtitle ?? null,
+      description: s.description ?? '',
+      imageUrl: s.imageUrl ?? null,
+      videoUrl: s.videoUrl ?? null,
+      displayOrder: s.displayOrder ?? 0,
+      isActive: s.isActive ?? false,
+      sectionType: s.sectionType,
+      metadata: s.metadata ?? null,
+    }));
 
-  const stats: Stat[] = rawStats.map((st) => ({
-    id: st.id,
-    label: st.label,
-    value: st.value,
-    description: st.description ?? null,
-    icon: st.icon ?? null,
-    displayOrder: st.displayOrder ?? 0,
-    isActive: st.isActive ?? false,
-  }));
+    const regions: Region[] = uniqueRegions.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description ?? null,
+      imageUrl: r.imageUrl ?? null,
+      featuredProducts: r.featuredProducts ?? null,
+      displayOrder: r.displayOrder ?? 0,
+      isActive: r.isActive ?? false,
+    }));
 
-  return { sections, regions, stats };
+    const stats: Stat[] = uniqueStats.map((st) => ({
+      id: st.id,
+      label: st.label,
+      value: st.value,
+      description: st.description ?? null,
+      icon: st.icon ?? null,
+      displayOrder: st.displayOrder ?? 0,
+      isActive: st.isActive ?? false,
+    }));
+
+    return { sections, regions, stats };
+  } catch (error) {
+    console.error('getAboutUsData xətası:', error);
+    // Əgər sorğu xəta verərsə, boş massivlər qaytarırıq – UI yumşaq deqradasiya edəcək
+    return { sections: [], regions: [], stats: [] };
+  }
 });
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -13,6 +13,7 @@ import { useApp } from '@/lib/store';
 import { Basket, BasketVariant } from '@/types/basket';
 import { Button } from '@/components/atoms/button';
 import { toast } from 'react-hot-toast';
+import { useBasketStore } from '@/stores/basketStore';
 
 interface BasketDetailClientProps {
   basket: Basket;
@@ -25,12 +26,24 @@ export default function BasketDetailClient({ basket }: BasketDetailClientProps) 
   const [quantity, setQuantity] = useState(1);
   const [isLiked, setIsLiked] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const addToCart = useApp((state) => state.addToCart);
+  const addItem = useBasketStore((state) => state.addItem);
 
   const handleAddToCart = () => {
     if (!selectedVariant) return;
 
-    addToCart(basket.id, selectedVariant.id, quantity);
+    addItem({
+      basketId: basket.id,
+      variantId: selectedVariant.id,
+      basketName: basket.name,
+      variantName: selectedVariant.variant,
+      price: parseFloat(selectedVariant.price),
+      originalPrice: selectedVariant.originalPrice ? parseFloat(selectedVariant.originalPrice) : undefined,
+      quantity,
+      image: basket.media?.[0]?.url || '/placeholder.jpg',
+      stock: selectedVariant.stock,
+      contents: selectedVariant.contents?.map(c => c.content) || [],
+      extras: selectedVariant.extras?.map(e => e.extra) || [],
+    });
 
     toast.success(`${basket.name} səbəti səbətə əlavə edildi!`);
   };

@@ -1,9 +1,9 @@
 // app/(storefront)/layout.tsx
 
 import Header from '@/components/Header';
-import { Footer } from '@/components/footer';
 import { StorefrontThemeProvider } from './StorefrontThemeProvider';
 import ChatWidget from '@/components/ChatWidget';
+import StoreFooter from '@/components/StoreFooter';
 
 export default function StorefrontLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -11,7 +11,7 @@ export default function StorefrontLayout({ children }: { children: React.ReactNo
       <StorefrontThemeProvider>
         <Header />
         <main className="flex-1 py-6">{children}</main>
-        <Footer />
+        <StoreFooter />
         <ChatWidget />
       </StorefrontThemeProvider>
     </div>

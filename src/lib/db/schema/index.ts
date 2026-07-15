@@ -18,3 +18,5 @@ export * from './finance';
 export * from './aboutUs';
 export * from './settings';
 export * from './relations';
+export * from './analytics';
+export * from './daily';

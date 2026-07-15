@@ -17,7 +17,7 @@ export function useOrderActions(updateOrderStatus: UpdateOrderStatusFunction) {
   }, []);
 
   const confirmCancel = useCallback(() => {
-    if (cancelId) updateOrderStatus(cancelId, "cancelled");
+    if (cancelId) updateOrderStatus(cancelId, "CANCELLED");
     setShowCancelModal(false);
     setCancelId(null);
   }, [cancelId, updateOrderStatus]);

@@ -1,27 +1,35 @@
 // src/app/api/notifications/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, AuthError } from '@/lib/auth';
-import { db } from '@/lib/db';
-import { notifications } from '@/lib/db/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { NotificationService } from '@/lib/services/notificationService';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth(request, ['ADMIN', 'SUPERADMIN', 'MANAGER', 'WAREHOUSE_STAFF']);
-    
-    const notificationsData = await db
-      .select()
-      .from(notifications)
-      .where(eq(notifications.userId, user.id))
-      .orderBy(desc(notifications.createdAt))
-      .limit(50);
+    const { user } = await requireAuth(request, [
+      'ADMIN', 'SUPERADMIN', 'MANAGER', 'WAREHOUSE_STAFF',
+    ]);
 
-    return NextResponse.json({ notifications: notificationsData });
+    const searchParams = request.nextUrl.searchParams;
+    const limit = Math.min(Number(searchParams.get('limit')) || 50, 100);
+
+    const notifications = await NotificationService.getForUser(user.id, limit);
+
+    return NextResponse.json(
+      { notifications },
+      {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
+    );
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error('Notifications GET error:', error);
+    console.error('[Notifications API] GET error:', error);
     return NextResponse.json({ error: 'Server xətası' }, { status: 500 });
   }
 }

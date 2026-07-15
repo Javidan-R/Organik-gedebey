@@ -333,6 +333,7 @@ export const whatsappMessagesRelations = relations(whatsappMessages, ({ one }) =
 // ═══════════════════════════════════════════════════════════════
 // 10. INVENTORY & EXPENSES
 // ═══════════════════════════════════════════════════════════════
+// src/lib/db/schema/relations.ts (mövcud fayla bu relation əlavə olunsun)
 export const inventoryLogsRelations = relations(inventoryLogs, ({ one }) => ({
   product: one(products, {
     fields: [inventoryLogs.productId],
@@ -342,7 +343,7 @@ export const inventoryLogsRelations = relations(inventoryLogs, ({ one }) => ({
     fields: [inventoryLogs.variantId],
     references: [productVariants.id],
   }),
-  createdBy: one(users, {
+  createdBy: one(users, {             // ✅ bu relation əlavə olunmalıdır
     fields: [inventoryLogs.createdBy],
     references: [users.id],
   }),

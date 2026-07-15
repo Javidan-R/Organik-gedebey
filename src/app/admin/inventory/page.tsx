@@ -1,6 +1,6 @@
 // src/app/admin/inventory/page.tsx
 'use client';
- 
+
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -19,6 +19,7 @@ import {
   Activity,
   Layers,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 import { useApp } from '@/lib/store';
 import { productTotalStock, ageInDays } from '@/lib/calc';
@@ -105,18 +106,15 @@ export default function InventoryPage() {
       list = list.filter((r) => r.status === 'critical');
     }
 
-    // Most risky first
     return list.sort((a, b) => {
       const weight = (s: InventoryStatus) =>
         s === 'critical' ? 3 : s === 'low' ? 2 : 1;
       const diff = weight(b.status) - weight(a.status);
       if (diff !== 0) return diff;
 
-      // Then by how much below min-stock
       const lowDiff = b.lowBy - a.lowBy;
       if (lowDiff !== 0) return lowDiff;
 
-      // Then by age
       return b.ageDays - a.ageDays;
     });
   }, [rows, search, filterMode, categories]);
@@ -165,11 +163,30 @@ export default function InventoryPage() {
   const simWillTriggerAlert = simStatus === 'low' || simStatus === 'critical';
 
   // -----------------------------
-  // Actions
+  // API‑based stock adjustment
   // -----------------------------
-  function quickAdjust(productId: string, variantId: string | undefined, delta: number) {
-    if (!delta) return;
-    adjustStock(productId, delta, variantId);
+  async function quickAdjust(productId: string, variantId: string | undefined, delta: number) {
+    if (!delta || !variantId) return;
+
+    try {
+      const res = await fetch('/api/admin/inventory/stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ productId, variantId, delta }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Stok dəyişdirilə bilmədi');
+      }
+
+      const data = await res.json();
+      adjustStock(productId, delta, variantId); // lokal state-i yenilə
+      toast.success(`Stok yeniləndi: ${data.newStock}`);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   }
 
   async function applySimulation() {
@@ -183,13 +200,32 @@ export default function InventoryPage() {
 
     setApplying(true);
     try {
-      adjustStock(simProduct.id, simDelta, simVariant.id);
+      const res = await fetch('/api/admin/inventory/stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          productId: simProduct.id,
+          variantId: simVariant.id,
+          delta: simDelta,
+          notes: `Simulyasiya tətbiqi`,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Simulyasiya tətbiq edilə bilmədi');
+      }
+
+      const data = await res.json();
+      adjustStock(simProduct.id, simDelta, simVariant.id); // lokal state-i yenilə
+
       setSimMessage(
-        `${simProduct.name} (${simVariant.name}) üçün stok ${simDelta > 0 ? '+' : ''}${simDelta} dəyişdi. Yeni stok təxminən ${newStock} ədəd.`,
+        `${simProduct.name} (${simVariant.name}) üçün stok ${simDelta > 0 ? '+' : ''}${simDelta} dəyişdi. Yeni stok: ${data.newStock}.`,
       );
       setSimDelta(0);
-    } catch {
-      setSimError('Stok dəyişdirilərkən xəta baş verdi.');
+    } catch (err: any) {
+      setSimError(err.message);
     } finally {
       setApplying(false);
     }
@@ -377,6 +413,9 @@ export default function InventoryPage() {
                       ? 'bg-amber-500'
                       : 'bg-emerald-500';
 
+                  // Use the first variant ID if product has variants; else fallback to empty
+                  const firstVariantId = row.product.variants?.[0]?.id;
+
                   return (
                     <motion.tr
                       key={row.product.id}
@@ -392,12 +431,12 @@ export default function InventoryPage() {
                             <span className="truncate text-xs font-semibold text-slate-800 md:text-sm">
                               {row.product.name}
                             </span>
-                            {row.product.organic && (
+                            {(row.product as any).organic && (
                               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
                                 🌿 Orqanik
                               </span>
                             )}
-                            {row.product.seasonal && (
+                            {(row.product as any).seasonal && (
                               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
                                 ☀️ Mövsümi
                               </span>
@@ -493,28 +532,28 @@ export default function InventoryPage() {
                         <div className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-1 shadow-inner">
                           <button
                             type="button"
-                            onClick={() => quickAdjust(row.product.id, undefined, -5)}
+                            onClick={() => quickAdjust(row.product.id, firstVariantId, -5)}
                             className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-rose-50 text-rose-700 hover:bg-rose-100"
                           >
                             -5
                           </button>
                           <button
                             type="button"
-                            onClick={() => quickAdjust(row.product.id, undefined, -1)}
+                            onClick={() => quickAdjust(row.product.id, firstVariantId, -1)}
                             className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-rose-50 text-rose-700 hover:bg-rose-100"
                           >
                             <Minus className="h-3 w-3" />
                           </button>
                           <button
                             type="button"
-                            onClick={() => quickAdjust(row.product.id, undefined, 1)}
+                            onClick={() => quickAdjust(row.product.id, firstVariantId, 1)}
                             className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                           >
                             <Plus className="h-3 w-3" />
                           </button>
                           <button
                             type="button"
-                            onClick={() => quickAdjust(row.product.id, undefined, 5)}
+                            onClick={() => quickAdjust(row.product.id, firstVariantId, 5)}
                             className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                           >
                             +5

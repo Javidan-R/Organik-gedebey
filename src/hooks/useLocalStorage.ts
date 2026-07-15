@@ -1,59 +1,58 @@
+// src/hooks/useLocalStorage.ts
 'use client';
- 
-import { useState, useEffect, useCallback } from 'react';
 
-export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((prev: T) => T)) => void] {
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
-  const [isClient, setIsClient] = useState(false);
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-  useEffect(() => {
-    setIsClient(true);
+export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
+  // SSR-safe başlanğıc dəyər
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    if (typeof window === 'undefined') return initialValue;
     try {
       const item = window.localStorage.getItem(key);
-      if (item && item !== 'undefined') {
-        setStoredValue(JSON.parse(item));
+      return item ? JSON.parse(item) : initialValue;
+    } catch {
+      return initialValue;
+    }
+  });
+
+  // Ən son storedValue-u ref-də saxlayırıq – setValue closure problem olmasın
+  const storedValueRef = useRef(storedValue);
+  storedValueRef.current = storedValue;
+
+  const setValue = useCallback((value: T | ((val: T) => T)) => {
+    try {
+      const valueToStore = value instanceof Function ? value(storedValueRef.current) : value;
+      setStoredValue(valueToStore);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(key, JSON.stringify(valueToStore));
       }
     } catch (error) {
-      console.error('LocalStorage read error:', error);
+      console.error('LocalStorage set error:', error);
     }
   }, [key]);
 
-  const setValue = useCallback(
-    (value: T | ((prev: T) => T)) => {
-      try {
-        setStoredValue((prev) => {
-          const next = value instanceof Function ? value(prev) : value;
-          if (typeof window !== 'undefined') {
-            window.localStorage.setItem(key, JSON.stringify(next));
-            window.dispatchEvent(new Event('local-storage'));
-          }
-          return next;
-        });
-      } catch (error) {
-        console.error('LocalStorage write error:', error);
-      }
-    },
-    [key]
-  );
-
+  // Digər tab-lardan gələn dəyişiklikləri dinlə
   useEffect(() => {
-    const handleStorageChange = () => {
-      const item = window.localStorage.getItem(key);
-      if (item && item !== 'undefined') {
+    if (typeof window === 'undefined') return;
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === key && e.newValue !== null) {
         try {
-          setStoredValue(JSON.parse(item));
-        } catch (error) {
-          console.error('LocalStorage sync error:', error);
+          const parsed = JSON.parse(e.newValue);
+          // React render siklusunda conflict qarşısını almaq üçün
+          // state yeniləməsini microtask-ə təxirə salırıq
+          queueMicrotask(() => {
+            setStoredValue(parsed);
+          });
+        } catch {
+          // Invalid JSON – ignore
         }
       }
     };
+
     window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('local-storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('local-storage', handleStorageChange);
-    };
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [key]);
 
-  return [isClient ? storedValue : initialValue, setValue];
+  return [storedValue, setValue];
 }

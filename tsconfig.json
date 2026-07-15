@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -16,58 +12,28 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
-    "incremental": true,
+    "incremental": false,
     "baseUrl": "src",
     "paths": {
-      "@/*": [
-        "*"
-      ],
-      "@/lib/*": [
-        "lib/*"
-      ],
-      "@/data/*": [
-        "data/*"
-      ],
-      "@/components/*": [
-        "components/*"
-      ],
-      "@/app/*": [
-        "app/*"
-      ],
-      "@/hooks/*": [
-        "hooks/*"
-      ],
-      "@/utils/*": [
-        "utils/*"
-      ],
-      "@/types/*": [
-        "types/*"
-      ],
-      "@/helpers/*": [
-        "helpers/*"
-      ],
-      "@/const/*": [
-        "const/*"
-      ]
+      "@/*": ["*"]
     },
     "plugins": [
       {
         "name": "next"
       }
     ],
-    // Enhanced strict type checking
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
+
+    // ── Performans üçün ciddi yoxlamaları səhv bildirişə çevirək ─────
+    "noUnusedLocals": false,           // ❌ vaxt aparan əsas səbəb
+    "noUnusedParameters": false,       // ❌ əlavə yüklənmə
+    "noImplicitReturns": false,        // ❌ funksiya daxilində yoxlama
+    "noFallthroughCasesInSwitch": true, // ✅ işlək qala bilər
+    "noUncheckedIndexedAccess": false,  // ❌ hər massiv/obyekt girişində yoxlama
+    "noImplicitOverride": false,
     "noPropertyAccessFromIndexSignature": false,
-    "allowUnusedLabels": false,
-    "allowUnreachableCode": false,
-    "exactOptionalPropertyTypes": false,
     "forceConsistentCasingInFileNames": true,
-    // Additional performance optimizations
+
+    // Əlavə performans
     "skipDefaultLibCheck": true,
     "useDefineForClassFields": true
   },

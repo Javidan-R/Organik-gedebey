@@ -28,6 +28,7 @@ interface BasketStore {
   totalPrice: () => number;
   itemCount: () => number;
   getItem: (basketId: string, variantId: string) => BasketCartItem | undefined;
+  syncWithLocalStorage: () => void;
 }
 
 export const useBasketStore = create<BasketStore>()(
@@ -97,6 +98,21 @@ export const useBasketStore = create<BasketStore>()(
         return get().items.find(
           (i) => i.basketId === basketId && i.variantId === variantId
         );
+      },
+
+      syncWithLocalStorage: () => {
+        // Force sync – local storage-dan oxuyub state-i yeniləyir
+        try {
+          const stored = localStorage.getItem('organik-gedebey-basket-store');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.state?.items) {
+              set({ items: parsed.state.items });
+            }
+          }
+        } catch (e) {
+          console.error('Basket sync error:', e);
+        }
       },
     }),
     {

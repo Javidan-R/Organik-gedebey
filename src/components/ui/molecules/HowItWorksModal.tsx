@@ -4,29 +4,38 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ShoppingBasket,
-  CheckCircle2,
-  Zap,
-  ChevronRight,
-  ChevronLeft,
-  X,
-  MessageCircle,
-  BadgeInfo,
-  User,
-  Phone,
-  Send,
-  PenLine,
-  Home,
-  Truck,
-  Store,
-  Percent,
-  AlertCircle,
-  Info,
-  Sparkles,
+  CheckCircle2, Sparkles, MessageCircle, BadgeInfo,
+  User, Phone, Send, PenLine, Home, Truck, Store,
+  Percent, AlertCircle, Info, ChevronRight, X,
+  Zap, ShoppingBasket,
 } from "lucide-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/lib/auth-store";
 
+// ─── Çatdırılma faiz cədvəli ──────────────────────────────
+const DELIVERY_RATES = [
+  { min: 0, max: 10, pct: 25 },
+  { min: 10, max: 30, pct: 20 },
+  { min: 30, max: 50, pct: 15 },
+  { min: 50, max: 100, pct: 10 },
+  { min: 100, max: Infinity, pct: 5 },
+];
+
+const getDeliveryFee = (total: number) => {
+  for (const rate of DELIVERY_RATES) {
+    if (total >= rate.min && total < rate.max) return total * (rate.pct / 100);
+  }
+  return total * 0.05;
+};
+
+const getCurrentPct = (total: number) => {
+  for (const rate of DELIVERY_RATES) {
+    if (total >= rate.min && total < rate.max) return rate.pct;
+  }
+  return 5;
+};
+
+// ─── Addım məlumatları ────────────────────────────────────
 const STEPS = [
   {
     icon: ShoppingBasket,
@@ -58,29 +67,7 @@ const STEPS = [
   },
 ];
 
-const DELIVERY_RATES = [
-  { min: 0, max: 10, pct: 25 },
-  { min: 10, max: 30, pct: 20 },
-  { min: 30, max: 50, pct: 15 },
-  { min: 50, max: 100, pct: 10 },
-  { min: 100, max: Infinity, pct: 5 },
-];
-
-const getDeliveryFee = (total: number) => {
-  for (const rate of DELIVERY_RATES) {
-    if (total >= rate.min && total < rate.max)
-      return total * (rate.pct / 100);
-  }
-  return total * 0.05;
-};
-
-const getCurrentPct = (total: number) => {
-  for (const rate of DELIVERY_RATES) {
-    if (total >= rate.min && total < rate.max) return rate.pct;
-  }
-  return 5;
-};
-
+// ─── Props ─────────────────────────────────────────────────
 interface HowItWorksModalProps {
   open: boolean;
   onClose: () => void;
@@ -90,40 +77,34 @@ interface HowItWorksModalProps {
     price: number;
     image?: string;
     variant?: string;
+    productId?: string;
+    variantId?: string;
+    product?: any;
+    variantObj?: any;
   }[];
   cartTotal?: number;
   onPlaceOrder?: (info: {
     firstName?: string;
     lastName?: string;
     phone?: string;
-    deliveryMethod: "pickup" | "delivery";
+    deliveryMethod: 'pickup' | 'delivery';
     address?: string;
     note?: string;
   }) => void;
 }
 
-export function HowItWorksModal({
-  open,
-  onClose,
-  cartItems,
-  cartTotal,
-  onPlaceOrder,
-}: HowItWorksModalProps) {
-  const { user, isAuthenticated } = useAuth(); // ✅ auth store
+// ─── Əsas Komponent ──────────────────────────────────────
+export function HowItWorksModal({ open, onClose, cartItems, cartTotal, onPlaceOrder }: HowItWorksModalProps) {
+  const { user, isAuthenticated } = useAuth();
   const [step, setStep] = useState(0);
-  const [dontShowAgain, setDontShowAgain] = useLocalStorage(
-    "how-it-works-seen",
-    false
-  );
+  const [dontShowAgain, setDontShowAgain] = useLocalStorage("how-it-works-seen", false);
   const [checked, setChecked] = useState(false);
 
-  // Form state
+  // ─── Form state ────────────────────────────────────────
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
-  const [deliveryMethod, setDeliveryMethod] = useState<"pickup" | "delivery">(
-    "pickup"
-  );
+  const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'delivery'>('pickup');
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -131,33 +112,33 @@ export function HowItWorksModal({
 
   const isCheckout = !!cartItems && cartItems.length > 0;
 
-  // ─── Avtomatik doldur ──────────────────────────────────
+  // ─── Avtomatik doldur (əgər istifadəçi giriş edibsə) ──
   useEffect(() => {
-    if (open && isCheckout && user) {
+    if (open && isCheckout && isAuthenticated && user) {
       setFirstName(user.firstName || "");
       setLastName(user.lastName || "");
       setPhone(user.phone || "");
     } else if (open && !isCheckout) {
-      // Təlimat modunda formu sıfırlama
       setFirstName("");
       setLastName("");
       setPhone("");
     }
-  }, [open, isCheckout, user]);
+  }, [open, isCheckout, isAuthenticated, user]);
 
-  // ─── Modal açılanda addım təyini ──────────────────────
+  // ─── Modal açılanda addım təyini ─────────────────────
   useEffect(() => {
     if (open) {
-      setStep(isCheckout ? 3 : 0); // checkout-da birbaşa form addımı
+      // Checkout üçün birbaşa form addımı (3-cü addım)
+      setStep(isCheckout ? 3 : 0);
       setErrors({});
-      setDeliveryMethod("pickup");
+      setDeliveryMethod('pickup');
       setAddress("");
       setNote("");
     }
   }, [open, isCheckout]);
 
   const deliveryFee = useMemo(() => {
-    if (deliveryMethod === "pickup" || !cartTotal) return 0;
+    if (deliveryMethod === 'pickup' || !cartTotal) return 0;
     return getDeliveryFee(cartTotal);
   }, [deliveryMethod, cartTotal]);
   const currentPct = cartTotal ? getCurrentPct(cartTotal) : 0;
@@ -167,14 +148,14 @@ export function HowItWorksModal({
     if (!isCheckout || step !== 3) return true;
     const newErrors: Record<string, string> = {};
 
-    if (!firstName.trim()) newErrors.firstName = "Ad tələb olunur";
-    if (!lastName.trim()) newErrors.lastName = "Soyad tələb olunur";
-    if (!phone.trim()) newErrors.phone = "Telefon tələb olunur";
+    if (!firstName.trim()) newErrors.firstName = 'Ad tələb olunur';
+    if (!lastName.trim()) newErrors.lastName = 'Soyad tələb olunur';
+    if (!phone.trim()) newErrors.phone = 'Telefon tələb olunur';
     else if (!/^[0-9\s\-+()]{7,15}$/.test(phone.trim()))
-      newErrors.phone = "Düzgün nömrə daxil edin";
+      newErrors.phone = 'Düzgün nömrə daxil edin';
 
-    if (deliveryMethod === "delivery" && !address.trim()) {
-      newErrors.address = "Çatdırılma ünvanı tələb olunur";
+    if (deliveryMethod === 'delivery' && !address.trim()) {
+      newErrors.address = 'Çatdırılma ünvanı tələb olunur';
     }
 
     setErrors(newErrors);
@@ -189,15 +170,18 @@ export function HowItWorksModal({
 
       if (isCheckout && onPlaceOrder) {
         setSubmitting(true);
-        await onPlaceOrder({
-          firstName: firstName || undefined,
-          lastName: lastName || undefined,
-          phone: phone || undefined,
-          deliveryMethod,
-          address: deliveryMethod === "delivery" ? address : undefined,
-          note: note || undefined,
-        });
-        setSubmitting(false);
+        try {
+          await onPlaceOrder({
+            firstName: firstName || undefined,
+            lastName: lastName || undefined,
+            phone: phone || undefined,
+            deliveryMethod,
+            address: deliveryMethod === 'delivery' ? address : undefined,
+            note: note || undefined,
+          });
+        } finally {
+          setSubmitting(false);
+        }
       }
       if (checked) setDontShowAgain(true);
       onClose();
@@ -209,7 +193,10 @@ export function HowItWorksModal({
     onClose();
   };
 
+  if (!open) return null;
+
   const currentStep = STEPS[step];
+  const isLastStep = step === STEPS.length - 1;
 
   return (
     <AnimatePresence>
@@ -249,9 +236,7 @@ export function HowItWorksModal({
                     {isCheckout ? "Sifarişi tamamla" : "Necə işləyir?"}
                   </h2>
                   <p className="text-xs text-white/70">
-                    {isCheckout
-                      ? "Bir toxunuşla WhatsApp sifarişi"
-                      : "4 sadə addımda sifariş ver"}
+                    {isCheckout ? "Bir toxunuşla WhatsApp sifarişi" : "4 sadə addımda sifariş ver"}
                   </p>
                 </div>
               </div>
@@ -286,15 +271,10 @@ export function HowItWorksModal({
                       <div className="flex items-center justify-center gap-3">
                         <span className="text-4xl">{currentStep?.emoji}</span>
                       </div>
-                      <h3 className="text-xl font-black text-slate-900">
-                        {currentStep?.title}
-                      </h3>
-                      <p className="text-sm text-slate-600">
-                        {currentStep?.text}
-                      </p>
+                      <h3 className="text-xl font-black text-slate-900">{currentStep?.title}</h3>
+                      <p className="text-sm text-slate-600">{currentStep?.text}</p>
                       <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-full px-4 py-2 text-xs font-semibold text-amber-800">
-                        <BadgeInfo className="w-4 h-4 text-amber-500" />{" "}
-                        {currentStep?.tip}
+                        <BadgeInfo className="w-4 h-4 text-amber-500" /> {currentStep?.tip}
                       </div>
                     </div>
                   )}
@@ -307,72 +287,59 @@ export function HowItWorksModal({
                           <Sparkles className="w-7 h-7 text-emerald-700" />
                         </div>
                         <h3 className="text-lg font-black text-slate-900 mt-2">
-                          {isAuthenticated
-                            ? "Sifarişinizi təsdiqləyin"
-                            : "Əlaqə məlumatlarınız"}
+                          {isAuthenticated ? "Sifarişinizi təsdiqləyin" : "Əlaqə məlumatlarınız"}
                         </h3>
                         <p className="text-xs text-slate-500">
-                          {isAuthenticated
-                            ? "Məlumatlar avtomatik dolduruldu"
-                            : "Çatdırılma və ya özü götürmə üçün"}
+                          {isAuthenticated ? "Məlumatlar avtomatik dolduruldu" : "Çatdırılma və ya özü götürmə üçün"}
                         </p>
                       </div>
 
                       {/* Çatdırılma seçimi */}
                       <div className="grid grid-cols-2 gap-3">
                         <button
-                          onClick={() => setDeliveryMethod("pickup")}
+                          onClick={() => setDeliveryMethod('pickup')}
                           className={`p-3 rounded-xl border-2 text-xs font-bold flex flex-col items-center gap-1 transition-all ${
-                            deliveryMethod === "pickup"
-                              ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                              : "border-gray-200 bg-white text-gray-500 hover:border-emerald-200"
+                            deliveryMethod === 'pickup'
+                              ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                              : 'border-gray-200 bg-white text-gray-500 hover:border-emerald-200'
                           }`}
                         >
                           <Store className="w-5 h-5" /> Özü götürmə
                           <span className="text-[10px]">Pulsuz</span>
                         </button>
                         <button
-                          onClick={() => setDeliveryMethod("delivery")}
+                          onClick={() => setDeliveryMethod('delivery')}
                           className={`p-3 rounded-xl border-2 text-xs font-bold flex flex-col items-center gap-1 transition-all ${
-                            deliveryMethod === "delivery"
-                              ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                              : "border-gray-200 bg-white text-gray-500 hover:border-emerald-200"
+                            deliveryMethod === 'delivery'
+                              ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                              : 'border-gray-200 bg-white text-gray-500 hover:border-emerald-200'
                           }`}
                         >
                           <Truck className="w-5 h-5" /> Çatdırılma
-                          <span className="text-[10px]">
-                            {deliveryFee.toFixed(2)} AZN
-                          </span>
+                          <span className="text-[10px]">{deliveryFee.toFixed(2)} AZN</span>
                         </button>
                       </div>
 
                       {/* Faiz cədvəli */}
                       <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-xs text-blue-800">
                         <div className="flex items-center gap-1 font-bold mb-2">
-                          <Percent className="w-3.5 h-3.5" /> Çatdırılma
-                          faizləri:
+                          <Percent className="w-3.5 h-3.5" /> Çatdırılma faizləri:
                         </div>
                         <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                           {DELIVERY_RATES.map((rate, idx) => (
                             <div
                               key={idx}
                               className={`flex justify-between ${
-                                currentPct === rate.pct
-                                  ? "font-black text-blue-900 bg-blue-100/50 rounded px-1 -mx-1"
-                                  : ""
+                                currentPct === rate.pct ? 'font-black text-blue-900 bg-blue-100/50 rounded px-1 -mx-1' : ''
                               }`}
                             >
-                              <span>
-                                {rate.min}
-                                {rate.max === Infinity ? "+" : `-${rate.max}`} AZN
-                              </span>
+                              <span>{rate.min}{rate.max === Infinity ? '+' : `-${rate.max}`} AZN</span>
                               <span className="font-bold">{rate.pct}%</span>
                             </div>
                           ))}
                         </div>
                         <p className="text-[10px] text-blue-600 mt-2 flex items-center gap-1">
-                          <Info className="w-3 h-3" /> Sizin səbətiniz üçün:{" "}
-                          {currentPct}%
+                          <Info className="w-3 h-3" /> Sizin səbətiniz üçün: {currentPct}%
                         </p>
                       </div>
 
@@ -390,14 +357,13 @@ export function HowItWorksModal({
                               placeholder="Adınız"
                               className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none ${
                                 errors.firstName
-                                  ? "border-red-400 bg-red-50"
-                                  : "border-gray-200 bg-gray-50 focus:border-emerald-400"
+                                  ? 'border-red-400 bg-red-50'
+                                  : 'border-gray-200 bg-gray-50 focus:border-emerald-400'
                               }`}
                             />
                             {errors.firstName && (
                               <p className="text-[10px] text-red-500 mt-0.5 flex items-center gap-1">
-                                <AlertCircle className="w-3 h-3" />
-                                {errors.firstName}
+                                <AlertCircle className="w-3 h-3" /> {errors.firstName}
                               </p>
                             )}
                           </div>
@@ -412,14 +378,13 @@ export function HowItWorksModal({
                               placeholder="Soyadınız"
                               className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none ${
                                 errors.lastName
-                                  ? "border-red-400 bg-red-50"
-                                  : "border-gray-200 bg-gray-50 focus:border-emerald-400"
+                                  ? 'border-red-400 bg-red-50'
+                                  : 'border-gray-200 bg-gray-50 focus:border-emerald-400'
                               }`}
                             />
                             {errors.lastName && (
                               <p className="text-[10px] text-red-500 mt-0.5 flex items-center gap-1">
-                                <AlertCircle className="w-3 h-3" />
-                                {errors.lastName}
+                                <AlertCircle className="w-3 h-3" /> {errors.lastName}
                               </p>
                             )}
                           </div>
@@ -435,23 +400,21 @@ export function HowItWorksModal({
                             placeholder="+994 50 000 00 00"
                             className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none ${
                               errors.phone
-                                ? "border-red-400 bg-red-50"
-                                : "border-gray-200 bg-gray-50 focus:border-emerald-400"
+                                ? 'border-red-400 bg-red-50'
+                                : 'border-gray-200 bg-gray-50 focus:border-emerald-400'
                             }`}
                           />
                           {errors.phone && (
                             <p className="text-[10px] text-red-500 mt-0.5 flex items-center gap-1">
-                              <AlertCircle className="w-3 h-3" />
-                              {errors.phone}
+                              <AlertCircle className="w-3 h-3" /> {errors.phone}
                             </p>
                           )}
                         </div>
 
-                        {deliveryMethod === "delivery" && (
+                        {deliveryMethod === 'delivery' && (
                           <div>
                             <label className="text-xs font-bold text-gray-600 flex items-center gap-1 mb-1">
-                              <Home className="w-3.5 h-3.5" /> Çatdırılma ünvanı
-                              *
+                              <Home className="w-3.5 h-3.5" /> Çatdırılma ünvanı *
                             </label>
                             <textarea
                               value={address}
@@ -460,14 +423,13 @@ export function HowItWorksModal({
                               rows={2}
                               className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none resize-none ${
                                 errors.address
-                                  ? "border-red-400 bg-red-50"
-                                  : "border-gray-200 bg-gray-50 focus:border-emerald-400"
+                                  ? 'border-red-400 bg-red-50'
+                                  : 'border-gray-200 bg-gray-50 focus:border-emerald-400'
                               }`}
                             />
                             {errors.address && (
                               <p className="text-[10px] text-red-500 mt-0.5 flex items-center gap-1">
-                                <AlertCircle className="w-3 h-3" />
-                                {errors.address}
+                                <AlertCircle className="w-3 h-3" /> {errors.address}
                               </p>
                             )}
                           </div>
@@ -475,8 +437,7 @@ export function HowItWorksModal({
 
                         <div>
                           <label className="text-xs font-bold text-gray-600 flex items-center gap-1 mb-1">
-                            <PenLine className="w-3.5 h-3.5" /> Qeyd (istəyə
-                            bağlı)
+                            <PenLine className="w-3.5 h-3.5" /> Qeyd (istəyə bağlı)
                           </label>
                           <textarea
                             value={note}
@@ -491,28 +452,17 @@ export function HowItWorksModal({
                       {/* Sifariş özeti */}
                       {cartItems && cartTotal !== undefined && (
                         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2">
-                          <p className="text-xs font-bold text-emerald-800">
-                            Sifarişiniz
-                          </p>
+                          <p className="text-xs font-bold text-emerald-800">Sifarişiniz</p>
                           {cartItems.map((item, i) => (
-                            <div
-                              key={i}
-                              className="flex justify-between text-xs text-emerald-700"
-                            >
-                              <span>
-                                {item.name} × {item.qty}
-                              </span>
-                              <span className="font-bold">
-                                {(item.price * item.qty).toFixed(2)} AZN
-                              </span>
+                            <div key={i} className="flex justify-between text-xs text-emerald-700">
+                              <span>{item.name} × {item.qty}</span>
+                              <span className="font-bold">{(item.price * item.qty).toFixed(2)} AZN</span>
                             </div>
                           ))}
                           {deliveryFee > 0 && (
                             <div className="flex justify-between text-xs text-blue-700">
                               <span>Çatdırılma haqqı</span>
-                              <span className="font-bold">
-                                {deliveryFee.toFixed(2)} AZN
-                              </span>
+                              <span className="font-bold">{deliveryFee.toFixed(2)} AZN</span>
                             </div>
                           )}
                           <div className="border-t border-emerald-200 pt-2 flex justify-between font-black text-sm">
@@ -520,14 +470,8 @@ export function HowItWorksModal({
                             <span>{finalTotal.toFixed(2)} AZN</span>
                           </div>
                           <p className="text-[11px] text-emerald-600 flex items-center gap-1">
-                            {deliveryMethod === "pickup" ? (
-                              <Store className="w-3.5 h-3.5" />
-                            ) : (
-                              <Truck className="w-3.5 h-3.5" />
-                            )}
-                            {deliveryMethod === "pickup"
-                              ? "Özü götürmə — pulsuz"
-                              : "Çatdırılma ilə"}
+                            {deliveryMethod === 'pickup' ? <Store className="w-3.5 h-3.5" /> : <Truck className="w-3.5 h-3.5" />}
+                            {deliveryMethod === 'pickup' ? 'Özü götürmə — pulsuz' : 'Çatdırılma ilə'}
                           </p>
                         </div>
                       )}
@@ -538,12 +482,8 @@ export function HowItWorksModal({
                   {!isCheckout && step === 3 && (
                     <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
                       <CheckCircle2 className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                      <p className="text-sm font-bold text-green-800">
-                        Hər şey hazırdır!
-                      </p>
-                      <p className="text-xs text-green-700">
-                        "WhatsApp-da tamamla" düyməsinə basın
-                      </p>
+                      <p className="text-sm font-bold text-green-800">Hər şey hazırdır!</p>
+                      <p className="text-xs text-green-700">"WhatsApp-da tamamla" düyməsinə basın</p>
                     </div>
                   )}
                 </motion.div>
@@ -559,7 +499,7 @@ export function HowItWorksModal({
                     onClick={() => setStep((s) => s - 1)}
                     className="flex items-center gap-2 px-4 py-3 rounded-2xl border-2 border-gray-200 font-bold text-gray-600 hover:border-emerald-300 bg-white"
                   >
-                    <ChevronLeft className="w-4 h-4" /> Geri
+                    Geri
                   </button>
                 )}
                 <button
@@ -567,8 +507,8 @@ export function HowItWorksModal({
                   disabled={submitting}
                   className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-white transition-all ${
                     isCheckout || step === 3
-                      ? "bg-green-600 hover:bg-green-700 shadow-xl shadow-green-500/20"
-                      : "bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-500/20"
+                      ? 'bg-green-600 hover:bg-green-700 shadow-xl shadow-green-500/20'
+                      : 'bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-500/20'
                   } disabled:opacity-70`}
                 >
                   {submitting ? (
@@ -589,10 +529,7 @@ export function HowItWorksModal({
                 </button>
               </div>
               <div className="flex items-center justify-between mt-3">
-                <button
-                  onClick={handleSkip}
-                  className="text-xs font-semibold text-gray-400 hover:text-gray-600"
-                >
+                <button onClick={handleSkip} className="text-xs font-semibold text-gray-400 hover:text-gray-600">
                   Keç →
                 </button>
                 {/* "Bir daha göstərmə" yalnız təlimat modunda */}
@@ -604,9 +541,7 @@ export function HowItWorksModal({
                       onChange={(e) => setChecked(e.target.checked)}
                       className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                     />
-                    <span className="text-xs text-gray-500">
-                      Bir daha göstərmə
-                    </span>
+                    <span className="text-xs text-gray-500">Bir daha göstərmə</span>
                   </label>
                 )}
               </div>

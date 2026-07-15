@@ -29,7 +29,6 @@ import {
   formatCurrency,
 } from "@/utils/product";
 import type { ID, Product } from "@/types/products";
-import Toast from "@/components/ui/Toast";
 
 /* ══════════════════════════════════════════════════════════════════
    TYPES & CONSTANTS
@@ -445,7 +444,11 @@ function GridCard({
   const basePrice = getProductBasePrice(product);
   const price = finalPrice(basePrice, product.discountType, product.discountValue);
   const discount = basePrice > 0 ? Math.round((1 - price / basePrice) * 100) : 0;
-  const stock = product.variants?.[0]?.stock ?? 0;
+  // Use product.stock if available (from server-side fetch with variants)
+  // Otherwise calculate from all variants
+  const stock = (product.stock !== undefined && product.stock !== null) 
+    ? product.stock 
+    : (product.variants?.reduce((sum: number, v: any) => sum + (v.stock || 0), 0) ?? 0);
   const isOut = stock <= 0;
   const isLow = stock > 0 && stock <= 5;
 

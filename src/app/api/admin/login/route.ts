@@ -33,6 +33,75 @@ const cookieOptions = {
 // ✅ Sabit UUID (development üçün)
 const DEV_ADMIN_UUID = '00000000-0000-0000-0000-000000000001'
 
+/**
+ * ROOT CAUSE FIX: Əvvəllər bu UUID ilə YALNIZ JWT imzalanırdı, `users`
+ * cədvəlində qarşılığı yaradılmırdı. Nəticədə bu ID-ni `created_by`/`user_id`
+ * kimi FK sütunlarına yazan HƏR ƏMƏLİYYAT (inventory_logs, admin_logs,
+ * expenses və s.) `foreign key constraint` xətası ilə uğursuz olurdu.
+ *
+ * BUGFIX #2 (bu funksiyanın özündə): sadəcə `id`-yə görə `onConflictDoNothing`
+ * kifayət deyil — `src/lib/db/seed.ts` HƏMİN EYNİ email ilə (`admin@organikgedebey.az`)
+ * amma FƏRQLİ, təsadüfi UUID ilə admin sətri yarada bilər. Bu halda `id`
+ * üzrə heç bir konflikt olmasa da, `users.email` UNIQUE indeksinə görə
+ * insert rədd edilir (23505). Ona görə əvvəlcə EMAIL-ə görə axtarırıq və
+ * artıq mövcud olan real sətri istifadə edirik — yalnız HEÇ BİR sətir
+ * tapılmadıqda fix UUID ilə yeni sətir yaradırıq.
+ *
+ * Qaytarılan `id` DEV_ADMIN_UUID-dən FƏRQLİ ola bilər (seed.ts-in yaratdığı
+ * sətir varsa) — bu normaldır və düzgündür: token HƏMİŞƏ faktiki DB sətrinə
+ * uyğun `id` daşımalıdır, sabit UUID-ə deyil.
+ */
+async function ensureSeedAdminExists(
+  fixedId: string,
+  email: string,
+  name: string,
+  tempPassword: string
+): Promise<{ id: string; role: string }> {
+  const { eq } = await import('drizzle-orm')
+
+  const [existing] = await db
+    .select({ id: users.id, role: users.role, isActive: users.isActive, isBlocked: users.isBlocked })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1)
+
+  if (existing) {
+    if (existing.isBlocked) throw new Error(`Hesab (${email}) bloklanıb`)
+    if (!existing.isActive) throw new Error(`Hesab (${email}) aktiv deyil`)
+    return { id: existing.id, role: existing.role }
+  }
+
+  const [firstName, ...rest] = name.trim().split(/\s+/)
+  const lastName = rest.join(' ') || 'Admin'
+  const passwordHash = await bcrypt.hash(tempPassword, 10)
+
+  await db
+    .insert(users)
+    .values({
+      id: fixedId,
+      email,
+      passwordHash,
+      firstName: firstName || 'Dev',
+      lastName,
+      role: 'ADMIN',
+      isEmailVerified: true,
+      isActive: true,
+      isBlocked: false,
+    })
+    .onConflictDoNothing({ target: users.id })
+
+  // Race-condition qorunması: paralel sorğu artıq bu email/ID ilə sətir
+  // yaratmış ola bilər — hər halda son vəziyyəti DB-dən yenidən oxuyuruq.
+  const [final] = await db
+    .select({ id: users.id, role: users.role })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1)
+
+  if (!final) throw new Error(`Dev admin sətri yaradılandan sonra tapılmadı (${email})`)
+  return { id: final.id, role: final.role }
+}
+
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req)
   const { allowed, remaining, retryAfterSec } = checkRateLimit('auth:admin-login', ip, 10, 15 * 60 * 1000)
@@ -72,20 +141,41 @@ export async function POST(req: NextRequest) {
     const devEmail = process.env.DEV_ADMIN_EMAIL ?? process.env.SEED_ADMIN_EMAIL ?? 'admin@organikgedebey.az'
     const devPass = process.env.DEV_ADMIN_PASSWORD ?? process.env.SEED_ADMIN_PASSWORD ?? 'Admin123!'
     if (normalizedEmail === devEmail && password === devPass) {
-      // ✅ UUID formatında ID istifadə et
+      // ✅ ROOT CAUSE FIX: token verilməzdən əvvəl DB-də real sətir təmin
+      // olunur. Qaytarılan `id`/`role` DEV_ADMIN_UUID-dən fərqli ola bilər
+      // (seed.ts artıq bu email ilə sətir yaratmışdırsa) — bu gözləniləndir.
+      let resolved: { id: string; role: string }
+      try {
+        resolved = await ensureSeedAdminExists(DEV_ADMIN_UUID, devEmail, 'Dev Admin', devPass)
+      } catch (seedError) {
+        logger.error('[admin/login] Dev admin seed uğursuz oldu:', { error: seedError })
+        const message = seedError instanceof Error ? seedError.message : 'Naməlum xəta'
+        return NextResponse.json(
+          { error: `Dev admin hesabı hazırlana bilmədi: ${message}` },
+          { status: 500 }
+        )
+      }
+
+      if (!ADMIN_ROLES.includes(resolved.role as AdminRole)) {
+        return NextResponse.json(
+          { error: `Hesab (${devEmail}) admin rolunda deyil (${resolved.role})` },
+          { status: 403 }
+        )
+      }
+
       const token = await signAdminToken({
-        sub: DEV_ADMIN_UUID, // ✅ UUID formatı
+        sub: resolved.id,
         email: devEmail,
         name: 'Dev Admin',
-        role: 'ADMIN',
+        role: resolved.role as AdminRole,
       })
       const res = NextResponse.json({
         success: true,
         user: {
-          id: DEV_ADMIN_UUID,
+          id: resolved.id,
           email: devEmail,
           name: 'Dev Admin',
-          role: 'ADMIN' as AdminRole,
+          role: resolved.role as AdminRole,
           type: 'admin' as const,
         },
       })
@@ -169,12 +259,20 @@ export async function POST(req: NextRequest) {
     logger.error('[admin/login] error:', { error: err })
 
     // Env fallback — DB yoxdursa
+    //
+    // ⚠️ QEYD: bu blok yalnız DB SORĞUSU İSTİSNA ATDIQDA işə düşür (yəni DB
+    // artıq əlçatan deyil). Belə vəziyyətdə `ensureSeedAdminExists` də
+    // uğursuz olacaq, çünki o da eyni DB-yə yazır. Bu, DIZAYN QÜSURU DEYİL —
+    // DB tamamilə əlçatmaz olduqda, order status dəyişikliyi kimi HƏR
+    // YAZMA ƏMƏLİYYATI onsuz da mümkün deyil. Bu fallback yalnız DB
+    // qayıtdıqdan sonra normal DB-təsdiqli login-ə keçid üçün keçici
+    // "diaqnostika" girişidir; onunla verilən token DB bərpa olmadan
+    // FK tələb edən heç bir yazma əməliyyatını yerinə yetirə bilməyəcək.
     const envEmail = process.env.ADMIN_EMAIL
     const envHash = process.env.ADMIN_PASSWORD_HASH
     if (envEmail && envHash && normalizedEmail === envEmail.toLowerCase()) {
       const valid = await bcrypt.compare(password, envHash)
       if (valid) {
-        // ✅ UUID formatında ID istifadə et
         const token = await signAdminToken({
           sub: DEV_ADMIN_UUID,
           email: envEmail,

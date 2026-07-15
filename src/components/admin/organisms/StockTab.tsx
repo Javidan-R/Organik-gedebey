@@ -3,218 +3,35 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Layers,
-  Plus,
-  Trash2,
-  DollarSign,
-  Package,
-  Calendar,
-  AlertCircle,
+  Layers, Plus, Trash2, DollarSign, Package,
+  Calendar, AlertCircle, TrendingUp, Wallet,
 } from 'lucide-react';
 import { Product, ID, Variant } from '@/types/products';
-import {
-  Input,
-  Select,
-  Button,
-  Tooltip,
-} from '@/components/atoms';
+import { Input, Select, Button } from '@/components/atoms';
 
-// ─── Variant Item Component ──────────────────────────────────────
-interface VariantItemProps {
-  variant: Variant;
-  index: number;
-  isPrimary: boolean;
-  onUpdate: (index: number, key: keyof Variant, value: string | number | boolean) => void;
-  onRemove: (id: ID) => void;
-  unitOptions: string[];
-  gradeOptions: string[];
-}
+// ─── Sabit seçimlər ─────────────────────────────────────
+const UNIT_OPTIONS = [
+  { value: 'ədəd', label: 'ədəd' },
+  { value: 'kq', label: 'kq' },
+  { value: 'qram', label: 'qram' },
+  { value: 'litr', label: 'litr' },
+  { value: 'ml', label: 'ml' },
+  { value: 'qutu', label: 'qutu' },
+  { value: 'set', label: 'set' },
+  { value: 'paket', label: 'paket' },
+  { value: 'banka', label: 'banka' },
+  { value: 'balon', label: 'balon' },
+  { value: 'meşov', label: 'meşov' },
+];
 
-const VariantItem = ({
-  variant,
-  index,
-  isPrimary,
-  onUpdate,
-  onRemove,
-  unitOptions,
-  gradeOptions,
-}: VariantItemProps) => {
-  const handleChange = (key: keyof Variant, rawValue: string) => {
-    let value: string | number = rawValue;
-    if (['price', 'stock', 'costPrice', 'arrivalCost', 'minStock'].includes(key)) {
-      const num = parseFloat(rawValue);
-      value = isNaN(num) ? 0 : num;
-    }
-    onUpdate(index, key, value);
-  };
+const GRADE_OPTIONS = [
+  { value: 'A', label: 'A – Premium' },
+  { value: 'B', label: 'B – Yaxşı' },
+  { value: 'C', label: 'C – Standart' },
+  { value: 'Unsorted', label: 'Çeşidlənməmiş' },
+];
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className={`rounded-2xl border p-4 shadow-sm transition-all ${
-        isPrimary
-          ? 'border-emerald-300 bg-emerald-50/70'
-          : 'border-slate-200 bg-white hover:border-emerald-200'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {/* Variant Adı */}
-          <div className="space-y-1">
-            <Input
-              label={isPrimary ? 'Əsas Variant' : 'Variant Adı'}
-              name={`variant-${index}-name`}
-              value={variant.name || ''}
-              onChange={(val) => handleChange('name', val)}
-              placeholder="Məs: 1 kq, 500 q"
-              className="border-2"
-              disabled={isPrimary}
-            />
-          </div>
-
-          {/* Qiymət */}
-          <div className="space-y-1">
-            <Input
-              label="Qiymət (₼)"
-              name={`variant-${index}-price`}
-              type="number"
-              step="0.01"
-              min="0"
-              value={variant.price ?? ''}
-              onChange={(val) => handleChange('price', val)}
-              placeholder="0.00"
-              icon={<DollarSign className="h-4 w-4" />}
-              className="border-2"
-            />
-          </div>
-
-          {/* Stok */}
-          <div className="space-y-1">
-            <Input
-              label="Stok"
-              name={`variant-${index}-stock`}
-              type="number"
-              step="1"
-              min="0"
-              value={variant.stock ?? ''}
-              onChange={(val) => handleChange('stock', val)}
-              placeholder="0"
-              icon={<Package className="h-4 w-4" />}
-              className="border-2"
-            />
-          </div>
-
-          {/* Maya Dəyəri */}
-          <div className="space-y-1">
-            <Input
-              label="Maya Dəyəri (₼)"
-              name={`variant-${index}-costPrice`}
-              type="number"
-              step="0.01"
-              min="0"
-              value={variant.costPrice ?? ''}
-              onChange={(val) => handleChange('costPrice', val)}
-              placeholder="0.00"
-              className="border-2"
-            />
-          </div>
-
-          {/* Daşınma Xərci */}
-          <div className="space-y-1">
-            <Input
-              label="Daşınma / Alış Xərci (₼)"
-              name={`variant-${index}-arrivalCost`}
-              type="number"
-              step="0.01"
-              min="0"
-              value={variant.arrivalCost ?? ''}
-              onChange={(val) => handleChange('arrivalCost', val)}
-              placeholder="0.00"
-              className="border-2"
-            />
-          </div>
-
-          {/* Minimum Stok */}
-          <div className="space-y-1">
-            <Input
-              label="Minimum Stok"
-              name={`variant-${index}-minStock`}
-              type="number"
-              step="1"
-              min="0"
-              value={variant.minStock ?? ''}
-              onChange={(val) => handleChange('minStock', val)}
-              placeholder="10"
-              className="border-2"
-            />
-          </div>
-
-          {/* Unit */}
-          <div className="space-y-1">
-            <Select
-              label="Vahid"
-              value={variant.unit || 'ədəd'}
-              onChange={(val) => handleChange('unit', val)}
-              options={unitOptions.map((u) => ({ value: u, label: u }))}
-              className="border-2"
-            />
-          </div>
-
-          {/* Grade */}
-          <div className="space-y-1">
-            <Select
-              label="Grade"
-              value={variant.grade || 'A'}
-              onChange={(val) => handleChange('grade', val)}
-              options={gradeOptions.map((g) => ({ value: g, label: g }))}
-              className="border-2"
-            />
-          </div>
-
-          {/* Batch Tarixi */}
-          <div className="space-y-1">
-            <Input
-              label="Batch Tarixi"
-              name={`variant-${index}-batchDate`}
-              type="date"
-              value={variant.batchDate || ''}
-              onChange={(val) => handleChange('batchDate', val)}
-              icon={<Calendar className="h-4 w-4" />}
-              className="border-2"
-            />
-          </div>
-        </div>
-
-        {/* Silmə Düyməsi */}
-        {!isPrimary && (
-          <Tooltip content="Variantı sil">
-            <Button
-              variant="danger"
-              size="sm"
-              iconOnly
-              onClick={() => onRemove(variant.id!)}
-              className="mt-6 flex-shrink-0"
-              aria-label="Variantı sil"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </Tooltip>
-        )}
-      </div>
-
-      {isPrimary && (
-        <p className="mt-2 text-xs text-emerald-700 flex items-center gap-1">
-          <AlertCircle className="h-3 w-3" />
-          Əsas variant - silinə bilməz
-        </p>
-      )}
-    </motion.div>
-  );
-};
-
-// ─── StockTab Props ─────────────────────────────────────────────
+// ─── Props ──────────────────────────────────────────────
 interface StockTabProps {
   product: Product;
   updateVariant: (index: number, key: keyof Variant, rawValue: string) => void;
@@ -222,84 +39,246 @@ interface StockTabProps {
   removeVariant: (id: ID) => void;
 }
 
-// ─── Main StockTab Component ──────────────────────────────────
-export function StockTab({
+// ─── Təkrar istifadəyə yararlı VariantCard komponenti ──
+export const VariantCard = ({
+  variant,
+  index,
+  isPrimary,
+  onUpdate,
+  onRemove,
+}: {
+  variant: Variant;
+  index: number;
+  isPrimary: boolean;
+  onUpdate: (index: number, key: keyof Variant, value: string) => void;
+  onRemove: (id: ID) => void;
+}) => {
+  const id = variant.id!;
+
+  const handleSelectChange = (key: keyof Variant) => (value: string) => {
+    onUpdate(index, key, value);
+  };
+
+  const handleInputChange = (key: keyof Variant) => (value: string) => {
+    onUpdate(index, key, value);
+  };
+
+  const handleDateChange = (key: keyof Variant) => (value: string) => {
+    if (value) {
+      onUpdate(index, key, new Date(value).toISOString());
+    } else {
+      onUpdate(index, key, '');
+    }
+  };
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+      transition={{ duration: 0.2 }}
+      className={`rounded-2xl border-2 p-4 sm:p-5 shadow-sm ${
+        isPrimary
+          ? 'border-emerald-300 bg-gradient-to-br from-emerald-50 to-green-50'
+          : 'border-gray-200 bg-white hover:border-emerald-200'
+      }`}
+    >
+      {/* Başlıq sətri */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm">
+            {index + 1}
+          </div>
+          <div>
+            <input
+              type="text"
+              value={variant.name}
+              onChange={(e) => onUpdate(index, 'name', e.target.value)}
+              placeholder="Variant adı"
+              disabled={isPrimary}
+              className={`text-sm font-bold bg-transparent border-b border-dashed border-gray-300 focus:border-emerald-500 outline-none px-1 py-0.5 w-40 ${
+                isPrimary ? 'text-emerald-700' : 'text-gray-800'
+              }`}
+            />
+            {isPrimary && (
+              <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold ml-2">
+                <Package className="w-3 h-3" /> Əsas
+              </span>
+            )}
+          </div>
+        </div>
+
+        {!isPrimary && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onRemove(id)}
+            className="text-red-400 hover:bg-red-50 hover:text-red-600"
+            aria-label="Variantı sil"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
+      {/* Input grid – mobil uyğun */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Input
+          label="Qiymət (₼)"
+          type="number"
+          step="0.01"
+          min="0"
+          value={variant.price ?? ''}
+          onChange={handleInputChange('price')}
+          placeholder="0.00"
+          icon={<DollarSign className="h-4 w-4" />}
+          required
+          error={variant.price <= 0 ? 'Müsbət qiymət daxil edin' : undefined}
+        />
+        <Input
+          label="Stok"
+          type="number"
+          step="1"
+          min="0"
+          value={variant.stock ?? ''}
+          onChange={handleInputChange('stock')}
+          placeholder="0"
+          icon={<Package className="h-4 w-4" />}
+        />
+        <Input
+          label="Maya dəyəri (₼)"
+          type="number"
+          step="0.01"
+          min="0"
+          value={variant.costPrice ?? ''}
+          onChange={handleInputChange('costPrice')}
+          placeholder="0.00"
+          icon={<Wallet className="h-4 w-4" />}
+        />
+        <Input
+          label="Alış / Daşınma (₼)"
+          type="number"
+          step="0.01"
+          min="0"
+          value={variant.arrivalCost ?? ''}
+          onChange={handleInputChange('arrivalCost')}
+          placeholder="0.00"
+          icon={<TrendingUp className="h-4 w-4" />}
+        />
+        <Input
+          label="Min. stok"
+          type="number"
+          step="1"
+          min="0"
+          value={variant.minStock ?? ''}
+          onChange={handleInputChange('minStock')}
+          placeholder="10"
+          icon={<AlertCircle className="h-4 w-4" />}
+        />
+        <Input
+          label="Partiya tarixi"
+          type="date"
+          value={variant.batchDate ? variant.batchDate.slice(0, 10) : ''}
+          onChange={handleDateChange('batchDate')}
+          icon={<Calendar className="h-4 w-4" />}
+        />
+
+        <Select
+          label="Vahid"
+          value={variant.unit ?? 'ədəd'}
+          onChange={handleSelectChange('unit')}
+          options={UNIT_OPTIONS}
+        />
+        <Select
+          label="Keyfiyyət dərəcəsi"
+          value={variant.grade ?? 'A'}
+          onChange={handleSelectChange('grade')}
+          options={GRADE_OPTIONS}
+        />
+      </div>
+    </motion.div>
+  );
+};
+
+// ─── Əsas StockTab komponenti ──────────────────────────
+export default function StockTab({
   product,
   updateVariant,
   addVariant,
   removeVariant,
 }: StockTabProps) {
-  const unitOptions = [
-    'ədəd', 'kq', 'qram', 'litr', 'ml',
-    'qutu', 'set', 'paket', 'banka',
-    'balon', 'meşov', 'ramka', 'dəst',
-  ];
-
-  const gradeOptions = ['A', 'B', 'C', 'Premium'];
-
-  const handleVariantUpdate = (index: number, key: keyof Variant, value: string | number | boolean) => {
-    updateVariant(index, key, String(value));
-  };
-
-  const primaryVariant = product.variants?.[0];
-
-  if (!primaryVariant) {
+  if (!product.variants || product.variants.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
         <AlertCircle className="h-12 w-12 text-slate-400" />
         <p className="mt-2 text-sm text-slate-600">Hələ variant əlavə edilməyib.</p>
         <Button onClick={addVariant} variant="primary" className="mt-4">
-          <Plus className="h-4 w-4" />
-          İlk Variantı Əlavə Et
+          <Plus className="h-4 w-4" /> İlk Variantı Əlavə Et
         </Button>
       </div>
     );
   }
 
+  const totalStock = product.variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+  const totalValue = product.variants.reduce(
+    (sum, v) => sum + (Number(v.price) || 0) * (Number(v.stock) || 0),
+    0
+  );
+  const avgPrice =
+    product.variants.length > 0
+      ? product.variants.reduce((sum, v) => sum + (Number(v.price) || 0), 0) / product.variants.length
+      : 0;
+
   return (
     <div className="space-y-6">
-      {/* Başlıq */}
+      {/* Başlıq & Əlavə et */}
       <div className="flex items-center justify-between border-b border-slate-200 pb-3">
         <div className="flex items-center gap-2">
           <Layers className="h-5 w-5 text-emerald-600" />
-          <h3 className="text-lg font-bold text-slate-800">Stok və Variantlar</h3>
-          <Tooltip content="Məhsulun müxtəlif çeşidləri (çəki, ölçü, rəng və s.)">
-            <Button variant="ghost" size="xs" iconOnly>
-              <AlertCircle className="h-4 w-4" />
-            </Button>
-          </Tooltip>
+          <h3 className="text-lg font-bold text-slate-800">Stok & Variantlar</h3>
+          <span className="inline-flex items-center justify-center h-6 min-w-[24px] rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold px-1.5">
+            {product.variants.length}
+          </span>
         </div>
         <Button onClick={addVariant} variant="secondary" size="sm">
-          <Plus className="h-4 w-4" />
-          Yeni Variant
+          <Plus className="h-4 w-4" /> Yeni Variant
         </Button>
       </div>
 
-      {/* Variantların Siyahısı */}
+      {/* Variant siyahısı */}
       <div className="space-y-4">
-        <AnimatePresence initial={false}>
+        <AnimatePresence>
           {product.variants.map((variant, idx) => (
-            <VariantItem
+            <VariantCard
               key={variant.id}
               variant={variant}
               index={idx}
               isPrimary={idx === 0}
-              onUpdate={handleVariantUpdate}
+              onUpdate={updateVariant}
               onRemove={removeVariant}
-              unitOptions={unitOptions}
-              gradeOptions={gradeOptions}
             />
           ))}
         </AnimatePresence>
       </div>
 
-      {/* Ümumi Stok Məlumatı */}
+      {/* Ümumi statistika */}
       <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="text-center">
             <p className="text-xs font-semibold text-slate-500">Ümumi Stok</p>
+            <p className="text-2xl font-extrabold text-emerald-700">{totalStock}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs font-semibold text-slate-500">Toplam Dəyər</p>
             <p className="text-2xl font-extrabold text-emerald-700">
-              {product.variants.reduce((sum, v) => sum + (v.stock || 0), 0)}
+              {totalValue.toFixed(2)} ₼
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-xs font-semibold text-slate-500">Orta Qiymət</p>
+            <p className="text-2xl font-extrabold text-emerald-700">
+              {avgPrice.toFixed(2)} ₼
             </p>
           </div>
           <div className="text-center">
@@ -308,22 +287,8 @@ export function StockTab({
               {product.variants.length}
             </p>
           </div>
-          <div className="text-center">
-            <p className="text-xs font-semibold text-slate-500">Orta Qiymət</p>
-            <p className="text-2xl font-extrabold text-emerald-700">
-              {(product.variants.reduce((sum, v) => sum + (v.price || 0), 0) / product.variants.length).toFixed(2)} ₼
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-xs font-semibold text-slate-500">Minimum Stok</p>
-            <p className="text-2xl font-extrabold text-emerald-700">
-              {product.variants.reduce((min, v) => Math.min(min, v.minStock || 10), Infinity)}
-            </p>
-          </div>
         </div>
       </div>
     </div>
   );
 }
-
-export default StockTab;

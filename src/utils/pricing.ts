@@ -2,7 +2,10 @@
 
 import { Product } from "@/types/products";
 
- 
+ export function sumBalances(balances: { balance: number }[] | undefined | null): number {
+  if (!Array.isArray(balances)) return 0;
+  return balances.reduce((sum, b) => sum + (b.balance ?? 0), 0);
+}
 /**
  * Məhsulun endirimli son qiymətini hesablayır.
  */

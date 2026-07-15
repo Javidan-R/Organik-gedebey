@@ -2,7 +2,42 @@
 // src/lib/db/schema/enums.ts
 // ============================================================
 
+// src/lib/db/schema/enums.ts
+
 import { pgEnum } from 'drizzle-orm/pg-core';
+
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'ORDER_CREATED',
+  'ORDER_PAID',
+  'ORDER_CONFIRMED',
+  'ORDER_SHIPPED',
+  'ORDER_DELIVERED',
+  'ORDER_CANCELLED',
+  'ORDER_STATUS_CHANGED',
+  'NEW_PRODUCT',
+  'PRODUCT_UPDATED',
+  'LOW_STOCK',
+  'OUT_OF_STOCK',
+  'STOCK_RESTOCKED',
+  'NEW_MESSAGE',
+  'SYSTEM',
+  'PROMOTION',
+  'CUSTOMER_REGISTERED',
+  'DELIVERY_STARTED',
+  'DELIVERY_COMPLETED',
+  'PAYMENT_RECEIVED',
+  'COUPON_USED',
+  'WAREHOUSE_ALERT',
+  'PRICE_CHANGE',
+]);
+
+export const notificationChannelEnum = pgEnum('notification_channel', [
+  'APP',
+  'EMAIL',
+  'WHATSAPP',
+  'SMS',
+]);
+
 
 export const userRoleEnum = pgEnum('user_role', [
   'CUSTOMER',
@@ -65,20 +100,6 @@ export const deliveryStatusEnum = pgEnum('delivery_status', [
   'RETURNED',
 ]);
 
-export const notificationTypeEnum = pgEnum('notification_type', [
-  'ORDER',
-  'DELIVERY',
-  'PRODUCT',
-  'SYSTEM',
-  'PROMOTION',
-]);
-
-export const notificationChannelEnum = pgEnum('notification_channel', [
-  'APP',
-  'EMAIL',
-  'SMS',
-  'PUSH',
-]);
 
 export const inventoryLogTypeEnum = pgEnum('inventory_log_type', [
   'PURCHASE',

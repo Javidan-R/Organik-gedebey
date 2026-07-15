@@ -7,7 +7,7 @@ import { XCircle, MoreVertical } from "lucide-react";
 
 import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/atoms/button";
-import { OrderWithTotal, OrderStatus } from "@/types/orders";
+import { OrderWithTotal, OrderStatusDisplay } from "@/types/orders";
 import { ID } from "@/lib/store";
 import RowCheckbox from "@/components/admin/molecules/RowCheckbox";
 
@@ -15,7 +15,7 @@ type Props = {
   orders: OrderWithTotal[];
   selectedOrderIds: ID[];
   onRowCheckboxChange: (id: ID, checked: boolean) => void;
-  onStatusChange: (id: ID, status: OrderStatus) => void;
+  onStatusChange: (id: ID, status: OrderStatusDisplay) => void;
   onOpenDetails: (order: OrderWithTotal) => void;
 };
  
@@ -88,14 +88,18 @@ export const OrdersListMobile: React.FC<Props> = ({
                 <select
                   value={o.status}
                   onChange={(e) =>
-                    onStatusChange(o.id, e.target.value as OrderStatus)
+                    onStatusChange(o.id, e.target.value as OrderStatusDisplay)
                   }
                   className="flex-1 rounded-lg border border-slate-200 bg-slate-50 text-[0.75rem] px-[0.5rem] py-[0.25rem] focus:outline-none focus:ring-[0.08rem] focus:ring-emerald-500 text-slate-700"
                 >
                   <option value="pending">Gözləyir</option>
-                  <option value="shipping">Yolda</option>
+                  <option value="confirmed">Təsdiqləndi</option>
+                  <option value="preparing">Hazırlanır</option>
+                  <option value="ready_for_delivery">Çatdırılmağa hazır</option>
+                  <option value="out_for_delivery">Çatdırılır</option>
                   <option value="delivered">Çatdırılıb</option>
                   <option value="cancelled">Ləğv</option>
+                  <option value="refunded">Qaytarıldı</option>
                 </select>
                 <Button
                   variant="primary"

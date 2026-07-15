@@ -5,8 +5,8 @@ import { motion, useInView } from 'framer-motion';
 import { ChevronLeft, ChevronRight, ArrowRight, Sprout, Grid3X3, Zap } from 'lucide-react';
 import { Category } from '@/lib/types';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { getCategoryMeta } from '@/lib/category-metadata';
 import { CategoryCard } from './CategoryCard';
+import { getCategoryMeta } from '@/lib/category-helpers';
  
 export type CategoryViewMode = 'scroll' | 'grid';
 

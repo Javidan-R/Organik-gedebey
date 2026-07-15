@@ -21,35 +21,17 @@ export interface MediaItem {
   displayOrder: number;
 }
 
-// ── Variant as returned from DB ────────────────────────────────────────────────
-export interface BasketVariant {
-  id: string;
-  basketId?: string;
-  variant: 'econom' | 'standard' | 'premium';
-  price: string;           // Drizzle decimal → string
-  originalPrice?: string;
-  stock: number;
-  gift?: string | null;
-  contents: BasketContentItem[];
-  extras: BasketExtraItem[];
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-// ── Basket as returned from DB ─────────────────────────────────────────────────
 export interface Basket {
   id: string;
   name: string;
   slug: string;
-  tagline?: string;
+  tagline?: string | null;
   description: string;
-  categoryId?: string;
-  category?: Category;
   type: 'gence' | 'gedebey' | 'sheki' | 'lenkaran' | 'ramazan' | 'custom';
-  servings?: string;
-  unit?: string;
-  origin?: string;
-  freshness?: string;
+  servings?: string | null;
+  unit?: string | null;
+  origin?: string | null;
+  freshness?: string | null;
   nutrition?: string[];
   bestseller?: boolean;
   trending?: boolean;
@@ -61,25 +43,74 @@ export interface Basket {
   displayOrder?: number;
   isActive?: boolean;
   archived?: boolean;
-  metaTitle?: string;
-  metaDescription?: string;
+  metaTitle?: string | null;
+  metaDescription?: string | null;
   viewCount?: number;
   soldCount?: number;
-  averageRating?: string;
+  averageRating?: string | null;
   reviewCount?: number;
   favoriteCount?: number;
-  seasonalStart?: string;
-  seasonalEnd?: string;
+  seasonalStart?: string | null;
+  seasonalEnd?: string | null;
   isSeasonal?: boolean;
   createdAt: string;
   updatedAt: string;
-  media?: MediaItem[];
+  media?: BasketMedia[];
   variants?: BasketVariant[];
-  favorites?: BasketFavorite[];
-  reviews?: BasketReview[];
   products?: BasketProductComposition[];
 }
 
+export interface BasketMedia {
+  id: string;
+  basketId: string;
+  type: 'image' | 'video';
+  url: string;
+  altText?: string | null;
+  displayOrder: number;
+  createdAt: string;
+}
+
+export interface BasketVariant {
+  id: string;
+  basketId: string;
+  variant: 'econom' | 'standard' | 'premium';
+  price: string;              // Drizzle decimal → string
+  originalPrice?: string | null;
+  stock: number;
+  gift?: string | null;
+  contents?: BasketContent[];
+  extras?: BasketExtra[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BasketContent {
+  id: string;
+  basketVariantId: string;
+  content: string;
+  displayOrder: number;
+  createdAt: string;
+}
+
+export interface BasketExtra {
+  id: string;
+  basketVariantId: string;
+  extra: string;
+  displayOrder: number;
+  createdAt: string;
+}
+
+export interface BasketProductComposition {
+  id: string;
+  basketId: string;
+  basketVariantId?: string | null;
+  productId: string;
+  productVariantId?: string | null;
+  quantity: string;           // decimal string
+  unit?: string | null;
+  displayOrder: number;
+  createdAt: string;
+}
 // ── Filter state for admin page ────────────────────────────────────────────────
 export interface FilterState {
   searchTerm: string;
@@ -177,21 +208,6 @@ export interface BasketAnalytics {
   eventType: 'view' | 'click' | 'add_to_cart' | 'purchase';
   metadata?: Record<string, any>;
   createdAt: string;
-}
-
-// ── Basket Product Composition ───────────────────────────────────────────────
-export interface BasketProductComposition {
-  id: string;
-  basketId: string;
-  basketVariantId?: string;
-  productId: string;
-  productVariantId?: string;
-  quantity: string;
-  unit?: string;
-  displayOrder: number;
-  createdAt: string;
-  product?: Product;
-  productVariant?: ProductVariant;
 }
 
 // ── Category (imported from categories) ───────────────────────────────────────

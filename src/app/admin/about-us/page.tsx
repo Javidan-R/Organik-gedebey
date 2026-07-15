@@ -1,13 +1,11 @@
-// src/app/admin/about-us/page.tsx
-// Admin page for managing About Us content
- 
+// src/app/admin/about-us/page.tsx (full refactored)
 'use client'
 
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   BookOpen,
-  MapPin, 
+  MapPin,
   BarChart3,
   Plus,
   Edit,
@@ -15,7 +13,6 @@ import {
   Save,
   X,
   Image as ImageIcon,
-  Video,
   ChevronUp,
   ChevronDown,
   Sparkles,
@@ -81,21 +78,20 @@ export default function AboutUsAdminPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      if (activeTab === 'sections') {
-        const res = await fetch('/api/admin/about-us/sections')
-        const data = await res.json()
-        setSections(data)
-      } else if (activeTab === 'regions') {
-        const res = await fetch('/api/admin/about-us/regions')
-        const data = await res.json()
-        setRegions(data)
-      } else if (activeTab === 'stats') {
-        const res = await fetch('/api/admin/about-us/stats')
-        const data = await res.json()
-        setStats(data)
+      const urls = {
+        sections: '/api/admin/about-us/sections',
+        regions: '/api/admin/about-us/regions',
+        stats: '/api/admin/about-us/stats',
       }
+      const res = await fetch(urls[activeTab], { credentials: 'include' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      if (activeTab === 'sections') setSections(data)
+      else if (activeTab === 'regions') setRegions(data)
+      else setStats(data)
     } catch (error) {
       toast.error('Məlumatlar yüklənərkən xəta baş verdi')
+      console.error(error)
     } finally {
       setLoading(false)
     }
@@ -103,26 +99,28 @@ export default function AboutUsAdminPage() {
 
   const handleSave = async (item: any, type: string) => {
     try {
-      const url = item.id 
-        ? `/api/admin/about-us/${type}/${item.id}`
-        : `/api/admin/about-us/${type}`
-      
+      const base = `/api/admin/about-us/${type}`
+      const url = item.id ? `${base}/${item.id}` : base
       const method = item.id ? 'PUT' : 'POST'
-      
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(item),
       })
 
-      if (!res.ok) throw new Error('Saxlanma xətası')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `Saxlanma xətası (${res.status})`)
+      }
 
       toast.success('Uğurla saxlanıldı')
       setIsModalOpen(false)
       setEditingItem(null)
       fetchData()
-    } catch (error) {
-      toast.error('Saxlanma xətası')
+    } catch (error: any) {
+      toast.error(error.message || 'Saxlanma xətası')
     }
   }
 
@@ -132,40 +130,73 @@ export default function AboutUsAdminPage() {
     try {
       const res = await fetch(`/api/admin/about-us/${type}/${id}`, {
         method: 'DELETE',
+        credentials: 'include',
       })
 
-      if (!res.ok) throw new Error('Silmə xətası')
+      if (!res.ok) throw new Error(`Silmə xətası (${res.status})`)
 
       toast.success('Uğurla silindi')
       fetchData()
-    } catch (error) {
-      toast.error('Silmə xətası')
+    } catch (error: any) {
+      toast.error(error.message || 'Silmə xətası')
     }
   }
 
-  const moveItem = (array: any[], index: number, direction: 'up' | 'down') => {
+  const moveItem = async (array: any[], index: number, direction: 'up' | 'down') => {
     const newArray = [...array]
+    const swapIndex = index + (direction === 'up' ? -1 : 1)
+    if (swapIndex < 0 || swapIndex >= newArray.length) return
+
+    // Swap items
     const temp = newArray[index]
-    newArray[index] = newArray[index + (direction === 'up' ? -1 : 1)]
-    newArray[index + (direction === 'up' ? -1 : 1)] = temp
-    
-    // Update displayOrder
-    newArray.forEach((item, i) => {
-      item.displayOrder = i
-    })
+    newArray[index] = newArray[swapIndex]
+    newArray[swapIndex] = temp
 
-    if (activeTab === 'sections') setSections(newArray)
-    else if (activeTab === 'regions') setRegions(newArray)
-    else setStats(newArray)
+    // Update displayOrder for both items
+    newArray[index].displayOrder = index
+    newArray[swapIndex].displayOrder = swapIndex
 
-    // Save all items
-    newArray.forEach(async (item) => {
-      await handleSave(item, activeTab)
-    })
+    // Optimistically update state
+    if (activeTab === 'sections') setSections(newArray as Section[])
+    else if (activeTab === 'regions') setRegions(newArray as Region[])
+    else setStats(newArray as Stat[])
+
+    // Save both items to database
+    try {
+      await Promise.all([
+        handleSave(newArray[index], activeTab),
+        handleSave(newArray[swapIndex], activeTab),
+      ])
+      // Re-fetch to sync from server
+      fetchData()
+    } catch (error) {
+      // Revert on failure
+      fetchData()
+      toast.error('Sıralama yenilənərkən xəta baş verdi')
+    }
   }
 
   const openEditModal = (item: any = null) => {
-    setEditingItem(item || { displayOrder: 0, isActive: true })
+    const defaults: any = {
+      displayOrder: 0,
+      isActive: true,
+    }
+    if (activeTab === 'sections') {
+      defaults.sectionType = 'hero'
+      defaults.title = ''
+      defaults.subtitle = ''
+      defaults.description = ''
+    } else if (activeTab === 'regions') {
+      defaults.name = ''
+      defaults.description = ''
+      defaults.featuredProducts = null
+    } else if (activeTab === 'stats') {
+      defaults.label = ''
+      defaults.value = ''
+      defaults.icon = null
+      defaults.description = null
+    }
+    setEditingItem(item ? { ...item } : defaults)
     setIsModalOpen(true)
   }
 
@@ -561,7 +592,7 @@ export default function AboutUsAdminPage() {
                       <input
                         type="text"
                         value={editingItem?.imageUrl || ''}
-                        onChange={(e) => setEditingItem({ ...editingItem, imageUrl: e.target.value })}
+                        onChange={(e) => setEditingItem({ ...editingItem, imageUrl: e.target.value || null })}
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                         placeholder="Şəkil URL daxil edin"
                       />
@@ -571,7 +602,7 @@ export default function AboutUsAdminPage() {
                       <input
                         type="text"
                         value={editingItem?.videoUrl || ''}
-                        onChange={(e) => setEditingItem({ ...editingItem, videoUrl: e.target.value })}
+                        onChange={(e) => setEditingItem({ ...editingItem, videoUrl: e.target.value || null })}
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                         placeholder="Video URL daxil edin"
                       />
@@ -606,9 +637,22 @@ export default function AboutUsAdminPage() {
                       <input
                         type="text"
                         value={editingItem?.imageUrl || ''}
-                        onChange={(e) => setEditingItem({ ...editingItem, imageUrl: e.target.value })}
+                        onChange={(e) => setEditingItem({ ...editingItem, imageUrl: e.target.value || null })}
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                         placeholder="Şəkil URL daxil edin"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Məhsullar (vergüllə ayrılmış)</label>
+                      <input
+                        type="text"
+                        value={editingItem?.featuredProducts?.join(', ') || ''}
+                        onChange={(e) => setEditingItem({ 
+                          ...editingItem, 
+                          featuredProducts: e.target.value ? e.target.value.split(',').map(p => p.trim()).filter(p => p) : null 
+                        })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        placeholder="Məs: Bal, Süd, Pendir"
                       />
                     </div>
                   </>
