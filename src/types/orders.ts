@@ -1,9 +1,8 @@
-// =====================================================================
-// ORDER TYPES - Match Database Schema
-// =====================================================================
+// src/types/orders.ts
 
 import { ID } from "./products";
- 
+import type { PickupSlot, PickupStatus } from "./pickup";
+
 // --- Database Enum Types (Uppercase to match DB) ---
 export type OrderStatus =
   | "PENDING"
@@ -50,16 +49,27 @@ export type OrderItem = {
   variantName: string | null;
   qty: number;
   unit: string | null;
-  priceAtOrder: string; // Decimal in DB as string
+  priceAtOrder: string;
   costAtOrder: string | null;
-  subtotal: string; // Decimal in DB as string
+  subtotal: string;
   createdAt: string;
 };
 
-// --- Order (matches database schema) ---
+// ─── PICKUP SAHƏLƏRİ ───
+export interface OrderPickupInfo {
+  pickupDate: string | null;
+  pickupTime: string | null;
+  pickupTimeSlot: string | null;
+  pickupSlotId: ID | null;
+  estimatedReadyAt: string | null;
+  pickupStatus: PickupStatus | null;
+  pickupSlot?: PickupSlot | null;
+}
+
+// ─── ORDER (database schema ilə uyğun) ───
 export type Order = {
   id: ID;
-  address: string | null; // Additional address field for compatibility
+  address: string | null;
   orderNumber: string;
   userId: ID | null;
   customerName: string;
@@ -67,12 +77,12 @@ export type Order = {
   customerPhone: string;
   deliveryAddressId: ID | null;
   deliveryAddressText: string;
-  subtotal: string; // Decimal in DB as string
-  discountAmount: string; // Decimal in DB as string
-  deliveryFee: string; // Decimal in DB as string
-  total: string; // Decimal in DB as string
+  subtotal: string;
+  discountAmount: string;
+  deliveryFee: string;
+  total: string;
   couponCode: string | null;
-  couponDiscount: string; // Decimal in DB as string
+  couponDiscount: string;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod: PaymentMethod | null;
@@ -85,8 +95,7 @@ export type Order = {
   customerNotes: string | null;
   adminNotes: string | null;
   cancellationReason: string | null;
-  rating: number | null; // 1-5 rating for delivered orders
-  // Timeline timestamps
+  rating: number | null;
   confirmedAt: string | null;
   preparingAt: string | null;
   readyAt: string | null;
@@ -95,7 +104,14 @@ export type Order = {
   cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
-  // Relations
+  // ─── PICKUP ───
+  pickupDate: string | null;
+  pickupTime: string | null;
+  pickupTimeSlot: string | null;
+  pickupSlotId: ID | null;
+  estimatedReadyAt: string | null;
+  pickupStatus: PickupStatus | null;
+  // ─── Relations ───
   items: OrderItem[];
   note: string | null;
   user?: {
@@ -110,17 +126,16 @@ export type Order = {
     courierId: ID | null;
     status: DeliveryStatus;
   } | null;
+  pickupSlot?: PickupSlot | null;
 };
 
-// --- Order with computed fields for frontend ---
-export type OrderWithTotal = OrderFull & {
-  itemCount: number; // Computed from items length
+// ─── ORDER WITH COMPUTED FIELDS ───
+export type OrderWithTotal = Order & {
+  itemCount: number;
 };
 
-// --- OrderFull: Frontend-friendly order with display types ---
-// This is the main type used in frontend components
+// ─── ORDER FULL (frontend üçün) ───
 export type OrderFull = {
-  // All Order fields but with display types
   id: ID;
   orderNumber: string;
   userId: ID | null;
@@ -129,15 +144,15 @@ export type OrderFull = {
   customerPhone: string;
   deliveryAddressId: ID | null;
   deliveryAddressText: string;
-  subtotal: number; // Converted to number
-  discountAmount: number; // Converted to number
-  deliveryFee: number; // Converted to number
-  total: number; // Converted to number
+  subtotal: string;
+  discountAmount: string;
+  deliveryFee: string;
+  total: string;
   couponCode: string | null;
-  couponDiscount: number; // Converted to number
-  status: OrderStatusDisplay; // Display type (lowercase)
+  couponDiscount: string;
+  status: OrderStatusDisplay;
   paymentStatus: PaymentStatus;
-  paymentMethod: PaymentMethodDisplay; // Display type
+  paymentMethod: PaymentMethodDisplay;
   deliveryDate: string | null;
   deliveryTimeSlot: string | null;
   courierId: ID | null;
@@ -147,8 +162,7 @@ export type OrderFull = {
   customerNotes: string | null;
   adminNotes: string | null;
   cancellationReason: string | null;
-  rating: number | null; // 1-5 rating for delivered orders
-  // Timeline timestamps
+  rating: number | null;
   confirmedAt: string | null;
   preparingAt: string | null;
   readyAt: string | null;
@@ -157,7 +171,14 @@ export type OrderFull = {
   cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
-  // Relations
+  // ─── PICKUP ───
+  pickupDate: string | null;
+  pickupTime: string | null;
+  pickupTimeSlot: string | null;
+  pickupSlotId: ID | null;
+  estimatedReadyAt: string | null;
+  pickupStatus: PickupStatus | null;
+  // ─── Relations ───
   items: OrderItem[];
   user?: {
     id: ID;
@@ -171,16 +192,16 @@ export type OrderFull = {
     courierId: ID | null;
     status: DeliveryStatus;
   } | null;
-  // Computed fields
+  pickupSlot?: PickupSlot | null;
+  // ─── Computed ───
   itemCount: number;
-  // Payment breakdown for mixed payments
   cashAmount: number;
   cardAmount: number;
   note?: string;
-  address?: string;
+  address: string | null;
 };
 
-// --- Sorting & Filtering ---
+// ─── Sorting & Filtering ───
 export type SortKey = "createdAt" | "total" | "itemCount";
 export type SortDirection = "asc" | "desc";
 
@@ -192,9 +213,10 @@ export type ColumnVisibility = {
   status: boolean;
   date: boolean;
   actions: boolean;
+  pickup: boolean;
 };
 
-// --- API Response Types ---
+// ─── API Response ───
 export type OrdersResponse = {
   orders: Order[];
   pagination: {
